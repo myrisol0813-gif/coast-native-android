@@ -2,7 +2,7 @@ name: Android debug
 
 on:
   push:
-    branches: [main, coast-native-chat-00, coast-native-ui-rebase-01]
+    branches: [main, coast-native-chat-00]
   workflow_dispatch:
 
 permissions:
