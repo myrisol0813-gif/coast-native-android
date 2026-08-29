@@ -4,9 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -15,10 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.elementeracoast.app.core.network.CoastGatewayClient
 import com.elementeracoast.app.core.network.CoastSessionStore
+import com.elementeracoast.app.core.theme.CoastSpacing
 import com.elementeracoast.app.core.theme.CoastTheme
 import com.elementeracoast.app.core.theme.CoastThemeState
 import com.elementeracoast.app.feature.chat.ChatScreen
@@ -51,7 +59,7 @@ fun CoastApp(gateway: CoastGatewayClient, themeState: CoastThemeState) {
 
     CoastTheme(theme) {
         when (auth) {
-            AuthState.CHECKING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            AuthState.CHECKING -> BootState()
             AuthState.LOGGED_OUT -> {
                 val login: LoginViewModel = viewModel(factory = simpleFactory { LoginViewModel(gateway) })
                 val state by login.state.collectAsStateWithLifecycle()
@@ -68,6 +76,28 @@ fun CoastApp(gateway: CoastGatewayClient, themeState: CoastThemeState) {
                     onThemeCycle = themeState::cycle,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun BootState() {
+    Box(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 1.4.dp,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+            )
+            Text(
+                "Elementera Coast",
+                modifier = Modifier.padding(top = CoastSpacing.sm),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            )
         }
     }
 }
