@@ -3,9 +3,11 @@ package com.elementeracoast.app.core.network
 import com.elementeracoast.app.BuildConfig
 import com.elementeracoast.app.model.CoastModel
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -33,12 +35,27 @@ class CoastGatewayClient(
 ) {
     private val baseUrl = baseUrl.trimEnd('/')
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
-    private val client = OkHttpClient.Builder()
+
+    private val apiClient = baseClient()
+        .connectTimeout(API_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .writeTimeout(API_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(API_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .callTimeout(API_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+
+    private val streamClient = baseClient()
+        .connectTimeout(STREAM_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .writeTimeout(STREAM_WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(STREAM_IDLE_TIMEOUT_MINUTES, TimeUnit.MINUTES)
+        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .build()
+
+    private val activeGeneration = AtomicReference<Call?>(null)
+
+    private fun baseClient(): OkHttpClient.Builder = OkHttpClient.Builder()
         .cookieJar(sessionStore)
         .followRedirects(true)
         .followSslRedirects(true)
-        .build()
-    private val activeGeneration = AtomicReference<Call?>(null)
 
     suspend fun login(password: String): Boolean = withContext(Dispatchers.IO) {
         val body = FormBody.Builder().add("password", password).build()
@@ -47,7 +64,7 @@ class CoastGatewayClient(
             .header("Origin", baseUrl)
             .post(body)
             .build()
-        client.newCall(request).execute().use { response ->
+        executeApi(apiClient.newCall(request)).use { response ->
             if (!response.isSuccessful) return@withContext false
         }
         getSessionStatus().authenticated
@@ -55,7 +72,7 @@ class CoastGatewayClient(
 
     suspend fun getSessionStatus(): SessionEnvelope = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("$baseUrl/api/session").get().build()
-        client.newCall(request).execute().use { response ->
+        executeApi(apiClient.newCall(request)).use { response ->
             if (response.code == 401) return@withContext SessionEnvelope()
             response.requireSuccessJson<SessionEnvelope>()
         }
@@ -63,7 +80,7 @@ class CoastGatewayClient(
 
     suspend fun listModels(): List<CoastModel> = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("$baseUrl/api/models").get().build()
-        client.newCall(request).execute().use { response ->
+        executeApi(apiClient.newCall(request)).use { response ->
             val catalog = response.requireSuccessJson<ModelCatalogEnvelope>()
             (catalog.groups.openAiChat + catalog.groups.freeTest)
                 .distinctBy { it.id }
@@ -74,7 +91,7 @@ class CoastGatewayClient(
 
     suspend fun getProfile(): ChatProfile = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("$baseUrl/api/chat/profile").get().build()
-        client.newCall(request).execute().use { it.requireSuccessJson<ProfileEnvelope>().profile }
+        executeApi(apiClient.newCall(request)).use { it.requireSuccessJson<ProfileEnvelope>().profile }
     }
 
     suspend fun getCurrentModel(): String = getProfile().currentChatModel.ifBlank { sessionStore.selectedModel() }
@@ -84,7 +101,7 @@ class CoastGatewayClient(
         val next = current.copy(currentChatModel = modelId)
         val payload = json.encodeToString(ProfileEnvelope(ok = true, profile = next))
         val request = mutableJsonRequest("$baseUrl/api/chat/profile", "PUT", payload)
-        client.newCall(request).execute().use { response ->
+        executeApi(apiClient.newCall(request)).use { response ->
             val saved = response.requireSuccessJson<ProfileEnvelope>().profile
             sessionStore.saveSelectedModel(saved.currentChatModel)
             saved
@@ -93,7 +110,7 @@ class CoastGatewayClient(
 
     suspend fun ensureConversation(): ConversationDto = withContext(Dispatchers.IO) {
         val listRequest = Request.Builder().url("$baseUrl/api/chat/conversations").get().build()
-        val existing = client.newCall(listRequest).execute().use {
+        val existing = executeApi(apiClient.newCall(listRequest)).use {
             it.requireSuccessJson<ConversationsEnvelope>().conversations.firstOrNull()
         }
         if (existing != null) return@withContext existing
@@ -102,7 +119,7 @@ class CoastGatewayClient(
             "POST",
             "{\"title\":\"新聊天\"}",
         )
-        client.newCall(request).execute().use { it.requireSuccessJson<ConversationEnvelope>().conversation }
+        executeApi(apiClient.newCall(request)).use { it.requireSuccessJson<ConversationEnvelope>().conversation }
     }
 
     suspend fun loadHistory(conversationId: String): ChatHistoryDto = withContext(Dispatchers.IO) {
@@ -110,7 +127,7 @@ class CoastGatewayClient(
             .url("$baseUrl/api/chat/history?conversation_id=$conversationId")
             .get()
             .build()
-        client.newCall(request).execute().use { it.requireSuccessJson<HistoryEnvelope>().history }
+        executeApi(apiClient.newCall(request)).use { it.requireSuccessJson<HistoryEnvelope>().history }
     }
 
     suspend fun saveHistory(conversationId: String, history: ChatHistoryDto) = withContext(Dispatchers.IO) {
@@ -120,16 +137,16 @@ class CoastGatewayClient(
             "PUT",
             payload,
         )
-        client.newCall(request).execute().use { it.requireSuccessJson<HistoryEnvelope>() }
+        executeApi(apiClient.newCall(request)).use { it.requireSuccessJson<HistoryEnvelope>() }
         Unit
     }
 
     suspend fun sendChatMessage(request: ChatRequestDto): JsonObject = withContext(Dispatchers.IO) {
         val payload = json.encodeToString(request.copy(stream = false))
-        val call = client.newCall(mutableJsonRequest("$baseUrl/api/chat", "POST", payload))
+        val call = apiClient.newCall(mutableJsonRequest("$baseUrl/api/chat", "POST", payload))
         activeGeneration.set(call)
         try {
-            call.execute().use { response ->
+            executeApi(call).use { response ->
                 val text = response.body?.string().orEmpty()
                 if (!response.isSuccessful) throw CoastGatewayException(errorMessage(response.code, text))
                 json.parseToJsonElement(text).jsonObject
@@ -141,13 +158,13 @@ class CoastGatewayClient(
 
     fun streamChatMessage(request: ChatRequestDto): Flow<ChatStreamEvent> = callbackFlow {
         val payload = json.encodeToString(request.copy(stream = true))
-        val call = client.newCall(
+        val call = streamClient.newCall(
             mutableJsonRequest("$baseUrl/api/chat", "POST", payload, accept = "text/event-stream"),
         )
         activeGeneration.set(call)
         val job = launch(Dispatchers.IO) {
             try {
-                call.execute().use { response ->
+                executeStream(call).use { response ->
                     if (!response.isSuccessful) {
                         val text = response.body?.string().orEmpty()
                         throw CoastGatewayException(errorMessage(response.code, text))
@@ -202,6 +219,24 @@ class CoastGatewayClient(
         )
     }
 
+    private fun executeApi(call: Call): okhttp3.Response = try {
+        call.execute()
+    } catch (error: SocketTimeoutException) {
+        throw CoastGatewayException("连接海岸后端超时，请检查网络后重试。", error)
+    } catch (error: IOException) {
+        if (call.isCanceled()) throw CancellationIOException()
+        throw CoastGatewayException("无法连接海岸后端：${error.message ?: "网络异常"}", error)
+    }
+
+    private fun executeStream(call: Call): okhttp3.Response = try {
+        call.execute()
+    } catch (error: SocketTimeoutException) {
+        throw CoastGatewayException("模型响应太慢，流式连接长时间没有收到数据。可以继续重试或换一个模型。", error)
+    } catch (error: IOException) {
+        if (call.isCanceled()) throw CancellationIOException()
+        throw CoastGatewayException("流式连接海岸失败：${error.message ?: "网络异常"}", error)
+    }
+
     private fun mutableJsonRequest(url: String, method: String, payload: String, accept: String = "application/json"): Request {
         val body = payload.toRequestBody(JSON_MEDIA)
         return Request.Builder()
@@ -220,15 +255,20 @@ class CoastGatewayClient(
 
     private fun errorMessage(status: Int, raw: String): String {
         val fallback = "海岸请求失败（$status）"
-        return runCatching {
+        val upstream = runCatching {
             val root = json.parseToJsonElement(raw).jsonObject
             val error = root["error"]
             when {
-                error == null -> fallback
+                error == null -> null
                 error is kotlinx.serialization.json.JsonPrimitive -> error.content
-                else -> error.jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+                else -> error.jsonObject["message"]?.jsonPrimitive?.content
             }
-        }.getOrDefault(fallback)
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+        return when (status) {
+            429 -> if (upstream != null) "模型限流（429）：$upstream" else "模型请求过快或当前线路正在限流（429）。"
+            502, 503, 504 -> upstream ?: "海岸后端或上游模型暂时不可用（$status）。"
+            else -> upstream ?: fallback
+        }
     }
 
     private fun decodeStreamEvent(block: SseBlock): ChatStreamEvent {
@@ -250,8 +290,15 @@ class CoastGatewayClient(
 
     companion object {
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
+        private const val API_CONNECT_TIMEOUT_SECONDS = 30L
+        private const val API_WRITE_TIMEOUT_SECONDS = 60L
+        private const val API_READ_TIMEOUT_SECONDS = 120L
+        private const val API_CALL_TIMEOUT_SECONDS = 180L
+        private const val STREAM_CONNECT_TIMEOUT_SECONDS = 30L
+        private const val STREAM_WRITE_TIMEOUT_SECONDS = 60L
+        private const val STREAM_IDLE_TIMEOUT_MINUTES = 5L
     }
 }
 
-class CoastGatewayException(message: String) : IOException(message)
+class CoastGatewayException(message: String, cause: Throwable? = null) : IOException(message, cause)
 class CancellationIOException : IOException("generation_cancelled")
