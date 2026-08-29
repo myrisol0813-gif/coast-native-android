@@ -1,0 +1,59 @@
+name: Android debug shell PoC
+
+on:
+  push:
+    branches:
+      - main
+      - coast-native-miniichat-shell-poc-00
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Guard against committed binaries and signing material
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=$(find . -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.keystore' -o -name '*.jks' \) -not -path './.git/*' -print)
+          if [ -n "$bad" ]; then
+            echo "Forbidden binary/signing files found:"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: Guard against provider endpoint residue
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIE 'api\.openai\.com|openrouter\.ai|api\.deepseek\.com|api\.groq\.com|api\.mistral\.ai|10\.0\.2\.2:11434' app/src app/build.gradle.kts; then
+            echo 'Generic provider endpoint residue found.'
+            exit 1
+          fi
+
+      - name: Assemble debug
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify debug APK exists without uploading it
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
+          test -n "$apk"
+          ls -lh "$apk"
+          sha256sum "$apk"
