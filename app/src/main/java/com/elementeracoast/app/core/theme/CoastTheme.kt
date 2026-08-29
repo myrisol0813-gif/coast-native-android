@@ -7,38 +7,46 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DeepCoast = darkColorScheme(
-    primary = Color(0xFFE0B45D),
-    onPrimary = Color(0xFF17202A),
-    background = Color(0xFF07131E),
-    onBackground = Color(0xFFF2E9D8),
-    surface = Color(0xFF0D1E2D),
-    onSurface = Color(0xFFF2E9D8),
-    surfaceVariant = Color(0xFF142A3C),
-    onSurfaceVariant = Color(0xFFB8C6D2),
-    outline = Color(0xFF6F7E8A),
-    error = Color(0xFFFFB4AB),
+    primary = Color(0xFFD4AD63),
+    onPrimary = Color(0xFF101820),
+    background = Color(0xFF07111A),
+    onBackground = Color(0xFFECE4D5),
+    surface = Color(0xFF0B1823),
+    onSurface = Color(0xFFECE4D5),
+    surfaceVariant = Color(0xFF102230),
+    onSurfaceVariant = Color(0xFF9EAFBA),
+    outline = Color(0xFF455966),
+    outlineVariant = Color(0xFF253946),
+    error = Color(0xFFE7A09A),
+    onError = Color(0xFF2A0D0A),
 )
 
 private val TideLight = lightColorScheme(
-    primary = Color(0xFF87631D),
-    onPrimary = Color.White,
-    background = Color(0xFFF8F4EC),
-    onBackground = Color(0xFF252A2F),
-    surface = Color(0xFFFFFBF4),
-    onSurface = Color(0xFF252A2F),
-    surfaceVariant = Color(0xFFEDE4D5),
-    onSurfaceVariant = Color(0xFF5F5A52),
+    primary = Color(0xFF8B682B),
+    onPrimary = Color(0xFFFFFBF4),
+    background = Color(0xFFF4F0E8),
+    onBackground = Color(0xFF272B2F),
+    surface = Color(0xFFFBF8F1),
+    onSurface = Color(0xFF272B2F),
+    surfaceVariant = Color(0xFFE9E1D5),
+    onSurfaceVariant = Color(0xFF6A645C),
+    outline = Color(0xFF9A8D7E),
+    outlineVariant = Color(0xFFD7CFC4),
+    error = Color(0xFFA04B45),
 )
 
 private val NightGold = darkColorScheme(
-    primary = Color(0xFFFFD27A),
-    onPrimary = Color(0xFF2C2108),
-    background = Color(0xFF0B0B12),
-    onBackground = Color(0xFFF5E6C3),
-    surface = Color(0xFF171620),
-    onSurface = Color(0xFFF5E6C3),
-    surfaceVariant = Color(0xFF25212C),
-    onSurfaceVariant = Color(0xFFD1C1A6),
+    primary = Color(0xFFE6BF73),
+    onPrimary = Color(0xFF241A08),
+    background = Color(0xFF0B0C11),
+    onBackground = Color(0xFFF0E4CB),
+    surface = Color(0xFF13151C),
+    onSurface = Color(0xFFF0E4CB),
+    surfaceVariant = Color(0xFF1E202A),
+    onSurfaceVariant = Color(0xFFC0B49E),
+    outline = Color(0xFF5A554D),
+    outlineVariant = Color(0xFF343128),
+    error = Color(0xFFE5A19A),
 )
 
 @Composable
@@ -48,5 +56,9 @@ fun CoastTheme(mode: CoastThemeMode, content: @Composable () -> Unit) {
         CoastThemeMode.TIDE_LIGHT -> TideLight
         CoastThemeMode.NIGHT_GOLD -> NightGold
     }
-    MaterialTheme(colorScheme = scheme, typography = MaterialTheme.typography, content = content)
+    MaterialTheme(
+        colorScheme = scheme,
+        typography = CoastTypography,
+        content = content,
+    )
 }
