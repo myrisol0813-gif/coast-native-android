@@ -1,70 +1,32 @@
-# CoastGPT · Native Android
+# coast-native-android
 
-Elementera Coast 的 Android 原生主聊天窗口（debug prototype）。
+Private Android native client for Elementera Coast / CoastGPT.
 
-> Native APP 是新的主聊天窗口，不是新的大脑。后端仍然是 `https://app.elementeracoast.com`。
+**Status: reset before second prototype.**
 
-## 当前阶段
+The first native prototype proved that a native Android client can connect to the Coast backend and feel smoother than the PWA, but the UI direction was discarded. API integration was useful; the UI as a whole should not be patched further.
 
-`COAST-NATIVE-CHAT-00`
+First prototype reference commit: `7931202837dccb59b2f8d01d8c4866703266e62a`.
 
-- Kotlin + Jetpack Compose
-- applicationId: `com.elementeracoast.app`
-- APP 显示名: `CoastGPT`
-- 登录页标题: `Elementera Coast`
-- `CoastGatewayClient` 作为 APP → Coast 后端的唯一网络门框
-- 复用现有 `/login` cookie session；不会保存海岸密码明文
-- 真实读取 `/api/session`、`/api/models`、`/api/chat/profile`
-- 真实创建/读取主聊天 conversation + history
-- `/api/chat` SSE 流式回复骨架与停止生成
-- 三种主题：深海旧金（默认）/ 潮汐纸白 / 夜航金
-- 竖屏优先，输入区带 `imePadding()` / navigation bar inset
+A later UI rebase attempt was also discarded as part of this reset. The next attempt should begin only after preparing a PWA reference pack with screenshots, colors, spacing, assets, and API contract notes.
 
-## Gateway 边界
+**Do not continue patching the first prototype. Do not begin the second Android UI before the reference pack exists.**
 
-APP 不内置 OpenRouter/OpenAI/Cloudflare/GitHub/Notion/MCP 密钥，也不直接请求模型供应商。
+## Next step
 
-```text
-CoastGPT Android
-  ↓
-CoastGatewayClient
-  ↓
-https://app.elementeracoast.com
-  ↓
-Elementera Coast backend
-```
+Prepare `COAST-NATIVE-REFERENCE-PACK-00` first:
 
-现有后端的 mutating API 需要 same-origin 保护，因此原生客户端会给海岸自身 POST/PUT 请求显式发送：
+- PWA login screenshot
+- PWA main chat screenshot
+- PWA model selector screenshot
+- screenshots of all three themes
+- input bar screenshot
+- icon / favicon / manifest icons
+- current CSS color tokens
+- current chat API contract
+- current models API contract
+- current login API contract
+- UI elements that must closely match the PWA
+- areas that may be adapted to native Android behavior
 
-```http
-Origin: https://app.elementeracoast.com
-```
-
-这不是绕过认证；owner session 仍由后端 `/login` 下发的 `__Host-coast_session` cookie 验证。
-
-## 构建
-
-CI 使用 JDK 17 + Gradle 8.9：
-
-```bash
-gradle --no-daemon test :app:assembleDebug
-```
-
-GitHub Actions 成功后会产生私有 artifact：`CoastGPT-debug`，内容为 `app-debug.apk`。
-
-## 安全
-
-仓库禁止提交：
-
-- `local.properties`
-- `*.jks` / `*.keystore`
-- `*.apk` / `*.aab`
-- 任意 API key / token / secret
-
-本轮不做 release 签名。
-
-## TODO
-
-- 真机验证 OPPO Reno14 / Android 16 / ColorOS 16。
-- 将 launcher icon 的临时原生 vector 替换为 **PWA 当前 icon-512.png 的原始二进制资产**；登录页已经先复刻“六瓣黑结/金色/小狗”的方向。
-- 后续再做多聊天窗口管理、完整 generation detail、落袋/思维壤等能力；本轮不搬 PWA 全功能。
+Think of the reference pack as the sample room for the next construction pass: this is the door, this is the wall color, this is the light, this is the input bar, this is the model footprint, this is the chat shape, these are the three themes, and these backend contracts are not to be touched.
