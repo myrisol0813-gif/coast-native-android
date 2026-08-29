@@ -1,34 +1,21 @@
 package com.elementeracoast.app.feature.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChangeCircle
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,104 +25,143 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.elementeracoast.app.core.theme.CoastSpacing
+import com.elementeracoast.app.model.CoastModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     state: ChatUiState,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
-    onModelSelect: (com.elementeracoast.app.model.CoastModel) -> Unit,
+    onModelSelect: (CoastModel) -> Unit,
     onThemeCycle: () -> Unit,
 ) {
     var input by remember { mutableStateOf("") }
     var showModels by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.content) {
-        if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.lastIndex)
+
+    LaunchedEffect(state.messages.size) {
+        if (state.messages.isNotEmpty()) listState.scrollToItem(state.messages.lastIndex)
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("CoastGPT", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                        Text(state.currentModelName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    IconButton(onClick = { showModels = true }) {
-                        Icon(Icons.Default.ChangeCircle, contentDescription = "选择模型")
-                    }
-                    IconButton(onClick = onThemeCycle) {
-                        Icon(Icons.Default.Palette, contentDescription = "切换主题")
+    Box(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            ModelHeader(
+                modelName = state.currentModelName,
+                footprint = state.footprint,
+                onModelClick = { showModels = true },
+                onThemeCycle = onThemeCycle,
+            )
+
+            if (state.error != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = CoastSpacing.lg, vertical = CoastSpacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = state.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    state.loading -> QuietLoadingState()
+                    state.messages.isEmpty() -> EmptyChatState()
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = listState,
+                        contentPadding = PaddingValues(
+                            start = CoastSpacing.sm,
+                            end = CoastSpacing.sm,
+                            top = CoastSpacing.xs,
+                            bottom = CoastSpacing.lg,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(CoastSpacing.xs),
+                    ) {
+                        items(state.messages, key = { it.id }) { message ->
+                            MessageBubble(message)
+                        }
                     }
                 }
-                Text("模型脚印 · ${state.footprint}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        },
-        bottomBar = {
-            Row(
-                Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).imePadding().padding(12.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding(),
             ) {
-                OutlinedTextField(
+                InputBar(
                     value = input,
                     onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text(if (state.generating) "模型正在回潮…" else "给 Myri 写一句话") },
-                    enabled = !state.loading,
-                    shape = RoundedCornerShape(20.dp),
-                    maxLines = 5,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = {
-                        if (!state.generating && input.isNotBlank()) {
-                            onSend(input); input = ""
+                    generating = state.generating,
+                    loading = state.loading,
+                    onSend = {
+                        val text = input.trim()
+                        if (text.isNotEmpty() && !state.generating) {
+                            onSend(text)
+                            input = ""
                         }
-                    }),
+                    },
+                    onStop = onStop,
                 )
-                IconButton(onClick = {
-                    if (state.generating) onStop()
-                    else if (input.isNotBlank()) { onSend(input); input = "" }
-                }) {
-                    Icon(if (state.generating) Icons.Default.Stop else Icons.Default.Send, contentDescription = if (state.generating) "停止" else "发送", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-        },
-    ) { padding ->
-        when {
-            state.loading -> Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                CircularProgressIndicator()
-                Text("正在把主聊天窗口接回海岸…", modifier = Modifier.padding(top = 12.dp))
-            }
-            else -> Column(Modifier.fillMaxSize().padding(padding)) {
-                state.error?.let { error ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(error, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    if (state.messages.isEmpty()) {
-                        item {
-                            Column(Modifier.fillParentMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                Text("主聊天窗口已经亮灯。", color = MaterialTheme.colorScheme.primary)
-                                Text("第一句会直接走海岸现有 /api/chat。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    items(state.messages, key = { it.id }) { MessageBubble(it) }
-                }
             }
         }
     }
 
-    if (showModels) ModelSelector(state.models, state.currentModelId, onDismiss = { showModels = false }, onSelect = onModelSelect)
+    if (showModels) {
+        ModelSelector(
+            models = state.models,
+            currentModelId = state.currentModelId,
+            onDismiss = { showModels = false },
+            onSelect = onModelSelect,
+        )
+    }
+}
+
+@Composable
+private fun QuietLoadingState() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.padding(bottom = CoastSpacing.sm),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+            strokeWidth = 1.5.dp,
+        )
+        Text(
+            "正在接回海岸",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f),
+        )
+    }
+}
+
+@Composable
+private fun EmptyChatState() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = CoastSpacing.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            "主聊天窗口已经亮灯",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+        )
+        Text(
+            "写下一句话，回声会从这里回来。",
+            modifier = Modifier.padding(top = CoastSpacing.xs),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.46f),
+        )
+    }
 }
