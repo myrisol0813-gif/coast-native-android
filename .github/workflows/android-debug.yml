@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - coast-native-v1-visual-scope-00
+      - coast-native-gate-polish-01
   workflow_dispatch:
 
 jobs:
@@ -14,6 +14,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -50,20 +52,24 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Native v1 visual and scope contracts
+      - name: Verify Gate polish structure and frozen chat body
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'functions/auth.js' app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMark.kt
-          grep -q 'fun ChatWindow' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
-          grep -q 'fun CoastTimeline' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
-          grep -q 'fun CoastComposer' app/src/main/kotlin/com/elementeracoast/app/feature/chat/InputBar.kt
-          grep -q 'fun ModelQuickPicker' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ModelPicker.kt
-          grep -q 'fun ConversationList' app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt
-          grep -q '【电波】' app/src/main/kotlin/com/elementeracoast/app/core/model/Models.kt
-          grep -q '【灯塔】' app/src/main/kotlin/com/elementeracoast/app/core/model/Models.kt
-          if grep -RIE 'RoomWindow|RadioScreen|LighthouseScreen' app/src/main/kotlin; then
-            echo 'A separate room chat body was introduced; Native v1 requires one shared ChatWindow.'
+          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/GateScreen.kt
+          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/GatePasswordField.kt
+          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/MailboxEntryDialog.kt
+          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/GateVisualTokens.kt
+          test -f app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt
+          grep -q 'LoopAStartMs = 50' app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt
+          grep -q 'GateFormStartMs = 1380' app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt
+          grep -q '本轮不会发送或保存暗号' app/src/main/kotlin/com/elementeracoast/app/feature/gate/GateScreen.kt
+          if ! git diff --quiet HEAD^ -- \
+            app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt \
+            app/src/main/kotlin/com/elementeracoast/app/feature/chat/InputBar.kt \
+            app/src/main/kotlin/com/elementeracoast/app/feature/chat/ModelPicker.kt \
+            app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt; then
+            echo 'Chat/MainShell body changed during Gate-only polish.'
             exit 1
           fi
 
@@ -80,14 +86,14 @@ jobs:
           apk=$(find app/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
           test -n "$apk"
           mkdir -p artifact
-          cp "$apk" artifact/CoastGPT-native-v1-visual-debug.apk
-          ls -lh artifact/CoastGPT-native-v1-visual-debug.apk
-          sha256sum artifact/CoastGPT-native-v1-visual-debug.apk
+          cp "$apk" artifact/CoastGPT-native-v1-gate-polish-debug.apk
+          ls -lh artifact/CoastGPT-native-v1-gate-polish-debug.apk
+          sha256sum artifact/CoastGPT-native-v1-gate-polish-debug.apk
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-v1-visual-debug
-          path: artifact/CoastGPT-native-v1-visual-debug.apk
+          name: CoastGPT-native-v1-gate-polish-debug
+          path: artifact/CoastGPT-native-v1-gate-polish-debug.apk
           if-no-files-found: error
           retention-days: 7

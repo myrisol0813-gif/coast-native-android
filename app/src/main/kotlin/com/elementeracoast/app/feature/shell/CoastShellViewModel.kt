@@ -36,10 +36,6 @@ class CoastShellViewModel : ViewModel() {
             threads[conversation.id] = greetingFor(conversation.scope)
         }
         threads[_state.value.activeConversationId] = _state.value.messages
-        viewModelScope.launch {
-            delay(560)
-            _state.update { it.copy(bootComplete = true) }
-        }
     }
 
     fun setPassword(value: String) {
