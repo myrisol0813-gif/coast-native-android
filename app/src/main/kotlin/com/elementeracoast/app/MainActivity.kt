@@ -6,8 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.elementeracoast.app.feature.boot.CoastBootScreen
-import com.elementeracoast.app.feature.login.LoginScreen
+import com.elementeracoast.app.feature.gate.GateScreen
 import com.elementeracoast.app.feature.shell.CoastShellViewModel
 import com.elementeracoast.app.feature.shell.MainShell
 import com.elementeracoast.app.ui.theme.CoastTheme
@@ -20,14 +19,14 @@ class MainActivity : ComponentActivity() {
             val state by vm.state.collectAsState()
 
             CoastTheme(mode = state.theme) {
-                when {
-                    !state.bootComplete -> CoastBootScreen()
-                    !state.authenticated -> LoginScreen(
+                if (!state.authenticated) {
+                    GateScreen(
                         password = state.password,
                         onPasswordChange = vm::setPassword,
                         onEnter = vm::enterLocalShell
                     )
-                    else -> MainShell(
+                } else {
+                    MainShell(
                         state = state,
                         onOpenScope = vm::openScope,
                         onSelectConversation = vm::selectConversation,

@@ -42,7 +42,6 @@ data class ConversationSummary(
 )
 
 data class CoastShellState(
-    val bootComplete: Boolean = false,
     val authenticated: Boolean = false,
     val password: String = "",
     val theme: CoastThemeMode = CoastThemeMode.Light,
