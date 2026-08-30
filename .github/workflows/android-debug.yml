@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - coast-native-gate-polish-01
   workflow_dispatch:
 
 jobs:
@@ -48,28 +47,60 @@ jobs:
             exit 1
           fi
           if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
-            echo 'INTERNET permission was added during a visual-only native pass.'
+            echo 'INTERNET permission was added during a local-only Native pass.'
+            exit 1
+          fi
+          if grep -RIE '/api/dogtalk|DataStore|RoomDatabase' \
+            app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk \
+            app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt; then
+            echo 'Dogtalk gained backend or persistence wiring during a fixture-only pass.'
             exit 1
           fi
 
-      - name: Verify Gate polish structure and frozen chat body
+      - name: Verify Dogtalk four-field local contract
         shell: bash
         run: |
           set -euo pipefail
-          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/GateScreen.kt
-          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/GatePasswordField.kt
-          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/MailboxEntryDialog.kt
-          test -f app/src/main/kotlin/com/elementeracoast/app/feature/gate/GateVisualTokens.kt
-          test -f app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt
-          grep -q 'LoopAStartMs = 50' app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt
-          grep -q 'GateFormStartMs = 1380' app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt
-          grep -q '本轮不会发送或保存暗号' app/src/main/kotlin/com/elementeracoast/app/feature/gate/GateScreen.kt
+          dogtalk=app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk
+          chat=app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
+
+          test -f "$dogtalk/DogtalkCard.kt"
+          test -f "$dogtalk/DogtalkUiState.kt"
+          test -f "$dogtalk/DogtalkReadMode.kt"
+          test -f "$dogtalk/DogtalkScope.kt"
+
+          grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$dogtalk/DogtalkUiState.kt"
+          grep -q 'DogtalkCard(' "$chat"
+          grep -q 'scope = DogtalkScope.from(state.activeScope)' "$chat"
+          test "$(grep -o 'DogtalkCard(' "$chat" | wc -l)" -eq 1
+          test "$(grep -o '"保存"' "$dogtalk/DogtalkCard.kt" | wc -l)" -eq 1
+
+          grep -q '不需要，放着就好' "$dogtalk/DogtalkReadMode.kt"
+          grep -q 'Myri 困惑时可以看一点' "$dogtalk/DogtalkReadMode.kt"
+          grep -q '当前窗口可以看一点' "$dogtalk/DogtalkReadMode.kt"
+          grep -q '这次希望 Myri 直接读一下' "$dogtalk/DogtalkReadMode.kt"
+          grep -q '本条不会发送给模型，只留在狗话小抽屉里。' "$dogtalk/DogtalkCard.kt"
+          grep -q '已暂存在本地；后端稍后接入' "$chat"
+
+          if grep -RIE '给小寒自己的整理|给 Myri 的低权重提示|不要误会成|保存草稿|把这句狗话轻轻展开|让 Myri 读一下|隐藏 / 归档|清空本条草稿|self_note|myri_hint|not_to_misunderstand' app/src; then
+            echo 'Legacy Native Dogtalk fields or fixture copy still exist.'
+            exit 1
+          fi
+
+          if grep -q 'DogtalkRow' "$chat"; then
+            echo 'Legacy DogtalkRow remains embedded in ChatWindow.'
+            exit 1
+          fi
+
           if ! git diff --quiet HEAD^ -- \
-            app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt \
-            app/src/main/kotlin/com/elementeracoast/app/feature/chat/InputBar.kt \
-            app/src/main/kotlin/com/elementeracoast/app/feature/chat/ModelPicker.kt \
-            app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt; then
-            echo 'Chat/MainShell body changed during Gate-only polish.'
+            app/src/main/kotlin/com/elementeracoast/app/feature/gate \
+            app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt; then
+            echo 'Gate changed during Dogtalk-only sync.'
+            exit 1
+          fi
+
+          if ! git diff --quiet HEAD^ -- app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt; then
+            echo 'MainShell changed during Dogtalk-only sync.'
             exit 1
           fi
 
@@ -86,14 +117,14 @@ jobs:
           apk=$(find app/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
           test -n "$apk"
           mkdir -p artifact
-          cp "$apk" artifact/CoastGPT-native-v1-gate-polish-debug.apk
-          ls -lh artifact/CoastGPT-native-v1-gate-polish-debug.apk
-          sha256sum artifact/CoastGPT-native-v1-gate-polish-debug.apk
+          cp "$apk" artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
+          ls -lh artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
+          sha256sum artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-v1-gate-polish-debug
-          path: artifact/CoastGPT-native-v1-gate-polish-debug.apk
+          name: CoastGPT-native-v1-dogtalk-sync-debug
+          path: artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
           if-no-files-found: error
           retention-days: 7

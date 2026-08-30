@@ -6,7 +6,6 @@
 package com.elementeracoast.app.feature.chat
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,12 +33,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
-import com.elementeracoast.app.core.model.ChatScope
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageRole
+import com.elementeracoast.app.feature.dogtalk.DogtalkCard
+import com.elementeracoast.app.feature.dogtalk.DogtalkScope
 
 @Composable
 fun ChatWindow(
@@ -71,7 +67,10 @@ fun ChatWindow(
             listState = listState,
             modifier = Modifier.weight(1f)
         )
-        DogtalkRow(scope = state.activeScope)
+        DogtalkCard(
+            scope = DogtalkScope.from(state.activeScope),
+            onSaved = { onPlaceholder("已暂存在本地；后端稍后接入") }
+        )
         CoastComposer(
             value = input,
             onValueChange = { input = it },
@@ -159,52 +158,6 @@ private fun MessageItem(message: ChatMessage, isStreamingTail: Boolean) {
                     style = MaterialTheme.typography.labelSmall
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun DogtalkRow(scope: ChatScope) {
-    var open by rememberSaveable(scope) { mutableStateOf(false) }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 4.dp)
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(18.dp))
-            .clickable { open = !open }
-            .padding(horizontal = 15.dp, vertical = 10.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "小寒 · 神秘狗话",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    when (scope) {
-                        ChatScope.Main -> "小寒这轮很放松，因此偷懒中。"
-                        ChatScope.Radio -> "电波 scope 也使用同一行狗话。"
-                        ChatScope.Lighthouse -> "灯塔 scope 也使用同一行狗话。"
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-            Icon(
-                Icons.Default.ExpandMore,
-                contentDescription = if (open) "收起" else "展开",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        if (open) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Native v1 先保留 Dogtalk row 的稳定位置与折叠身体；保存、读取、归档仍是 P1。",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
-            )
         }
     }
 }
