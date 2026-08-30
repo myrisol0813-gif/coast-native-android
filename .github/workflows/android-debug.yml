@@ -73,11 +73,21 @@ jobs:
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify debug APK exists without uploading it
+      - name: Stage debug APK and print checksum
         shell: bash
         run: |
           set -euo pipefail
           apk=$(find app/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
           test -n "$apk"
-          ls -lh "$apk"
-          sha256sum "$apk"
+          mkdir -p artifact
+          cp "$apk" artifact/CoastGPT-native-v1-visual-debug.apk
+          ls -lh artifact/CoastGPT-native-v1-visual-debug.apk
+          sha256sum artifact/CoastGPT-native-v1-visual-debug.apk
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoastGPT-native-v1-visual-debug
+          path: artifact/CoastGPT-native-v1-visual-debug.apk
+          if-no-files-found: error
+          retention-days: 7
