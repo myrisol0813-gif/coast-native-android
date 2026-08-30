@@ -12,8 +12,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.0.1-shell-poc"
+        versionCode = 2
+        versionName = "0.1.0-native-v1-visual"
     }
 
     buildTypes {
@@ -59,5 +59,6 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
+    testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

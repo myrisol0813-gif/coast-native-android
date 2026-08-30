@@ -1,10 +1,10 @@
-name: Android debug shell PoC
+name: Android debug native v1
 
 on:
   push:
     branches:
       - main
-      - coast-native-miniichat-shell-poc-00
+      - coast-native-v1-visual-scope-00
   workflow_dispatch:
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
             exit 1
           fi
 
-      - name: Guard against provider endpoint residue
+      - name: Guard against provider endpoint residue and premature network wiring
         shell: bash
         run: |
           set -euo pipefail
@@ -45,6 +45,30 @@ jobs:
             echo 'Generic provider endpoint residue found.'
             exit 1
           fi
+          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
+            echo 'INTERNET permission was added during a visual-only native pass.'
+            exit 1
+          fi
+
+      - name: Verify Native v1 visual and scope contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'functions/auth.js' app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMark.kt
+          grep -q 'fun ChatWindow' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
+          grep -q 'fun CoastTimeline' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
+          grep -q 'fun CoastComposer' app/src/main/kotlin/com/elementeracoast/app/feature/chat/InputBar.kt
+          grep -q 'fun ModelQuickPicker' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ModelPicker.kt
+          grep -q 'fun ConversationList' app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt
+          grep -q '【电波】' app/src/main/kotlin/com/elementeracoast/app/core/model/Models.kt
+          grep -q '【灯塔】' app/src/main/kotlin/com/elementeracoast/app/core/model/Models.kt
+          if grep -RIE 'RoomWindow|RadioScreen|LighthouseScreen' app/src/main/kotlin; then
+            echo 'A separate room chat body was introduced; Native v1 requires one shared ChatWindow.'
+            exit 1
+          fi
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
