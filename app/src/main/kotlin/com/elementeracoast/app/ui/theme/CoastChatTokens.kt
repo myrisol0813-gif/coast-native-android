@@ -9,18 +9,17 @@ import androidx.compose.ui.unit.sp
 
 object CoastChatTokens {
     val TopBarHeight = 50.dp
-    val TopBarHorizontalPadding = 7.dp
+    val TopBarHorizontalPadding = 4.dp
     val TopBarTitleSize = 18.sp
     val TopBarModelSize = 13.sp
     val TopBarMenuGlyph = 21.dp
     val TopBarActionGlyph = 19.dp
     val TopBarChevronGlyph = 12.dp
     val TopBarModelGap = 4.dp
-    val TopBarModelHorizontalPadding = 3.dp
+    val TopBarModelHorizontalPadding = 0.dp
     val TopBarModelVerticalPadding = 2.dp
     val TopBarDividerThickness = 0.5.dp
     const val TopBarDividerAlpha = 0.62f
-
     val TimelineHorizontalPadding = 32.dp
     val TimelineTopPadding = 25.dp
     val TimelineBottomPadding = 14.dp
@@ -35,7 +34,6 @@ object CoastChatTokens {
     val AssistantAvatarGap = 12.dp
     val AssistantStarSize = 13.sp
     val StreamingGap = 5.dp
-
     val DogtalkHorizontalPadding = 30.dp
     val DogtalkOuterVerticalPadding = 3.dp
     val DogtalkRadius = 15.dp
@@ -62,7 +60,6 @@ object CoastChatTokens {
     val DogtalkSaveRadius = 15.dp
     val DogtalkSaveHorizontalPadding = 14.dp
     val DogtalkSaveTextSize = 12.sp
-
     val ComposerHorizontalPadding = 12.dp
     val ComposerVerticalPadding = 7.dp
     val ComposerTouchTarget = 48.dp
@@ -80,35 +77,37 @@ object CoastChatTokens {
     val ComposerMicTouch = 32.dp
     val ComposerMicGlyph = 19.dp
     val ComposerGap = 7.dp
-
     val DrawerWidth = 326.dp
     val DrawerOuterHorizontalPadding = 14.dp
-    val DrawerContentVerticalPadding = 12.dp
-    val DrawerHeaderTopPadding = 10.dp
-    val DrawerHeaderBottomPadding = 9.dp
-    val DrawerCloseGlyph = 23.dp
-    val DrawerSearchRadius = 15.dp
-    val DrawerSearchHorizontalPadding = 12.dp
-    val DrawerSearchVerticalPadding = 9.dp
-    val DrawerSearchGlyph = 18.dp
-    val DrawerSearchGap = 8.dp
+    val DrawerContentVerticalPadding = 10.dp
+    val DrawerHeaderTopPadding = 6.dp
+    val DrawerHeaderBottomPadding = 6.dp
+    val DrawerCloseGlyph = 22.dp
+    val DrawerSearchRadius = 13.dp
+    val DrawerSearchHorizontalPadding = 10.dp
+    val DrawerSearchVerticalPadding = 6.dp
+    val DrawerSearchGlyph = 17.dp
+    val DrawerSearchGap = 7.dp
     val DrawerTextSize = 15.sp
-    val DrawerSecondaryTextSize = 13.sp
+    val DrawerSecondaryTextSize = 12.sp
     val DrawerItemGap = 2.dp
     val DrawerEntryRadius = 12.dp
     val DrawerEntryHorizontalPadding = 11.dp
-    val DrawerEntryVerticalPadding = 9.dp
+    val DrawerEntryVerticalPadding = 8.dp
     val DrawerEntrySubtitleVerticalPadding = 7.dp
     val DrawerEntryGlyph = 19.dp
     val DrawerEntryGap = 10.dp
     val DrawerStatusHeight = 62.dp
     val DrawerStatusGap = 7.dp
-    val DrawerStatusBottomPadding = 13.dp
+    val DrawerStatusBottomPadding = 11.dp
     val DrawerStatusRadius = 13.dp
     val DrawerStatusVerticalPadding = 7.dp
-    val DrawerSectionTopPadding = 10.dp
-    val DrawerSectionBottomPadding = 5.dp
     val DrawerBottomVerticalPadding = 7.dp
+    val DrawerUtilityIconBox = 38.dp
+    val DrawerUtilityIcon = 25.dp
+    val DrawerUtilityTitleSize = 16.sp
+    val DrawerUtilitySubtitleSize = 12.sp
+    val DrawerUtilityGap = 11.dp
     val ConversationVerticalPadding = 9.dp
     val ConversationMoreGlyph = 19.dp
 }
@@ -117,15 +116,9 @@ val DogtalkCardLight = Color(0xFFF8F7F4)
 val DogtalkFieldLight = Color.White
 
 @Composable
-fun coastDogtalkCardColor(): Color = if (MaterialTheme.colorScheme.background.luminance() > .55f) {
-    DogtalkCardLight
-} else {
-    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f)
-}
+fun coastDogtalkCardColor(): Color = if (MaterialTheme.colorScheme.background.luminance() > .55f) DogtalkCardLight
+else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f)
 
 @Composable
-fun coastDogtalkFieldColor(): Color = if (MaterialTheme.colorScheme.background.luminance() > .55f) {
-    DogtalkFieldLight
-} else {
-    MaterialTheme.colorScheme.surface.copy(alpha = .96f)
-}
+fun coastDogtalkFieldColor(): Color = if (MaterialTheme.colorScheme.background.luminance() > .55f) DogtalkFieldLight
+else MaterialTheme.colorScheme.surface.copy(alpha = .96f)

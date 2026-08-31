@@ -54,14 +54,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.elementeracoast.app.R
 import com.elementeracoast.app.core.model.ChatScope
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.ConversationSummary
 import com.elementeracoast.app.core.model.FeatureDestination
+import com.elementeracoast.app.core.model.filterConversations
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
 import com.elementeracoast.app.ui.icons.CoastChatIcons
@@ -76,6 +79,8 @@ fun MainShell(
     onOpenScope: (ChatScope) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
+    onRenameConversation: (String, String) -> Unit,
+    onDeleteConversation: (String) -> Unit,
     onCycleTheme: () -> Unit,
     onOpenFeature: (FeatureDestination) -> Unit,
     onBackToChat: () -> Unit,
@@ -111,9 +116,10 @@ fun MainShell(
                 onClose = { coroutineScope.launch { drawerState.close() } },
                 onOpenScope = { destination -> closeDrawerThen { onOpenScope(destination) } },
                 onSelectConversation = { id -> closeDrawerThen { onSelectConversation(id) } },
+                onRenameConversation = onRenameConversation,
+                onDeleteConversation = onDeleteConversation,
                 onOpenFeature = { destination -> closeDrawerThen { onOpenFeature(destination) } },
-                onCycleTheme = onCycleTheme,
-                onPlaceholder = onPlaceholder
+                onCycleTheme = onCycleTheme
             )
         }
     ) {
@@ -218,7 +224,7 @@ private fun CoastTopBar(
                     Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
                     Text(
                         state.currentModel,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = CoastChatTokens.TopBarModelSize),
                         maxLines = 1,
@@ -232,7 +238,11 @@ private fun CoastTopBar(
                     )
                 }
                 IconButton(onClick = onNewConversation) {
-                    Icon(CoastChatIcons.NewChat, contentDescription = "新建窗口", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
+                    Icon(
+                        painter = painterResource(R.drawable.ic_coast_new_chat),
+                        contentDescription = "新建窗口",
+                        modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph)
+                    )
                 }
                 IconButton(onClick = onMore) {
                     Icon(Icons.Default.MoreHoriz, contentDescription = "更多", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
@@ -252,9 +262,10 @@ private fun CoastDrawer(
     onClose: () -> Unit,
     onOpenScope: (ChatScope) -> Unit,
     onSelectConversation: (String) -> Unit,
+    onRenameConversation: (String, String) -> Unit,
+    onDeleteConversation: (String) -> Unit,
     onOpenFeature: (FeatureDestination) -> Unit,
-    onCycleTheme: () -> Unit,
-    onPlaceholder: (String) -> Unit
+    onCycleTheme: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -327,7 +338,6 @@ private fun CoastDrawer(
                 verticalArrangement = Arrangement.spacedBy(CoastChatTokens.DrawerItemGap)
             ) {
                 item { CoastStatusStrip() }
-                item { DrawerSectionTitle("主房间") }
                 item {
                     DrawerEntry(Icons.Default.Radio, "无线电波的两端", state.activeScope == ChatScope.Radio && state.activeFeature == null) {
                         onOpenScope(ChatScope.Radio)
@@ -354,24 +364,18 @@ private fun CoastDrawer(
                     }
                 }
                 item {
-                    DrawerEntry(Icons.Default.MailOutline, "登岛信", state.activeFeature == FeatureDestination.Letters) {
-                        onOpenFeature(FeatureDestination.Letters)
-                    }
-                }
-                item {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    DrawerSectionTitle(state.activeScope.conversationSection)
                 }
                 item {
                     ConversationList(
                         conversations = state.conversations,
-                        scope = state.activeScope,
                         query = query,
                         activeConversationId = state.activeConversationId,
                         featureActive = state.activeFeature != null,
                         onSelectConversation = onSelectConversation,
-                        onMore = { onPlaceholder("会话改名 / 删除将在 P1 接入。") }
+                        onRenameConversation = onRenameConversation,
+                        onDeleteConversation = onDeleteConversation
                     )
                 }
             }
@@ -384,10 +388,10 @@ private fun CoastDrawer(
                 )
             ) {
                 DrawerEntry(Icons.Default.Palette, "主题", false, subtitle = state.theme.label, onClick = onCycleTheme)
-                DrawerEntry(Icons.Default.Pets, "Wolf Den", state.activeFeature == FeatureDestination.Wolf, subtitle = "小狼窝入口") {
+                DrawerUtilityEntry(R.drawable.ic_coast_wolf, "Wolf Den", "小狼窝入口", state.activeFeature == FeatureDestination.Wolf) {
                     onOpenFeature(FeatureDestination.Wolf)
                 }
-                DrawerEntry(Icons.Default.Pets, "Serpent Desk", state.activeFeature == FeatureDestination.Desk, subtitle = "小蛇书桌") {
+                DrawerUtilityEntry(R.drawable.ic_coast_serpent, "Serpent Desk", "小蛇书桌", state.activeFeature == FeatureDestination.Desk) {
                     onOpenFeature(FeatureDestination.Desk)
                 }
             }
@@ -398,16 +402,14 @@ private fun CoastDrawer(
 @Composable
 fun ConversationList(
     conversations: List<ConversationSummary>,
-    scope: ChatScope,
     query: String,
     activeConversationId: String,
     featureActive: Boolean,
     onSelectConversation: (String) -> Unit,
-    onMore: () -> Unit
+    onRenameConversation: (String, String) -> Unit,
+    onDeleteConversation: (String) -> Unit
 ) {
-    val filtered = conversations.filter {
-        it.scope == scope && (query.isBlank() || it.title.contains(query, ignoreCase = true))
-    }
+    val filtered = filterConversations(conversations, query)
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         if (filtered.isEmpty()) {
             Text(
@@ -422,7 +424,8 @@ fun ConversationList(
                     conversation = conversation,
                     selected = conversation.id == activeConversationId && !featureActive,
                     onClick = { onSelectConversation(conversation.id) },
-                    onMore = onMore
+                    onRename = onRenameConversation,
+                    onDelete = onDeleteConversation
                 )
             }
         }
@@ -467,21 +470,6 @@ private fun StatusCard(label: String, value: String, unit: String, modifier: Mod
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(unit, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
     }
-}
-
-@Composable
-private fun DrawerSectionTitle(title: String) {
-    Text(
-        title,
-        modifier = Modifier.padding(
-            start = CoastChatTokens.DrawerEntryHorizontalPadding,
-            top = CoastChatTokens.DrawerSectionTopPadding,
-            bottom = CoastChatTokens.DrawerSectionBottomPadding
-        ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.SemiBold
-    )
 }
 
 @Composable
@@ -533,11 +521,45 @@ private fun DrawerEntry(
 }
 
 @Composable
+private fun DrawerUtilityEntry(
+    iconRes: Int,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+                RoundedCornerShape(CoastChatTokens.DrawerEntryRadius))
+            .clickable(onClick = onClick)
+            .padding(horizontal = CoastChatTokens.DrawerEntryHorizontalPadding,
+                vertical = CoastChatTokens.DrawerEntrySubtitleVerticalPadding),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(modifier = Modifier.size(CoastChatTokens.DrawerUtilityIconBox)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(CoastChatTokens.DrawerEntryRadius)),
+            contentAlignment = Alignment.Center) {
+            Icon(painter = painterResource(iconRes), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(CoastChatTokens.DrawerUtilityIcon))
+        }
+        Spacer(Modifier.width(CoastChatTokens.DrawerUtilityGap))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium.copy(fontSize = CoastChatTokens.DrawerUtilityTitleSize),
+                fontWeight = FontWeight.Medium)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DrawerUtilitySubtitleSize))
+        }
+    }
+}
+
+@Composable
 private fun ConversationRow(
     conversation: ConversationSummary,
     selected: Boolean,
     onClick: () -> Unit,
-    onMore: () -> Unit
+    onRename: (String, String) -> Unit,
+    onDelete: (String) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -563,14 +585,7 @@ private fun ConversationRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        IconButton(onClick = onMore) {
-            Icon(
-                Icons.Default.MoreHoriz,
-                contentDescription = "窗口操作",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(CoastChatTokens.ConversationMoreGlyph)
-            )
-        }
+        ConversationActionsButton(conversation = conversation, onRename = onRename, onDelete = onDelete)
     }
 }
 
@@ -629,11 +644,6 @@ private fun landingCards(feature: FeatureDestination): List<Pair<String, String>
         "月视图" to "日期与未读提示",
         "今日一瞥" to "事件与便签",
         "新建事件" to "编辑能力将在 P1/P2 接入"
-    )
-    FeatureDestination.Letters -> listOf(
-        "登岛信" to "进入海岸的文字",
-        "予爱机书" to "保留原核心文本",
-        "海岸信箱" to "访客低频来信入口"
     )
     FeatureDestination.Wolf -> listOf(
         "小狼窝" to "Kryo 的视觉与偏好空间",

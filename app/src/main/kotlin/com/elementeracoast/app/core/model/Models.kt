@@ -3,43 +3,26 @@ package com.elementeracoast.app.core.model
 enum class MessageRole { User, Assistant }
 
 enum class CoastThemeMode(val label: String) {
-    Light("浅色"),
-    Dark("深色"),
-    Gold("黑金");
-
+    Light("浅色"), Dark("深色"), Gold("黑金");
     fun next(): CoastThemeMode = entries[(ordinal + 1) % entries.size]
 }
 
-enum class ChatScope(
-    val drawerLabel: String,
-    val titlePrefix: String,
-    val conversationSection: String
-) {
-    Main("主聊天", "", "主聊天窗口"),
-    Radio("无线电波的两端", "【电波】", "电波窗口"),
-    Lighthouse("灯塔来信", "【灯塔】", "灯塔窗口")
+enum class ChatScope(val drawerLabel: String, val titlePrefix: String) {
+    Main("主聊天", ""),
+    Radio("无线电波的两端", "【电波】"),
+    Lighthouse("灯塔来信", "【灯塔】")
 }
 
 enum class FeatureDestination(val title: String, val subtitle: String) {
     Memory("轨迹 / 记忆", "记忆球与思维壤"),
     Daily("海岸日报", "服务器同步的日常岛"),
     Calendar("今日一瞥", "日历、事件与便签"),
-    Letters("登岛信", "予爱机书与海岸来信"),
     Wolf("Wolf Den", "小狼窝入口"),
     Desk("Serpent Desk", "小蛇书桌")
 }
 
-data class ChatMessage(
-    val id: Long,
-    val role: MessageRole,
-    val text: String
-)
-
-data class ConversationSummary(
-    val id: String,
-    val title: String,
-    val scope: ChatScope
-)
+data class ChatMessage(val id: Long, val role: MessageRole, val text: String)
+data class ConversationSummary(val id: String, val title: String, val scope: ChatScope)
 
 data class CoastShellState(
     val authenticated: Boolean = false,
@@ -51,24 +34,28 @@ data class CoastShellState(
     val activeConversationId: String = "main-o3",
     val messages: List<ChatMessage> = initialMessages(),
     val currentModel: String = "Free: North Mini",
-    val models: List<String> = listOf(
-        "Free: North Mini",
-        "GPT-5.6 Sol",
-        "GPT-5.5 Thinking",
-        "o3"
-    ),
+    val models: List<String> = listOf("Free: North Mini", "GPT-5.6 Sol", "GPT-5.5 Thinking", "o3"),
     val isStreaming: Boolean = false,
     val showModelPicker: Boolean = false,
     val snackbarMessage: String? = null
 )
 
-fun scopedConversationTitle(scope: ChatScope, index: Int): String {
-    val safeIndex = index.coerceAtLeast(1)
-    return if (scope == ChatScope.Main) {
-        "新聊天 $safeIndex"
-    } else {
-        "${scope.titlePrefix}新聊天 $safeIndex"
-    }
+fun scopedConversationTitle(scope: ChatScope, index: Int): String =
+    scopedConversationTitle(scope, "新聊天 ${index.coerceAtLeast(1)}")
+
+fun scopedConversationTitle(scope: ChatScope, rawTitle: String): String {
+    val clean = rawTitle.trim()
+        .removePrefix(ChatScope.Radio.titlePrefix)
+        .removePrefix(ChatScope.Lighthouse.titlePrefix)
+        .trim()
+    if (clean.isBlank()) return ""
+    return "${scope.titlePrefix}$clean"
+}
+
+fun filterConversations(conversations: List<ConversationSummary>, query: String): List<ConversationSummary> {
+    val needle = query.trim()
+    if (needle.isBlank()) return conversations
+    return conversations.filter { it.title.contains(needle, ignoreCase = true) }
 }
 
 private fun initialConversations() = listOf(

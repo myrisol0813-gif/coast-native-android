@@ -32,7 +32,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -65,7 +64,6 @@ fun DogtalkCard(
       horizontal = CoastChatTokens.DogtalkHorizontalPadding,
       vertical = CoastChatTokens.DogtalkOuterVerticalPadding
   )
-  .shadow(elevation = 1.dp, shape = shape, clip = false)
   .background(cardColor, shape)
     ) {
         Row(
