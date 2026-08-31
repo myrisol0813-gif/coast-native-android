@@ -93,15 +93,10 @@ fun CoastTheme(
         SideEffect {
             val activity = view.context as? Activity ?: return@SideEffect
             val window = activity.window
-            val status = when (mode) {
-                CoastThemeMode.Light -> Color(0xFF19275A)
-                CoastThemeMode.Dark -> Color(0xFF08090C)
-                CoastThemeMode.Gold -> Color(0xFF090806)
-            }
-            window.statusBarColor = status.toArgb()
+            window.statusBarColor = colors.background.toArgb()
             window.navigationBarColor = colors.background.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
+                isAppearanceLightStatusBars = mode == CoastThemeMode.Light
                 isAppearanceLightNavigationBars = mode == CoastThemeMode.Light
             }
         }

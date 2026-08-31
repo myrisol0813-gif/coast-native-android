@@ -23,10 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Pets
@@ -66,6 +64,7 @@ import com.elementeracoast.app.core.model.ConversationSummary
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
+import com.elementeracoast.app.ui.icons.CoastChatIcons
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -199,7 +198,7 @@ private fun CoastTopBar(
                 }
             } else {
                 IconButton(onClick = onOpenDrawer) {
-                    Icon(Icons.Default.Menu, contentDescription = "打开侧边栏", modifier = Modifier.size(CoastChatTokens.TopBarMenuGlyph))
+                    Icon(CoastChatIcons.Menu, contentDescription = "打开侧边栏", modifier = Modifier.size(CoastChatTokens.TopBarMenuGlyph))
                 }
                 Row(
                     modifier = Modifier
@@ -214,7 +213,7 @@ private fun CoastTopBar(
                     Text(
                         "ChatGPT",
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = CoastChatTokens.TopBarTitleSize),
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.Medium
                     )
                     Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
                     Text(
@@ -233,14 +232,17 @@ private fun CoastTopBar(
                     )
                 }
                 IconButton(onClick = onNewConversation) {
-                    Icon(Icons.Default.Edit, contentDescription = "新建窗口", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
+                    Icon(CoastChatIcons.NewChat, contentDescription = "新建窗口", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
                 }
                 IconButton(onClick = onMore) {
                     Icon(Icons.Default.MoreHoriz, contentDescription = "更多", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
                 }
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            thickness = CoastChatTokens.TopBarDividerThickness,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = CoastChatTokens.TopBarDividerAlpha)
+        )
     }
 }
 

@@ -8,16 +8,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 object CoastChatTokens {
-    val TopBarHeight = 56.dp
-    val TopBarHorizontalPadding = 10.dp
-    val TopBarTitleSize = 20.sp
-    val TopBarModelSize = 14.sp
-    val TopBarMenuGlyph = 24.dp
-    val TopBarActionGlyph = 21.dp
-    val TopBarChevronGlyph = 15.dp
-    val TopBarModelGap = 6.dp
-    val TopBarModelHorizontalPadding = 4.dp
-    val TopBarModelVerticalPadding = 6.dp
+    val TopBarHeight = 50.dp
+    val TopBarHorizontalPadding = 7.dp
+    val TopBarTitleSize = 18.sp
+    val TopBarModelSize = 13.sp
+    val TopBarMenuGlyph = 21.dp
+    val TopBarActionGlyph = 19.dp
+    val TopBarChevronGlyph = 12.dp
+    val TopBarModelGap = 4.dp
+    val TopBarModelHorizontalPadding = 3.dp
+    val TopBarModelVerticalPadding = 2.dp
+    val TopBarDividerThickness = 0.5.dp
+    const val TopBarDividerAlpha = 0.62f
 
     val TimelineHorizontalPadding = 32.dp
     val TimelineTopPadding = 25.dp
@@ -53,7 +55,13 @@ object CoastChatTokens {
     val DogtalkBodySize = 13.sp
     val DogtalkMenuWidthMin = 236.dp
     val DogtalkMenuWidthMax = 318.dp
-    val DogtalkSaveHeight = 36.dp
+    val DogtalkSaveTouchWidth = 88.dp
+    val DogtalkSaveTouchHeight = 44.dp
+    val DogtalkSaveVisualMinWidth = 68.dp
+    val DogtalkSaveVisualHeight = 30.dp
+    val DogtalkSaveRadius = 15.dp
+    val DogtalkSaveHorizontalPadding = 14.dp
+    val DogtalkSaveTextSize = 12.sp
 
     val ComposerHorizontalPadding = 12.dp
     val ComposerVerticalPadding = 7.dp

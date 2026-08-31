@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -35,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -207,19 +207,46 @@ fun DogtalkCard(
           style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize)
       )
 
-      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          Spacer(Modifier.weight(1f))
-          Button(
-              onClick = {
-                  DogtalkFixtureState.save(scope, draft)
-                  onSaved()
-              },
-              modifier = Modifier.height(CoastChatTokens.DogtalkSaveHeight)
-          ) {
-              Text("保存", fontSize = CoastChatTokens.DogtalkBodySize)
-          }
+      CompactDogtalkSaveButton {
+          DogtalkFixtureState.save(scope, draft)
+          onSaved()
       }
   }
+        }
+    }
+}
+
+@Composable
+private fun CompactDogtalkSaveButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .width(CoastChatTokens.DogtalkSaveTouchWidth)
+                .height(CoastChatTokens.DogtalkSaveTouchHeight)
+                .clickable(role = Role.Button, onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .widthIn(min = CoastChatTokens.DogtalkSaveVisualMinWidth)
+                    .height(CoastChatTokens.DogtalkSaveVisualHeight)
+                    .background(
+                        MaterialTheme.colorScheme.primary,
+                        RoundedCornerShape(CoastChatTokens.DogtalkSaveRadius)
+                    )
+                    .padding(horizontal = CoastChatTokens.DogtalkSaveHorizontalPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "保存",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = CoastChatTokens.DogtalkSaveTextSize,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
