@@ -6,15 +6,14 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -27,42 +26,42 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Guard against committed binaries and signing material
+      - name: Guard local-only Native boundary
         shell: bash
         run: |
           set -euo pipefail
+
           bad=$(find . -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.keystore' -o -name '*.jks' \) -not -path './.git/*' -print)
           if [ -n "$bad" ]; then
-            echo "Forbidden binary/signing files found:"
+            echo 'Committed binary/signing material found:'
             echo "$bad"
             exit 1
           fi
 
-      - name: Guard against provider endpoint residue and premature network wiring
-        shell: bash
-        run: |
-          set -euo pipefail
           if grep -RIE 'api\.openai\.com|openrouter\.ai|api\.deepseek\.com|api\.groq\.com|api\.mistral\.ai|10\.0\.2\.2:11434' app/src app/build.gradle.kts; then
-            echo 'Generic provider endpoint residue found.'
-            exit 1
-          fi
-          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
-            echo 'INTERNET permission was added during a local-only Native pass.'
-            exit 1
-          fi
-          if grep -RIE '/api/dogtalk|DataStore|RoomDatabase' \
-            app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk \
-            app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt; then
-            echo 'Dogtalk gained backend or persistence wiring during a fixture-only pass.'
+            echo 'Provider endpoint residue found.'
             exit 1
           fi
 
-      - name: Verify Dogtalk four-field local contract
+          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
+            echo 'INTERNET permission is not allowed in the local-only Native shell.'
+            exit 1
+          fi
+
+          if grep -RIE '/api/dogtalk|DataStore|RoomDatabase' \
+            app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk \
+            app/src/main/kotlin/com/elementeracoast/app/feature/chat; then
+            echo 'Dogtalk gained backend or persistence wiring.'
+            exit 1
+          fi
+
+      - name: Verify stable Native v1 contracts
         shell: bash
         run: |
           set -euo pipefail
           dogtalk=app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk
           chat=app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
+          shell=app/src/main/kotlin/com/elementeracoast/app/feature/shell
 
           test -f "$dogtalk/DogtalkCard.kt"
           test -f "$dogtalk/DogtalkUiState.kt"
@@ -70,37 +69,25 @@ jobs:
           test -f "$dogtalk/DogtalkScope.kt"
 
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$dogtalk/DogtalkUiState.kt"
-          grep -q 'DogtalkCard(' "$chat"
-          grep -q 'scope = DogtalkScope.from(state.activeScope)' "$chat"
-          test "$(grep -o 'DogtalkCard(' "$chat" | wc -l)" -eq 1
-          test "$(grep -o '"保存"' "$dogtalk/DogtalkCard.kt" | wc -l)" -eq 1
-
+          grep -q 'KeepPrivate(' "$dogtalk/DogtalkReadMode.kt"
+          grep -q 'WhenConfused(' "$dogtalk/DogtalkReadMode.kt"
+          grep -q 'ReadNow(' "$dogtalk/DogtalkReadMode.kt"
           grep -q '不需要，放着就好' "$dogtalk/DogtalkReadMode.kt"
           grep -q 'Myri 困惑时可以看一点' "$dogtalk/DogtalkReadMode.kt"
-          grep -q '当前窗口可以看一点' "$dogtalk/DogtalkReadMode.kt"
           grep -q '这次希望 Myri 直接读一下' "$dogtalk/DogtalkReadMode.kt"
-          grep -q '本条不会发送给模型，只留在狗话小抽屉里。' "$dogtalk/DogtalkCard.kt"
+
+          if grep -RIE 'CurrentRoom|当前窗口可以看一点|self_note|myri_hint|not_to_misunderstand' "$dogtalk"; then
+            echo 'Legacy Dogtalk contract residue found.'
+            exit 1
+          fi
+
+          test "$(grep -o 'DogtalkCard(' "$chat" | wc -l)" -eq 1
+          grep -q 'scope = DogtalkScope.from(state.activeScope)' "$chat"
           grep -q '已暂存在本地；后端稍后接入' "$chat"
+          grep -q 'fun ChatWindow(' "$chat"
 
-          if grep -RIE '给小寒自己的整理|给 Myri 的低权重提示|不要误会成|保存草稿|把这句狗话轻轻展开|让 Myri 读一下|隐藏 / 归档|清空本条草稿|self_note|myri_hint|not_to_misunderstand' app/src; then
-            echo 'Legacy Native Dogtalk fields or fixture copy still exist.'
-            exit 1
-          fi
-
-          if grep -q 'DogtalkRow' "$chat"; then
-            echo 'Legacy DogtalkRow remains embedded in ChatWindow.'
-            exit 1
-          fi
-
-          if ! git diff --quiet HEAD^ -- \
-            app/src/main/kotlin/com/elementeracoast/app/feature/gate \
-            app/src/main/kotlin/com/elementeracoast/app/ui/brand/CoastBrandMarkAnimation.kt; then
-            echo 'Gate changed during Dogtalk-only sync.'
-            exit 1
-          fi
-
-          if ! git diff --quiet HEAD^ -- app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt; then
-            echo 'MainShell changed during Dogtalk-only sync.'
+          if grep -RIE 'fun (RoomWindow|RadioScreen|LighthouseScreen)\(' "$shell" app/src/main/kotlin/com/elementeracoast/app/feature/chat; then
+            echo 'Main / Radio / Lighthouse must keep sharing ChatWindow.'
             exit 1
           fi
 
@@ -110,21 +97,22 @@ jobs:
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Stage debug APK and print checksum
+      - name: Stage debug APK and checksum
         shell: bash
         run: |
           set -euo pipefail
           apk=$(find app/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
           test -n "$apk"
           mkdir -p artifact
-          cp "$apk" artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
-          ls -lh artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
-          sha256sum artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
+          cp "$apk" artifact/CoastGPT-native-debug.apk
+          sha256sum artifact/CoastGPT-native-debug.apk | tee artifact/SHA256SUMS.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-v1-dogtalk-sync-debug
-          path: artifact/CoastGPT-native-v1-dogtalk-sync-debug.apk
+          name: CoastGPT-native-debug
+          path: |
+            artifact/CoastGPT-native-debug.apk
+            artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
