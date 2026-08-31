@@ -10,33 +10,27 @@ class DogtalkContractTest {
     @Test
     fun dogtalkUiStateHasExactlyFourContractFields() {
         val instanceFields = DogtalkUiState::class.java.declaredFields
-            .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
-            .map { it.name }
-            .toSet()
+  .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
+  .map { it.name }
+  .toSet()
 
         assertEquals(setOf("body", "trueCore", "weather", "readMode"), instanceFields)
         assertEquals(listOf("body", "true_core", "weather", "read_mode"), DogtalkContractFields)
     }
 
     @Test
-    fun readModeContractMatchesPwaCopy() {
+    fun readModeContractMatchesThreeModePwaCopy() {
         assertEquals(
-            listOf(
-                "不需要，放着就好",
-                "Myri 困惑时可以看一点",
-                "当前窗口可以看一点",
-                "这次希望 Myri 直接读一下"
-            ),
-            DogtalkReadMode.entries.map { it.label }
+  listOf(
+      "不需要，放着就好",
+      "Myri 困惑时可以看一点",
+      "这次希望 Myri 直接读一下"
+  ),
+  DogtalkReadMode.entries.map { it.label }
         )
         assertEquals(
-            listOf(
-                DogtalkReadMode.KeepPrivate,
-                DogtalkReadMode.WhenConfused,
-                DogtalkReadMode.CurrentRoom,
-                DogtalkReadMode.ReadNow
-            ),
-            DogtalkReadMode.entries
+  listOf(DogtalkReadMode.KeepPrivate, DogtalkReadMode.WhenConfused, DogtalkReadMode.ReadNow),
+  DogtalkReadMode.entries
         )
     }
 
@@ -49,7 +43,8 @@ class DogtalkContractTest {
     }
 
     @Test
-    fun keepPrivateSemanticsNeverSendToModel() {
+    fun privateAndDormantSemanticsStayOutOfCurrentModelSubmission() {
         assertTrue(DogtalkReadMode.KeepPrivate.futureSemantics.contains("不给模型看"))
+        assertTrue(DogtalkReadMode.WhenConfused.futureSemantics.contains("不会提交给模型"))
     }
 }

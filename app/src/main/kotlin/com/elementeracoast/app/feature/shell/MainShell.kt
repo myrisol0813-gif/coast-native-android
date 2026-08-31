@@ -59,12 +59,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.elementeracoast.app.core.model.ChatScope
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.ConversationSummary
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
+import com.elementeracoast.app.ui.theme.CoastChatTokens
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.launch
@@ -174,8 +176,8 @@ private fun CoastTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .padding(horizontal = 18.dp),
+                .height(CoastChatTokens.TopBarHeight)
+                .padding(horizontal = CoastChatTokens.TopBarHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (state.activeFeature != null) {
@@ -197,22 +199,29 @@ private fun CoastTopBar(
                 }
             } else {
                 IconButton(onClick = onOpenDrawer) {
-                    Icon(Icons.Default.Menu, contentDescription = "打开侧边栏", modifier = Modifier.size(30.dp))
+                    Icon(Icons.Default.Menu, contentDescription = "打开侧边栏", modifier = Modifier.size(CoastChatTokens.TopBarMenuGlyph))
                 }
                 Row(
                     modifier = Modifier
                         .weight(1f)
                         .clickable(onClick = onOpenModels)
-                        .padding(horizontal = 6.dp, vertical = 8.dp),
+                        .padding(
+                            horizontal = CoastChatTokens.TopBarModelHorizontalPadding,
+                            vertical = CoastChatTokens.TopBarModelVerticalPadding
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("ChatGPT", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.width(7.dp))
+                    Text(
+                        "ChatGPT",
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = CoastChatTokens.TopBarTitleSize),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
                     Text(
                         state.currentModel,
                         modifier = Modifier.weight(1f, fill = false),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = CoastChatTokens.TopBarModelSize),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -220,14 +229,14 @@ private fun CoastTopBar(
                         Icons.Default.ExpandMore,
                         contentDescription = "选择模型",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(CoastChatTokens.TopBarChevronGlyph)
                     )
                 }
                 IconButton(onClick = onNewConversation) {
-                    Icon(Icons.Default.Edit, contentDescription = "新建窗口", modifier = Modifier.size(27.dp))
+                    Icon(Icons.Default.Edit, contentDescription = "新建窗口", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
                 }
                 IconButton(onClick = onMore) {
-                    Icon(Icons.Default.MoreHoriz, contentDescription = "更多", modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.MoreHoriz, contentDescription = "更多", modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph))
                 }
             }
         }
@@ -248,40 +257,54 @@ private fun CoastDrawer(
     var query by remember { mutableStateOf("") }
 
     ModalDrawerSheet(
-        modifier = Modifier.width(342.dp),
+        modifier = Modifier.width(CoastChatTokens.DrawerWidth),
         drawerContainerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 12.dp),
+                    .padding(
+                        start = CoastChatTokens.DrawerOuterHorizontalPadding,
+                        end = CoastChatTokens.DrawerOuterHorizontalPadding,
+                        top = CoastChatTokens.DrawerHeaderTopPadding,
+                        bottom = CoastChatTokens.DrawerHeaderBottomPadding
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, contentDescription = "关闭侧边栏", modifier = Modifier.size(29.dp))
+                    Icon(Icons.Default.Close, contentDescription = "关闭侧边栏", modifier = Modifier.size(CoastChatTokens.DrawerCloseGlyph))
                 }
                 Spacer(Modifier.width(5.dp))
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(17.dp))
-                        .padding(horizontal = 13.dp, vertical = 11.dp),
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            RoundedCornerShape(CoastChatTokens.DrawerSearchRadius)
+                        )
+                        .padding(
+                            horizontal = CoastChatTokens.DrawerSearchHorizontalPadding,
+                            vertical = CoastChatTokens.DrawerSearchVerticalPadding
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Default.Search,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(CoastChatTokens.DrawerSearchGlyph)
                     )
-                    Spacer(Modifier.width(9.dp))
+                    Spacer(Modifier.width(CoastChatTokens.DrawerSearchGap))
                     BasicTextField(
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = CoastChatTokens.DrawerTextSize
+                        ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         decorationBox = { inner ->
                             if (query.isEmpty()) Text("搜索聊天", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -295,8 +318,11 @@ private fun CoastDrawer(
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                contentPadding = PaddingValues(
+                    horizontal = CoastChatTokens.DrawerOuterHorizontalPadding,
+                    vertical = CoastChatTokens.DrawerContentVerticalPadding
+                ),
+                verticalArrangement = Arrangement.spacedBy(CoastChatTokens.DrawerItemGap)
             ) {
                 item { CoastStatusStrip() }
                 item { DrawerSectionTitle("主房间") }
@@ -349,7 +375,12 @@ private fun CoastDrawer(
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)) {
+            Column(
+                modifier = Modifier.padding(
+                    horizontal = CoastChatTokens.DrawerOuterHorizontalPadding,
+                    vertical = CoastChatTokens.DrawerBottomVerticalPadding
+                )
+            ) {
                 DrawerEntry(Icons.Default.Palette, "主题", false, subtitle = state.theme.label, onClick = onCycleTheme)
                 DrawerEntry(Icons.Default.Pets, "Wolf Den", state.activeFeature == FeatureDestination.Wolf, subtitle = "小狼窝入口") {
                     onOpenFeature(FeatureDestination.Wolf)
@@ -408,8 +439,8 @@ private fun CoastStatusStrip() {
         return ChronoUnit.DAYS.between(today, target)
     }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth().padding(bottom = CoastChatTokens.DrawerStatusBottomPadding),
+        horizontalArrangement = Arrangement.spacedBy(CoastChatTokens.DrawerStatusGap)
     ) {
         StatusCard("同轨第", orbit.toString(), "日", Modifier.weight(1f))
         StatusCard("距 8.12", daysUntil(8, 12).toString(), "天", Modifier.weight(1f))
@@ -421,14 +452,17 @@ private fun CoastStatusStrip() {
 private fun StatusCard(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .heightIn(min = 72.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(15.dp))
-            .padding(vertical = 10.dp),
+            .heightIn(min = CoastChatTokens.DrawerStatusHeight)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(CoastChatTokens.DrawerStatusRadius)
+            )
+            .padding(vertical = CoastChatTokens.DrawerStatusVerticalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(unit, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
     }
 }
@@ -437,7 +471,11 @@ private fun StatusCard(label: String, value: String, unit: String, modifier: Mod
 private fun DrawerSectionTitle(title: String) {
     Text(
         title,
-        modifier = Modifier.padding(start = 12.dp, top = 13.dp, bottom = 7.dp),
+        modifier = Modifier.padding(
+            start = CoastChatTokens.DrawerEntryHorizontalPadding,
+            top = CoastChatTokens.DrawerSectionTopPadding,
+            bottom = CoastChatTokens.DrawerSectionBottomPadding
+        ),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold
@@ -457,17 +495,37 @@ private fun DrawerEntry(
             .fillMaxWidth()
             .background(
                 if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
-                RoundedCornerShape(13.dp)
+                RoundedCornerShape(CoastChatTokens.DrawerEntryRadius)
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = if (subtitle == null) 11.dp else 9.dp),
+            .padding(
+                horizontal = CoastChatTokens.DrawerEntryHorizontalPadding,
+                vertical = if (subtitle == null) {
+                    CoastChatTokens.DrawerEntryVerticalPadding
+                } else {
+                    CoastChatTokens.DrawerEntrySubtitleVerticalPadding
+                }
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(12.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(CoastChatTokens.DrawerEntryGlyph)
+        )
+        Spacer(Modifier.width(CoastChatTokens.DrawerEntryGap))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-            if (subtitle != null) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = CoastChatTokens.DrawerTextSize),
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+            if (subtitle != null) Text(
+                subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DrawerSecondaryTextSize)
+            )
         }
     }
 }
@@ -484,7 +542,7 @@ private fun ConversationRow(
             .fillMaxWidth()
             .background(
                 if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
-                RoundedCornerShape(13.dp)
+                RoundedCornerShape(CoastChatTokens.DrawerEntryRadius)
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -493,14 +551,23 @@ private fun ConversationRow(
             modifier = Modifier
                 .weight(1f)
                 .clickable(onClick = onClick)
-                .padding(start = 12.dp, top = 11.dp, bottom = 11.dp),
-            style = MaterialTheme.typography.bodyLarge,
+                .padding(
+                    start = CoastChatTokens.DrawerEntryHorizontalPadding,
+                    top = CoastChatTokens.ConversationVerticalPadding,
+                    bottom = CoastChatTokens.ConversationVerticalPadding
+                ),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = CoastChatTokens.DrawerTextSize),
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         IconButton(onClick = onMore) {
-            Icon(Icons.Default.MoreHoriz, contentDescription = "窗口操作", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Default.MoreHoriz,
+                contentDescription = "窗口操作",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(CoastChatTokens.ConversationMoreGlyph)
+            )
         }
     }
 }

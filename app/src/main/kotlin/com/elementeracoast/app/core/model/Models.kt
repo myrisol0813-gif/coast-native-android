@@ -50,9 +50,9 @@ data class CoastShellState(
     val conversations: List<ConversationSummary> = initialConversations(),
     val activeConversationId: String = "main-o3",
     val messages: List<ChatMessage> = initialMessages(),
-    val currentModel: String = "Free: North Mini …",
+    val currentModel: String = "Free: North Mini",
     val models: List<String> = listOf(
-        "Free: North Mini …",
+        "Free: North Mini",
         "GPT-5.6 Sol",
         "GPT-5.5 Thinking",
         "o3"
