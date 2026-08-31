@@ -537,9 +537,10 @@ private fun DrawerUtilityEntry(
                 vertical = CoastChatTokens.DrawerEntrySubtitleVerticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(CoastChatTokens.DrawerUtilityIconBox)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(CoastChatTokens.DrawerEntryRadius)),
-            contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.size(CoastChatTokens.DrawerUtilityIconBox),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(painter = painterResource(iconRes), contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(CoastChatTokens.DrawerUtilityIcon))
         }
