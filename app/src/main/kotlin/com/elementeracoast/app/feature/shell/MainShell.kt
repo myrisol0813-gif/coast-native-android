@@ -541,7 +541,7 @@ private fun DrawerUtilityEntry(
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(CoastChatTokens.DrawerEntryRadius)),
             contentAlignment = Alignment.Center) {
             Icon(painter = painterResource(iconRes), contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(CoastChatTokens.DrawerUtilityIcon))
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(CoastChatTokens.DrawerUtilityIcon))
         }
         Spacer(Modifier.width(CoastChatTokens.DrawerUtilityGap))
         Column(modifier = Modifier.weight(1f)) {
