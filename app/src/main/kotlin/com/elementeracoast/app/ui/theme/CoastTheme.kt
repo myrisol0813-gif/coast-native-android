@@ -1,6 +1,7 @@
 package com.elementeracoast.app.ui.theme
 
 import android.app.Activity
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -17,54 +18,33 @@ import androidx.core.view.WindowCompat
 import com.elementeracoast.app.core.model.CoastThemeMode
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFFFF6B28),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFEFE6),
-    onPrimaryContainer = Color(0xFF3A1A0C),
-    background = Color(0xFFFFFFFF),
-    onBackground = Color(0xFF24252B),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF24252B),
-    surfaceVariant = Color(0xFFF6F6F6),
-    onSurfaceVariant = Color(0xFF8C8C91),
-    outline = Color(0xFFDCDCE0),
-    outlineVariant = Color(0xFFE9E9EC),
-    error = Color(0xFFB3261E),
-    onError = Color.White
+    primary = Color(0xFFFF6B28), onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFEFE6), onPrimaryContainer = Color(0xFF3A1A0C),
+    background = Color.White, onBackground = Color(0xFF24252B),
+    surface = Color.White, onSurface = Color(0xFF24252B),
+    surfaceVariant = Color(0xFFF6F6F6), onSurfaceVariant = Color(0xFF8C8C91),
+    outline = Color(0xFFDCDCE0), outlineVariant = Color(0xFFE9E9EC),
+    error = Color(0xFFB3261E), onError = Color.White
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFF1F1F2),
-    onPrimary = Color(0xFF16171A),
-    primaryContainer = Color(0xFF2B2C31),
-    onPrimaryContainer = Color(0xFFF5F5F6),
-    background = Color(0xFF111216),
-    onBackground = Color(0xFFF2F2F3),
-    surface = Color(0xFF17181D),
-    onSurface = Color(0xFFF2F2F3),
-    surfaceVariant = Color(0xFF23242A),
-    onSurfaceVariant = Color(0xFFB5B5BA),
-    outline = Color(0xFF47484F),
-    outlineVariant = Color(0xFF303137),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005)
+    primary = Color(0xFFF1F1F2), onPrimary = Color(0xFF16171A),
+    primaryContainer = Color(0xFF2B2C31), onPrimaryContainer = Color(0xFFF5F5F6),
+    background = Color(0xFF111216), onBackground = Color(0xFFF2F2F3),
+    surface = Color(0xFF17181D), onSurface = Color(0xFFF2F2F3),
+    surfaceVariant = Color(0xFF23242A), onSurfaceVariant = Color(0xFFB5B5BA),
+    outline = Color(0xFF47484F), outlineVariant = Color(0xFF303137),
+    error = Color(0xFFFFB4AB), onError = Color(0xFF690005)
 )
 
 private val GoldColors = darkColorScheme(
-    primary = Color(0xFFD8B66A),
-    onPrimary = Color(0xFF241B09),
-    primaryContainer = Color(0xFF332916),
-    onPrimaryContainer = Color(0xFFFFE9B1),
-    background = Color(0xFF0B0B0C),
-    onBackground = Color(0xFFF4EFE3),
-    surface = Color(0xFF121213),
-    onSurface = Color(0xFFF4EFE3),
-    surfaceVariant = Color(0xFF1D1A14),
-    onSurfaceVariant = Color(0xFFC7BDAA),
-    outline = Color(0xFF66583A),
-    outlineVariant = Color(0xFF302A1D),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005)
+    primary = Color(0xFFD8B66A), onPrimary = Color(0xFF241B09),
+    primaryContainer = Color(0xFF332916), onPrimaryContainer = Color(0xFFFFE9B1),
+    background = Color(0xFF0B0B0C), onBackground = Color(0xFFF4EFE3),
+    surface = Color(0xFF121213), onSurface = Color(0xFFF4EFE3),
+    surfaceVariant = Color(0xFF1D1A14), onSurfaceVariant = Color(0xFFC7BDAA),
+    outline = Color(0xFF66583A), outlineVariant = Color(0xFF302A1D),
+    error = Color(0xFFFFB4AB), onError = Color(0xFF690005)
 )
 
 private val CoastTypography = Typography(
@@ -78,16 +58,28 @@ private val CoastTypography = Typography(
     labelSmall = TextStyle(fontSize = 11.sp)
 )
 
+private fun ColorScheme.withAccent(accent: String): ColorScheme {
+    val primary = when (accent) {
+        "gold" -> Color(0xFFD8B66A)
+        "blue" -> Color(0xFF3B82F6)
+        "pink" -> Color(0xFFEC4899)
+        else -> Color(0xFFFF6A21)
+    }
+    return copy(primary = primary)
+}
+
 @Composable
 fun CoastTheme(
     mode: CoastThemeMode,
+    accent: String = "orange",
     content: @Composable () -> Unit
 ) {
-    val colors = when (mode) {
+    val base = when (mode) {
         CoastThemeMode.Light -> LightColors
         CoastThemeMode.Dark -> DarkColors
         CoastThemeMode.Gold -> GoldColors
     }
+    val colors = base.withAccent(accent)
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -101,10 +93,5 @@ fun CoastTheme(
             }
         }
     }
-
-    MaterialTheme(
-        colorScheme = colors,
-        typography = CoastTypography,
-        content = content
-    )
+    MaterialTheme(colorScheme = colors, typography = CoastTypography, content = content)
 }
