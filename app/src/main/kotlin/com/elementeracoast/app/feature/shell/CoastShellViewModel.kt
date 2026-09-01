@@ -98,22 +98,20 @@ class CoastShellViewModel : ViewModel() {
             return
         }
 
-        var replacement = remaining.firstOrNull { it.roomType == target.roomType }
+        val resolvedReplacement = remaining.firstOrNull { it.roomType == target.roomType }
             ?: remaining.firstOrNull { it.roomType == RoomType.Main }
-
-        if (replacement == null) {
-            replacement = newConversationRecord(RoomType.Main, "新聊天 1")
-            remaining.add(0, replacement)
-            threads[replacement.id] = greetingFor(RoomType.Main)
-        }
+            ?: newConversationRecord(RoomType.Main, "新聊天 1").also { fallback ->
+                remaining.add(0, fallback)
+                threads[fallback.id] = greetingFor(RoomType.Main)
+            }
 
         _state.update {
             it.copy(
                 conversations = remaining,
-                activeRoomType = replacement.roomType,
+                activeRoomType = resolvedReplacement.roomType,
                 activeFeature = null,
-                activeConversationId = replacement.id,
-                messages = threads[replacement.id].orEmpty(),
+                activeConversationId = resolvedReplacement.id,
+                messages = threads[resolvedReplacement.id].orEmpty(),
                 showModelPicker = false,
                 isStreaming = false
             )
