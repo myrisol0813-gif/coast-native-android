@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
+import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
@@ -35,6 +36,7 @@ fun MainShell(
     onBackToChat: () -> Unit,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
+    onMessageAction: (MessageAction) -> Unit,
     onOpenModels: () -> Unit,
     onDismissModels: () -> Unit,
     onSelectModel: (String) -> Unit,
@@ -98,6 +100,7 @@ fun MainShell(
                         state = state,
                         onSend = onSend,
                         onStop = onStop,
+                        onMessageAction = onMessageAction,
                         onPlaceholder = onPlaceholder
                     )
                 } else {
