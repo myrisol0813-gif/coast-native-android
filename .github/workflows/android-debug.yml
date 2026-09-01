@@ -1,4 +1,4 @@
-name: Android debug native v1
+name: Android debug native app59 local parity 26
 
 on:
   push:
@@ -29,49 +29,57 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verify Native app-57 UI structure
+      - name: Verify Native app-59 local parity structure
         shell: bash
         run: |
           set -euo pipefail
           root=app/src/main/kotlin/com/elementeracoast/app
-          chat="$root/feature/chat"
 
-          test -f "$root/core/model/RoomType.kt"
-          test -f "$root/core/contract/CoastContracts.kt"
-          test -f "$root/feature/gate/GateScreen.kt"
-          test -f "$root/ui/brand/CoastBrandMark.kt"
-          test -f "$root/feature/shell/MainShell.kt"
-          test -f "$chat/ChatScreen.kt"
-          test -f "$chat/ChatTimeline.kt"
-          test -f "$chat/MessageItem.kt"
-          test -f "$chat/AssistantMessage.kt"
-          test -f "$chat/UserMessage.kt"
-          test -f "$chat/MessageActions.kt"
-          test -f "$chat/VariantControl.kt"
-          test -f "$chat/GenerationFootprint.kt"
-          test -f "$chat/AvatarPickerDialog.kt"
-          test -f "$root/feature/daily/DailyLanding.kt"
-          test -f "$root/feature/memory/MemoryLanding.kt"
-          test ! -f "$root/core/model/Models.kt"
+          for file in \
+            "$root/core/model/LocalAppModels.kt" \
+            "$root/core/local/LocalPreferencesStore.kt" \
+            "$root/core/local/LocalChatStore.kt" \
+            "$root/core/local/LocalDailyStore.kt" \
+            "$root/core/local/LocalMemoryStore.kt" \
+            "$root/core/local/LocalActionLogStore.kt" \
+            "$root/feature/chat/FurnitureBubble.kt" \
+            "$root/feature/chat/ThoughtSoilCard.kt" \
+            "$root/feature/wolf/WolfScreen.kt" \
+            "$root/feature/actionlog/ActionLogScreen.kt" \
+            "$root/feature/daily/DailyScreen.kt" \
+            "$root/feature/memory/MemoryScreen.kt"; do
+            test -f "$file"
+          done
 
-          grep -q 'fun ChatWindow(' "$chat/ChatScreen.kt"
-          grep -q 'ChatTimeline(' "$chat/ChatScreen.kt"
-          grep -q 'DogtalkScope.from(state.activeRoomType)' "$chat/ChatScreen.kt"
-          grep -q 'ToggleLike' "$chat/AssistantMessage.kt"
-          grep -q 'ToggleFavorite' "$chat/AssistantMessage.kt"
-          grep -q 'Regenerate' "$chat/AssistantMessage.kt"
-          grep -q 'MessageAction.Delete' "$chat/UserMessage.kt"
-          grep -q 'ActivityResultContracts.PickVisualMedia' "$chat/ChatScreen.kt"
+          test ! -f "$root/feature/daily/DailyLanding.kt"
+          test ! -f "$root/feature/memory/MemoryLanding.kt"
+
+          grep -q 'fun ChatWindow(' "$root/feature/chat/ChatScreen.kt"
+          grep -q 'FurnitureBubble(' "$root/feature/chat/AssistantMessage.kt"
+          grep -q '思维壤 ·' "$root/feature/chat/ThoughtSoilCard.kt"
+          grep -q 'Wolf Den / 小狼窝' "$root/feature/wolf/WolfScreen.kt"
+          grep -q 'Serpent Action Log / 小蛇行动日志' "$root/feature/actionlog/ActionLogScreen.kt"
+          grep -q 'FeatureDestination.ActionLog' "$root/feature/shell/CoastDrawer.kt"
+          grep -q 'FeatureDestination.Appearance' "$root/feature/shell/CoastDrawer.kt"
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
 
-          if grep -RIE 'FeatureDestination\.Calendar|今日一瞥|海岸日历|一日总结|相册' \
-            "$root/core/model" "$root/feature/shell" "$root/feature/daily"; then
-            echo 'Retired Calendar/Summary/Album surface returned.'
+          if grep -RIE 'FeatureDestination\.Desk|Serpent Desk|小蛇书桌|Myri 画像|Myri 气泡|桌面便签|本轮桌面' "$root"; then
+            echo 'Retired serpent desk surface returned.'
+            exit 1
+          fi
+
+          if grep -RIE 'FeatureDestination\.Calendar|今日一瞥|Today Coast|海岸日历|一日总结|Summary|相册|Album' "$root/core/model" "$root/feature"; then
+            echo 'Retired Calendar/Today Coast/Summary/Album surface returned.'
             exit 1
           fi
 
           if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
-            echo 'UI parity pass must stay local-only: INTERNET permission found.'
+            echo 'Native 26 must stay local-only: INTERNET permission found.'
+            exit 1
+          fi
+
+          if grep -RIE 'WebView|react native|ReactNative' "$root"; then
+            echo 'WebView or React Native material found.'
             exit 1
           fi
 
@@ -79,6 +87,14 @@ jobs:
             echo 'TypeScript/React-style material found in Native source.'
             exit 1
           fi
+
+          if find "$root" -type d \( -iname 'misc' -o -iname 'legacy' -o -iname 'compat' -o -iname 'temp' \) | grep -q .; then
+            echo 'Forbidden vague/bridge directory found.'
+            exit 1
+          fi
+
+          grep -q 'versionName = "0.1.8-app59-local-parity-26"' app/build.gradle.kts
+          grep -q 'versionCode = 10' app/build.gradle.kts
 
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
@@ -91,15 +107,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-ui-parity-25-debug.apk
-          sha256sum artifact/CoastGPT-native-ui-parity-25-debug.apk > artifact/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app59-local-parity-26-debug.apk
+          sha256sum artifact/CoastGPT-native-app59-local-parity-26-debug.apk > artifact/SHA256SUMS.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-ui-parity-25-debug
+          name: CoastGPT-native-app59-local-parity-26-debug
           path: |
-            artifact/CoastGPT-native-ui-parity-25-debug.apk
+            artifact/CoastGPT-native-app59-local-parity-26-debug.apk
             artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
