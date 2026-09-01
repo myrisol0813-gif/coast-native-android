@@ -2,6 +2,7 @@ package com.elementeracoast.app.feature
 
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.RunControlSettings
+import java.lang.reflect.Modifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,7 +32,7 @@ class FeatureParityTest {
     @Test
     fun runControlHasOnlyElevenApp59ActiveFields() {
         val fields = RunControlSettings::class.java.declaredFields
-            .filterNot { it.isSynthetic }
+            .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
             .map { it.name }
             .toSet()
         assertEquals(
