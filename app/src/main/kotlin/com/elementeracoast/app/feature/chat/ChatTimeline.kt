@@ -28,12 +28,14 @@ import com.elementeracoast.app.ui.theme.CoastChatTokens
 internal fun ChatTimeline(
     conversationId: String,
     messages: List<ChatMessage>,
+    userBubble: String,
     isStreaming: Boolean,
     avatarBitmap: ImageBitmap?,
     onAvatarClick: () -> Unit,
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
     onAction: (MessageAction) -> Unit,
+    onOpenActionLog: (List<String>, String) -> Unit,
     onVariantPlaceholder: (ChatMessage) -> Unit,
     onFootprint: (ChatMessage) -> Unit,
     modifier: Modifier = Modifier
@@ -45,23 +47,13 @@ internal fun ChatTimeline(
         if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
     }
 
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
-    ) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         if (messages.isEmpty()) {
             Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 40.dp),
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    "潮水退到纸页外。",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text("潮水退到纸页外。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
                     "写点什么，新的窗口会从这里长出来。",
                     modifier = Modifier.padding(top = 7.dp),
@@ -74,9 +66,7 @@ internal fun ChatTimeline(
 
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = CoastChatTokens.TimelineMaxWidth),
+            modifier = Modifier.fillMaxWidth().widthIn(max = CoastChatTokens.TimelineMaxWidth),
             contentPadding = PaddingValues(
                 start = CoastChatTokens.TimelineHorizontalPadding,
                 end = CoastChatTokens.TimelineHorizontalPadding,
@@ -88,12 +78,15 @@ internal fun ChatTimeline(
             items(messages, key = { it.id }) { message ->
                 MessageItem(
                     message = message,
+                    conversationId = conversationId,
+                    userBubble = userBubble,
                     isStreamingTail = isStreaming && message.id == messages.lastOrNull()?.id,
                     avatarBitmap = avatarBitmap,
                     onAvatarClick = onAvatarClick,
                     onCopy = onCopy,
                     onEdit = onEdit,
                     onAction = onAction,
+                    onOpenActionLog = onOpenActionLog,
                     onVariantPlaceholder = onVariantPlaceholder,
                     onFootprint = onFootprint
                 )
