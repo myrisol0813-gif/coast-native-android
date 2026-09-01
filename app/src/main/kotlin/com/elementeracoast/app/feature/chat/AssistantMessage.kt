@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -36,21 +35,25 @@ import com.elementeracoast.app.ui.theme.CoastChatTokens
 @Composable
 internal fun AssistantMessage(
     message: ChatMessage,
+    conversationId: String,
     isStreamingTail: Boolean,
     avatarBitmap: ImageBitmap?,
     onAvatarClick: () -> Unit,
     onCopy: () -> Unit,
     onAction: (MessageAction) -> Unit,
+    onOpenActionLog: (List<String>, String) -> Unit,
     onVariantPlaceholder: () -> Unit,
     onFootprint: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        AssistantAvatar(
-            bitmap = avatarBitmap,
-            onClick = onAvatarClick
-        )
+        AssistantAvatar(bitmap = avatarBitmap, onClick = onAvatarClick)
         Spacer(Modifier.width(CoastChatTokens.AssistantAvatarGap))
         Column(modifier = Modifier.weight(1f)) {
+            FurnitureBubble(
+                runs = message.furnitureRuns,
+                conversationId = conversationId,
+                onOpenActionLog = onOpenActionLog
+            )
             Text(
                 text = when {
                     message.text.isEmpty() && isStreamingTail -> "•••"
@@ -66,49 +69,37 @@ internal fun AssistantMessage(
             )
             message.errorDetail?.takeIf { it.isNotBlank() }?.let { detail ->
                 Spacer(Modifier.height(5.dp))
-                Text(
-                    text = detail,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow {
+                MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
                 MessageActionButton(
-                    icon = Icons.Default.ContentCopy,
-                    label = "复制",
-                    onClick = onCopy
-                )
-                MessageActionButton(
-                    icon = Icons.Default.ThumbUp,
-                    label = "点赞",
+                    Icons.Default.ThumbUp,
+                    "点赞",
                     active = message.liked,
                     onClick = { onAction(MessageAction.ToggleLike(message.id)) }
                 )
                 MessageActionButton(
-                    icon = Icons.Default.Refresh,
-                    label = "重新生成",
+                    Icons.Default.Refresh,
+                    "重新生成",
                     enabled = !isStreamingTail,
                     onClick = { onAction(MessageAction.Regenerate(message.id)) }
                 )
                 MessageActionButton(
-                    icon = Icons.Default.FavoriteBorder,
-                    label = "收藏",
+                    Icons.Default.FavoriteBorder,
+                    "收藏",
                     active = message.favorite,
                     onClick = { onAction(MessageAction.ToggleFavorite(message.id)) }
                 )
                 MessageActionButton(
-                    icon = Icons.Default.DeleteOutline,
-                    label = "删除",
+                    Icons.Default.DeleteOutline,
+                    "删除",
                     enabled = !isStreamingTail,
                     onClick = { onAction(MessageAction.Delete(message.id)) }
                 )
                 Spacer(Modifier.width(3.dp))
-                VariantControl(
-                    index = message.variantIndex,
-                    count = message.variantCount,
-                    onPlaceholder = onVariantPlaceholder
-                )
+                VariantControl(message.variantIndex, message.variantCount, onVariantPlaceholder)
             }
             GenerationFootprint(
                 message = message,
@@ -136,10 +127,7 @@ private fun AssistantAvatar(bitmap: ImageBitmap?, onClick: () -> Unit) {
             modifier = modifier
         )
     } else {
-        androidx.compose.foundation.layout.Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
+        androidx.compose.foundation.layout.Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Text(
                 text = "M",
                 color = MaterialTheme.colorScheme.primary,
