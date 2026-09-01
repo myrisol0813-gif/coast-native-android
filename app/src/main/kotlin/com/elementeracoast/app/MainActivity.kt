@@ -19,11 +19,15 @@ class MainActivity : ComponentActivity() {
             val state by vm.state.collectAsState()
             CoastTheme(mode = state.theme) {
                 if (!state.authenticated) {
-                    GateScreen(password = state.password, onPasswordChange = vm::setPassword, onEnter = vm::enterLocalShell)
+                    GateScreen(
+                        password = state.password,
+                        onPasswordChange = vm::setPassword,
+                        onEnter = vm::enterLocalShell
+                    )
                 } else {
                     MainShell(
                         state = state,
-                        onOpenScope = vm::openScope,
+                        onOpenRoomType = vm::openRoomType,
                         onSelectConversation = vm::selectConversation,
                         onNewConversation = vm::newConversation,
                         onRenameConversation = vm::renameConversation,
