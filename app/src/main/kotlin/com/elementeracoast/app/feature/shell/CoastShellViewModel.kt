@@ -12,13 +12,10 @@ import com.elementeracoast.app.core.local.SharedPreferencesPersistence
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
-import com.elementeracoast.app.core.model.FurnitureItem
-import com.elementeracoast.app.core.model.FurnitureSummary
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
-import com.elementeracoast.app.core.model.SeedStatus
-import java.time.LocalDate
+import com.elementeracoast.app.feature.chat.LocalChatRuntime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,6 +34,7 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
     val memoryStore = LocalMemoryStore(persistence)
     val actionLogStore = LocalActionLogStore(persistence)
     val chatStore = LocalChatStore(persistence)
+    private val chatRuntime = LocalChatRuntime(dailyStore, memoryStore, actionLogStore, preferencesStore)
 
     private val _state = MutableStateFlow(CoastShellState())
     val state: StateFlow<CoastShellState> = _state.asStateFlow()
@@ -144,7 +142,12 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
             inputSummary = "model selection",
             outputSummary = "current model updated locally"
         )
-        _state.update { it.copy(showModelPicker = false, snackbarMessage = "模型已在本地壳中切换；真实模型列表后端接线后同步。") }
+        _state.update {
+            it.copy(
+                showModelPicker = false,
+                snackbarMessage = "模型已在本地壳中切换；真实模型列表后端接线后同步。"
+            )
+        }
     }
 
     fun sendFakeMessage(text: String) {
@@ -154,7 +157,11 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
 
         val userId = nextMessageId++
         val assistantId = nextMessageId++
-        val furniture = performFakeLocalActions(clean)
+        val furniture = chatRuntime.performLocalActions(
+            text = clean,
+            roomType = current.activeRoomType,
+            conversationId = current.activeConversationId
+        )
         val run = preferencesStore.state.value.runControl
         chatStore.appendMessages(
             listOf(
@@ -178,9 +185,7 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
         val message = chatStore.currentMessage(action.messageId) ?: return
 
         when (action) {
-            is MessageAction.Copy -> {
-                logMessageAction("chat.copy", "复制了消息", message)
-            }
+            is MessageAction.Copy -> logMessageAction("chat.copy", "复制了消息", message)
 
             is MessageAction.ToggleLike -> {
                 if (message.role != MessageRole.Assistant) return
@@ -268,7 +273,7 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
         val roomType = _state.value.activeRoomType
         generationJob = viewModelScope.launch {
             try {
-                fakeChunks(roomType, regenerated).forEach { chunk ->
+                chatRuntime.fakeChunks(roomType, regenerated).forEach { chunk ->
                     delay(220)
                     if (_state.value.activeConversationId == conversationId) {
                         chatStore.updateMessage(assistantId) { it.copy(text = it.text + chunk) }
@@ -284,103 +289,6 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private fun fakeChunks(roomType: RoomType, regenerated: Boolean): List<String> {
-        val run = preferencesStore.state.value.runControl
-        val opening = if (regenerated) "我把这一轮重新铺开。 " else ""
-        val settingLine = "本地参数：最近 ${run.recentTurns} 轮 · 舒服区间 ${run.comfortTokens} · ${run.outputLength}/${run.expression}。 "
-        return when (roomType) {
-            RoomType.Main -> listOf(
-                opening + "这里是 app-59 对齐后的 Native 本地海岸。 ",
-                settingLine,
-                "这一轮只读写 APK 本机状态，真实 API、SSE、MCP 仍未接线。"
-            )
-            RoomType.Radio -> listOf(
-                opening + "电波房继续和主聊天共用同一副 ChatWindow。 ",
-                settingLine,
-                "消息不会离开本机。"
-            )
-            RoomType.Lighthouse -> listOf(
-                opening + "灯塔房也沿用同一副聊天身体。 ",
-                settingLine,
-                "生成足迹会明确标记 local mock。"
-            )
-        }
-    }
-
-    private fun performFakeLocalActions(text: String): List<FurnitureSummary> {
-        val runs = mutableListOf<FurnitureSummary>()
-        val room = _state.value.activeRoomType
-        val conversation = _state.value.activeConversationId
-
-        if (containsAny(text, "写碳硅圈", "发碳硅圈", "写一条碳硅圈")) {
-            val payload = payloadAfterColon(text).ifBlank { "来自本地 fake model 的一条碳硅圈。" }
-            dailyStore.createMoment(payload)?.let {
-                runs += actionLogStore.record(
-                    actionKey = "daily.create_moment",
-                    label = "写了一条碳硅圈",
-                    roomType = room,
-                    conversationId = conversation,
-                    inputSummary = "local fake tool · moment body omitted",
-                    outputSummary = "moment saved locally"
-                )
-            }
-        }
-
-        if (containsAny(text, "写日记", "写一篇日记")) {
-            val payload = payloadAfterColon(text).ifBlank { "来自本地 fake model 的一篇日记。" }
-            dailyStore.createDiary(
-                date = LocalDate.now().toString(),
-                weather = "本地",
-                mood = "平静",
-                tags = listOf("fake-tool"),
-                content = payload
-            )?.let {
-                runs += actionLogStore.record(
-                    actionKey = "daily.create_diary",
-                    label = "写了一篇日记",
-                    roomType = room,
-                    conversationId = conversation,
-                    inputSummary = "local fake tool · diary body omitted",
-                    outputSummary = "diary saved locally"
-                )
-            }
-        }
-
-        if (containsAny(text, "搜记忆", "搜索记忆")) {
-            val query = payloadAfterColon(text)
-            val hits = memoryStore.searchMemories(query).take(preferencesStore.state.value.runControl.memoryLimit)
-            val items = hits.take(5).map { memory ->
-                FurnitureItem(memory.tags.firstOrNull() ?: "记忆", memory.title)
-            }
-            runs += actionLogStore.record(
-                actionKey = "memory.search",
-                label = "搜索了记忆",
-                roomType = room,
-                conversationId = conversation,
-                inputSummary = "local memory search · query length ${query.length}",
-                outputSummary = "${hits.size} local hits",
-                count = hits.size.coerceAtLeast(1),
-                items = items
-            )
-        }
-
-        if (containsAny(text, "写待确认", "放入待确认")) {
-            val payload = payloadAfterColon(text).ifBlank { "本地待确认候选" }
-            memoryStore.addSeed("待确认候选", payload, SeedStatus.Dormant)?.let {
-                runs += actionLogStore.record(
-                    actionKey = "memory.write_candidate",
-                    label = "放入本地待确认候选",
-                    roomType = room,
-                    conversationId = conversation,
-                    inputSummary = "candidate body omitted",
-                    outputSummary = "stored as dormant local seed"
-                )
-            }
-        }
-
-        return runs
-    }
-
     private fun logMessageAction(actionKey: String, label: String, message: ChatMessage) {
         actionLogStore.record(
             actionKey = actionKey,
@@ -391,11 +299,4 @@ class CoastShellViewModel(application: Application) : AndroidViewModel(applicati
             outputSummary = "local action completed"
         )
     }
-
-    private fun containsAny(text: String, vararg needles: String): Boolean = needles.any(text::contains)
-
-    private fun payloadAfterColon(text: String): String = text
-        .substringAfter('：', text.substringAfter(':', ""))
-        .trim()
-        .take(4000)
 }
