@@ -1,40 +1,47 @@
 package com.elementeracoast.app.feature
 
 import com.elementeracoast.app.core.model.FeatureDestination
-import com.elementeracoast.app.feature.daily.dailyLandingItems
-import com.elementeracoast.app.feature.memory.memoryLandingItems
+import com.elementeracoast.app.core.model.RunControlSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FeatureParityTest {
     @Test
-    fun featureDestinationsContainNoRetiredCalendarSurface() {
+    fun activeDestinationsContainApp59SurfacesWithoutOldSerpentDesk() {
         assertEquals(
             listOf(
                 FeatureDestination.Memory,
                 FeatureDestination.Daily,
                 FeatureDestination.Wolf,
-                FeatureDestination.Desk
+                FeatureDestination.Appearance,
+                FeatureDestination.ActionLog
             ),
             FeatureDestination.entries
         )
-        assertFalse(FeatureDestination.entries.any { it.name.contains("Calendar", ignoreCase = true) })
+        val names = FeatureDestination.entries.joinToString(" ") { "${it.name} ${it.title} ${it.subtitle}" }
+        assertFalse(names.contains("Calendar", true))
+        assertFalse(names.contains("Summary", true))
+        assertFalse(names.contains("Album", true))
+        assertFalse(names.contains("Serpent Desk", true))
+        assertTrue(names.contains("小蛇行动日志"))
     }
 
     @Test
-    fun dailyLandingOnlyKeepsCurrentApp57Entries() {
+    fun runControlHasOnlyElevenApp59ActiveFields() {
+        val fields = RunControlSettings::class.java.declaredFields
+            .filterNot { it.isSynthetic }
+            .map { it.name }
+            .toSet()
         assertEquals(
-            listOf("碳硅圈", "日记", "宠物系统"),
-            dailyLandingItems().map { it.title }
+            setOf(
+                "recentTurns", "comfortTokens", "outputLength", "maxOutputTokens", "expression",
+                "streamingEnabled", "soilBudget", "seedCooldownTurns", "worldbookEnabled",
+                "worldbookLimit", "memoryLimit"
+            ),
+            fields
         )
-    }
-
-    @Test
-    fun memoryLandingMatchesMemoryV2FourEntrances() {
-        assertEquals(
-            listOf("记忆库", "种子库", "世界书", "自定义指令"),
-            memoryLandingItems().map { it.title }
-        )
+        assertFalse(fields.any { it.contains("currentWindow", true) || it.contains("total", true) })
     }
 }
