@@ -28,6 +28,8 @@ private fun initialMessages(): List<ChatMessage> = listOf(
     ChatMessage(
         id = 1L,
         role = MessageRole.Assistant,
-        text = "我把那张还带着潮味的信纸在掌心轻轻抚平。Native v1 继续用同一副聊天身体承接主聊天、电波与灯塔；真实 Coast 水管仍留到后端接线轮。"
+        text = "我把那张还带着潮味的信纸在掌心轻轻抚平。Native v1 继续用同一副聊天身体承接主聊天、电波与灯塔；真实 Coast 水管仍留到后端接线轮。",
+        modelId = "Native local",
+        generationSource = "fixture"
     )
 )
