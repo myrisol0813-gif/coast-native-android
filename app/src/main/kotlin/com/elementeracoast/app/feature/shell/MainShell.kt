@@ -15,6 +15,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import com.elementeracoast.app.core.local.LocalActionLogStore
+import com.elementeracoast.app.core.local.LocalChatStore
+import com.elementeracoast.app.core.local.LocalDailyStore
+import com.elementeracoast.app.core.local.LocalMemoryStore
+import com.elementeracoast.app.core.local.LocalPreferencesStore
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.MessageAction
@@ -26,6 +31,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainShell(
     state: CoastShellState,
+    preferencesStore: LocalPreferencesStore,
+    chatStore: LocalChatStore,
+    dailyStore: LocalDailyStore,
+    memoryStore: LocalMemoryStore,
+    actionLogStore: LocalActionLogStore,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -33,6 +43,7 @@ fun MainShell(
     onDeleteConversation: (String) -> Unit,
     onCycleTheme: () -> Unit,
     onOpenFeature: (FeatureDestination) -> Unit,
+    onOpenActionLog: (List<String>, String) -> Unit,
     onBackToChat: () -> Unit,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
@@ -85,26 +96,35 @@ fun MainShell(
                     onBack = onBackToChat,
                     onOpenModels = onOpenModels,
                     onNewConversation = onNewConversation,
-                    onMore = { onPlaceholder("窗口更多操作暂未接线。") }
+                    onMore = { onPlaceholder("更多窗口能力尚未进入 app-59 本地范围。") }
                 )
             }
         ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 val feature = state.activeFeature
                 if (feature == null) {
                     ChatWindow(
                         state = state,
+                        preferencesStore = preferencesStore,
+                        memoryStore = memoryStore,
                         onSend = onSend,
                         onStop = onStop,
                         onMessageAction = onMessageAction,
+                        onOpenActionLog = onOpenActionLog,
                         onPlaceholder = onPlaceholder
                     )
                 } else {
-                    FeatureLandingScreen(feature = feature, onPlaceholder = onPlaceholder)
+                    FeatureLandingScreen(
+                        feature = feature,
+                        preferencesStore = preferencesStore,
+                        chatStore = chatStore,
+                        dailyStore = dailyStore,
+                        memoryStore = memoryStore,
+                        actionLogStore = actionLogStore,
+                        roomType = state.activeRoomType,
+                        conversationId = state.activeConversationId,
+                        onSnackbar = onPlaceholder
+                    )
                 }
             }
         }
