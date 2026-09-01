@@ -39,9 +39,11 @@ jobs:
             "$root/core/model/LocalAppModels.kt" \
             "$root/core/local/LocalPreferencesStore.kt" \
             "$root/core/local/LocalChatStore.kt" \
+            "$root/core/local/ChatTransferCodec.kt" \
             "$root/core/local/LocalDailyStore.kt" \
             "$root/core/local/LocalMemoryStore.kt" \
             "$root/core/local/LocalActionLogStore.kt" \
+            "$root/feature/chat/LocalChatRuntime.kt" \
             "$root/feature/chat/FurnitureBubble.kt" \
             "$root/feature/chat/ThoughtSoilCard.kt" \
             "$root/feature/wolf/WolfScreen.kt" \
@@ -62,6 +64,16 @@ jobs:
           grep -q 'FeatureDestination.ActionLog' "$root/feature/shell/CoastDrawer.kt"
           grep -q 'FeatureDestination.Appearance' "$root/feature/shell/CoastDrawer.kt"
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
+
+          for label in '个人资料' '外观' '聊天记录' '模型箱' '基本设置' '关于与诊断'; do
+            grep -q "$label" "$root/feature/wolf/WolfScreen.kt"
+          done
+          for label in '记忆库' '种子库' '世界书' '自定义指令'; do
+            grep -q "$label" "$root/feature/memory/MemoryScreen.kt"
+          done
+          for field in recentTurns comfortTokens outputLength maxOutputTokens expression streamingEnabled soilBudget seedCooldownTurns worldbookEnabled worldbookLimit memoryLimit; do
+            grep -q "val $field" "$root/core/model/LocalAppModels.kt"
+          done
 
           if grep -RIE 'FeatureDestination\.Desk|Serpent Desk|小蛇书桌|Myri 画像|Myri 气泡|桌面便签|本轮桌面' "$root"; then
             echo 'Retired serpent desk surface returned.'
@@ -92,6 +104,38 @@ jobs:
             echo 'Forbidden vague/bridge directory found.'
             exit 1
           fi
+
+          for file in "$root/core/local"/*.kt "$root/feature/shell/CoastShellViewModel.kt"; do
+            lines=$(wc -l < "$file")
+            if [ "$lines" -gt 350 ]; then
+              echo "Owner/store exceeded 350 lines: $file ($lines)"
+              exit 1
+            fi
+          done
+
+          for file in \
+            "$root/feature/actionlog/ActionLogScreen.kt" \
+            "$root/feature/chat/FurnitureBubble.kt" \
+            "$root/feature/chat/ThoughtSoilCard.kt" \
+            "$root/feature/daily/DailyScreen.kt" \
+            "$root/feature/daily/DiaryScreen.kt" \
+            "$root/feature/daily/MomentsScreen.kt" \
+            "$root/feature/daily/PetScreen.kt" \
+            "$root/feature/memory/CustomInstructionsScreen.kt" \
+            "$root/feature/memory/MemoryRecordsScreen.kt" \
+            "$root/feature/memory/MemoryScreen.kt" \
+            "$root/feature/memory/SeedScreen.kt" \
+            "$root/feature/memory/WorldbookScreen.kt" \
+            "$root/feature/wolf/ChatRecordsDiagnosticsScreens.kt" \
+            "$root/feature/wolf/ModelSettingsScreens.kt" \
+            "$root/feature/wolf/ProfileAppearanceScreens.kt" \
+            "$root/feature/wolf/WolfScreen.kt"; do
+            lines=$(wc -l < "$file")
+            if [ "$lines" -gt 250 ]; then
+              echo "Native 26 UI file exceeded 250 lines: $file ($lines)"
+              exit 1
+            fi
+          done
 
           grep -q 'versionName = "0.1.8-app59-local-parity-26"' app/build.gradle.kts
           grep -q 'versionCode = 10' app/build.gradle.kts
