@@ -12,8 +12,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.1.5-sidebar-conversation-polish"
+        versionCode = 8
+        versionName = "0.1.6-app57-parity-clean"
     }
 
     buildTypes {

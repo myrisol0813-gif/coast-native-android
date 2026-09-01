@@ -34,32 +34,70 @@ internal fun ConversationActionsButton(
     var renameOpen by rememberSaveable(conversation.id) { mutableStateOf(false) }
     Box(modifier = modifier) {
         IconButton(onClick = { menuOpen = true }) {
-            Icon(Icons.Default.MoreHoriz, "窗口操作", tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(CoastChatTokens.ConversationMoreGlyph))
+            Icon(
+                Icons.Default.MoreHoriz,
+                "窗口操作",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(CoastChatTokens.ConversationMoreGlyph)
+            )
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(text = { Text("改名") }, onClick = { menuOpen = false; renameOpen = true })
-            DropdownMenuItem(text = { Text("删除", color = MaterialTheme.colorScheme.error) }, onClick = {
-                menuOpen = false; onDelete(conversation.id)
-            })
+            DropdownMenuItem(
+                text = { Text("改名") },
+                onClick = { menuOpen = false; renameOpen = true }
+            )
+            DropdownMenuItem(
+                text = { Text("删除", color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    menuOpen = false
+                    onDelete(conversation.id)
+                }
+            )
         }
     }
-    if (renameOpen) RenameConversationDialog(conversation, { renameOpen = false }) { title ->
-        onRename(conversation.id, title); renameOpen = false
+    if (renameOpen) {
+        RenameConversationDialog(
+            conversation = conversation,
+            onDismiss = { renameOpen = false }
+        ) { title ->
+            onRename(conversation.id, title)
+            renameOpen = false
+        }
     }
 }
 
 @Composable
-private fun RenameConversationDialog(conversation: ConversationSummary, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+private fun RenameConversationDialog(
+    conversation: ConversationSummary,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
     var draft by rememberSaveable(conversation.id) {
-        mutableStateOf(conversation.title.removePrefix(conversation.scope.titlePrefix).trim())
+        mutableStateOf(conversation.title.removePrefix(conversation.roomType.titlePrefix).trim())
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("窗口改名", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) },
-        text = { TextField(value = draft, onValueChange = { draft = it }, singleLine = true,
-            placeholder = { Text("输入窗口标题") }) },
-        confirmButton = { TextButton(enabled = draft.trim().isNotEmpty(), onClick = { onConfirm(draft) }) { Text("保存") } },
+        title = {
+            Text(
+                "窗口改名",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            TextField(
+                value = draft,
+                onValueChange = { draft = it },
+                singleLine = true,
+                placeholder = { Text("输入窗口标题") }
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = draft.trim().isNotEmpty(),
+                onClick = { onConfirm(draft) }
+            ) { Text("保存") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }

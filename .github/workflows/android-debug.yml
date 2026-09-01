@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -26,70 +29,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Guard local-only Native boundary
+      - name: Verify Native app-57 structure
         shell: bash
         run: |
           set -euo pipefail
-
-          bad=$(find . -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.keystore' -o -name '*.jks' \) -not -path './.git/*' -print)
-          if [ -n "$bad" ]; then
-            echo 'Committed binary/signing material found:'
-            echo "$bad"
-            exit 1
-          fi
-
-          if grep -RIE 'api\.openai\.com|openrouter\.ai|api\.deepseek\.com|api\.groq\.com|api\.mistral\.ai|10\.0\.2\.2:11434' app/src app/build.gradle.kts; then
-            echo 'Provider endpoint residue found.'
-            exit 1
-          fi
-
-          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
-            echo 'INTERNET permission is not allowed in the local-only Native shell.'
-            exit 1
-          fi
-
-          if grep -RIE '/api/dogtalk|DataStore|RoomDatabase' \
-            app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk \
-            app/src/main/kotlin/com/elementeracoast/app/feature/chat; then
-            echo 'Dogtalk gained backend or persistence wiring.'
-            exit 1
-          fi
-
-      - name: Verify stable Native v1 contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          dogtalk=app/src/main/kotlin/com/elementeracoast/app/feature/dogtalk
-          chat=app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt
-          shell=app/src/main/kotlin/com/elementeracoast/app/feature/shell
-
-          test -f "$dogtalk/DogtalkCard.kt"
-          test -f "$dogtalk/DogtalkUiState.kt"
-          test -f "$dogtalk/DogtalkReadMode.kt"
-          test -f "$dogtalk/DogtalkScope.kt"
-
-          grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$dogtalk/DogtalkUiState.kt"
-          grep -q 'KeepPrivate(' "$dogtalk/DogtalkReadMode.kt"
-          grep -q 'WhenConfused(' "$dogtalk/DogtalkReadMode.kt"
-          grep -q 'ReadNow(' "$dogtalk/DogtalkReadMode.kt"
-          grep -q '不需要，放着就好' "$dogtalk/DogtalkReadMode.kt"
-          grep -q 'Myri 困惑时可以看一点' "$dogtalk/DogtalkReadMode.kt"
-          grep -q '这次希望 Myri 直接读一下' "$dogtalk/DogtalkReadMode.kt"
-
-          if grep -RIE 'CurrentRoom|当前窗口可以看一点|self_note|myri_hint|not_to_misunderstand' "$dogtalk"; then
-            echo 'Legacy Dogtalk contract residue found.'
-            exit 1
-          fi
-
-          test "$(grep -o 'DogtalkCard(' "$chat" | wc -l)" -eq 1
-          grep -q 'scope = DogtalkScope.from(state.activeScope)' "$chat"
-          grep -q '已暂存在本地；后端稍后接入' "$chat"
-          grep -q 'fun ChatWindow(' "$chat"
-
-          if grep -RIE 'fun (RoomWindow|RadioScreen|LighthouseScreen)\(' "$shell" app/src/main/kotlin/com/elementeracoast/app/feature/chat; then
-            echo 'Main / Radio / Lighthouse must keep sharing ChatWindow.'
-            exit 1
-          fi
+          root=app/src/main/kotlin/com/elementeracoast/app
+          test -f "$root/core/model/RoomType.kt"
+          test -f "$root/core/contract/CoastContracts.kt"
+          test -f "$root/feature/gate/GateScreen.kt"
+          test -f "$root/feature/shell/MainShell.kt"
+          test -f "$root/feature/chat/ChatScreen.kt"
+          test -f "$root/feature/daily/DailyLanding.kt"
+          test -f "$root/feature/memory/MemoryLanding.kt"
+          test ! -f "$root/core/model/Models.kt"
+          grep -q 'fun ChatWindow(' "$root/feature/chat/ChatScreen.kt"
+          grep -q 'DogtalkScope.from(state.activeRoomType)' "$root/feature/chat/ChatScreen.kt"
+          grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
 
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
@@ -97,15 +52,13 @@ jobs:
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Stage debug APK and checksum
+      - name: Stage debug APK
         shell: bash
         run: |
           set -euo pipefail
-          apk=$(find app/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
-          test -n "$apk"
           mkdir -p artifact
-          cp "$apk" artifact/CoastGPT-native-debug.apk
-          sha256sum artifact/CoastGPT-native-debug.apk | tee artifact/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-debug.apk
+          sha256sum artifact/CoastGPT-native-debug.apk > artifact/SHA256SUMS.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4

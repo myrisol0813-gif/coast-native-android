@@ -1,6 +1,6 @@
 package com.elementeracoast.app.feature.dogtalk
 
-import com.elementeracoast.app.core.model.ChatScope
+import com.elementeracoast.app.core.model.RoomType
 
 enum class DogtalkScope {
     Main,
@@ -8,10 +8,10 @@ enum class DogtalkScope {
     Lighthouse;
 
     companion object {
-        fun from(chatScope: ChatScope): DogtalkScope = when (chatScope) {
-            ChatScope.Main -> Main
-            ChatScope.Radio -> Radio
-            ChatScope.Lighthouse -> Lighthouse
+        fun from(roomType: RoomType): DogtalkScope = when (roomType) {
+            RoomType.Main -> Main
+            RoomType.Radio -> Radio
+            RoomType.Lighthouse -> Lighthouse
         }
     }
 }
