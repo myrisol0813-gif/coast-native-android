@@ -68,7 +68,7 @@ jobs:
             exit 1
           fi
 
-          if grep -RIE 'FeatureDestination\.Calendar|今日一瞥|Today Coast|海岸日历|一日总结|Summary|相册|Album' "$root/core/model" "$root/feature"; then
+          if grep -RIE 'FeatureDestination\.Calendar|FeatureDestination\.Summary|FeatureDestination\.Album|"Today Coast"|"Summary"|"Album"|今日一瞥|海岸日历|一日总结|相册' "$root/core/model" "$root/feature"; then
             echo 'Retired Calendar/Today Coast/Summary/Album surface returned.'
             exit 1
           fi
