@@ -57,32 +57,32 @@ fun ChatWindow(
 
     Column(
         modifier = Modifier
-  .fillMaxSize()
-  .background(MaterialTheme.colorScheme.background)
-  .imePadding()
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .imePadding()
     ) {
         CoastTimeline(
-  messages = state.messages,
-  isStreaming = state.isStreaming,
-  listState = listState,
-  modifier = Modifier.weight(1f)
+            messages = state.messages,
+            isStreaming = state.isStreaming,
+            listState = listState,
+            modifier = Modifier.weight(1f)
         )
         DogtalkCard(
-  scope = DogtalkScope.from(state.activeScope),
-  onSaved = { onPlaceholder("已暂存在本地；后端稍后接入") }
+            scope = DogtalkScope.from(state.activeRoomType),
+            onSaved = { onPlaceholder("已暂存在本地；后端稍后接入") }
         )
         CoastComposer(
-  value = input,
-  onValueChange = { input = it },
-  isStreaming = state.isStreaming,
-  enabled = true,
-  onSend = {
-      val outgoing = input
-      input = ""
-      onSend(outgoing)
-  },
-  onStop = onStop,
-  onPlaceholder = onPlaceholder
+            value = input,
+            onValueChange = { input = it },
+            isStreaming = state.isStreaming,
+            enabled = true,
+            onSend = {
+                val outgoing = input
+                input = ""
+                onSend(outgoing)
+            },
+            onStop = onStop,
+            onPlaceholder = onPlaceholder
         )
     }
 }
@@ -98,18 +98,18 @@ fun CoastTimeline(
         state = listState,
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(
-  start = CoastChatTokens.TimelineHorizontalPadding,
-  end = CoastChatTokens.TimelineHorizontalPadding,
-  top = CoastChatTokens.TimelineTopPadding,
-  bottom = CoastChatTokens.TimelineBottomPadding
+            start = CoastChatTokens.TimelineHorizontalPadding,
+            end = CoastChatTokens.TimelineHorizontalPadding,
+            top = CoastChatTokens.TimelineTopPadding,
+            bottom = CoastChatTokens.TimelineBottomPadding
         ),
         verticalArrangement = Arrangement.spacedBy(CoastChatTokens.MessageGap)
     ) {
         items(messages, key = { it.id }) { message ->
-  MessageItem(
-      message = message,
-      isStreamingTail = isStreaming && message.id == messages.lastOrNull()?.id
-  )
+            MessageItem(
+                message = message,
+                isStreamingTail = isStreaming && message.id == messages.lastOrNull()?.id
+            )
         }
     }
 }
@@ -122,57 +122,57 @@ private fun MessageItem(message: ChatMessage, isStreamingTail: Boolean) {
     )
     if (message.role == MessageRole.User) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-  Text(
-      text = message.text,
-      modifier = Modifier
-          .fillMaxWidth(CoastChatTokens.UserBubbleWidth)
-          .background(
-              MaterialTheme.colorScheme.surfaceVariant,
-              RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
-          )
-          .padding(
-              horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
-              vertical = CoastChatTokens.UserBubbleVerticalPadding
-          ),
-      color = MaterialTheme.colorScheme.onSurface,
-      style = bodyStyle
-  )
+            Text(
+                text = message.text,
+                modifier = Modifier
+                    .fillMaxWidth(CoastChatTokens.UserBubbleWidth)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
+                    )
+                    .padding(
+                        horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
+                        vertical = CoastChatTokens.UserBubbleVerticalPadding
+                    ),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = bodyStyle
+            )
         }
         return
     }
 
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Box(
-  modifier = Modifier
-      .size(CoastChatTokens.AssistantAvatarSize)
-      .background(
-          MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f),
-          CircleShape
-      ),
-  contentAlignment = Alignment.Center
+            modifier = Modifier
+                .size(CoastChatTokens.AssistantAvatarSize)
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
         ) {
-  Text(
-      "✦",
-      color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
-      style = MaterialTheme.typography.labelMedium.copy(fontSize = CoastChatTokens.AssistantStarSize)
-  )
+            Text(
+                "✦",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = CoastChatTokens.AssistantStarSize)
+            )
         }
         Spacer(Modifier.size(CoastChatTokens.AssistantAvatarGap))
         Column(modifier = Modifier.weight(1f)) {
-  Text(
-      text = if (message.text.isEmpty() && isStreamingTail) "•••" else message.text,
-      modifier = Modifier.fillMaxWidth(),
-      color = MaterialTheme.colorScheme.onSurface,
-      style = bodyStyle
-  )
-  if (isStreamingTail) {
-      Spacer(Modifier.height(CoastChatTokens.StreamingGap))
-      Text(
-          "正在回潮…",
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
-          style = MaterialTheme.typography.labelSmall
-      )
-  }
+            Text(
+                text = if (message.text.isEmpty() && isStreamingTail) "•••" else message.text,
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = bodyStyle
+            )
+            if (isStreamingTail) {
+                Spacer(Modifier.height(CoastChatTokens.StreamingGap))
+                Text(
+                    "正在回潮…",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
 }
