@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,19 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun VariantControl(
-    index: Int,
-    count: Int,
-    onPlaceholder: () -> Unit
-) {
+internal fun VariantControl(index: Int, count: Int, onPlaceholder: () -> Unit) {
     val safeCount = count.coerceAtLeast(1)
     val safeIndex = index.coerceIn(0, safeCount - 1)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        VariantArrow(
-            previous = true,
-            enabled = safeCount > 1 && safeIndex > 0,
-            onClick = onPlaceholder
-        )
+        VariantArrow(true, safeCount > 1 && safeIndex > 0, onPlaceholder)
         Spacer(Modifier.width(5.dp))
         Text(
             text = "${safeIndex + 1}/$safeCount",
@@ -41,11 +33,7 @@ internal fun VariantControl(
             fontSize = 11.sp
         )
         Spacer(Modifier.width(5.dp))
-        VariantArrow(
-            previous = false,
-            enabled = safeCount > 1 && safeIndex < safeCount - 1,
-            onClick = onPlaceholder
-        )
+        VariantArrow(false, safeCount > 1 && safeIndex < safeCount - 1, onPlaceholder)
     }
 }
 
@@ -61,7 +49,8 @@ private fun VariantArrow(previous: Boolean, enabled: Boolean, onClick: () -> Uni
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (previous) Icons.Default.KeyboardArrowLeft else Icons.Default.KeyboardArrowRight,
+            imageVector = if (previous) Icons.AutoMirrored.Filled.KeyboardArrowLeft
+            else Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = if (previous) "上一个版本" else "下一个版本",
             tint = tint,
             modifier = Modifier.size(17.dp)
