@@ -8,13 +8,15 @@ import org.junit.Test
 
 class CoastChatTokensTest {
     @Test
-    fun roomScaleUsesCompactChatOnlyTokens() {
-        assertEquals(50.dp, CoastChatTokens.TopBarHeight)
-        assertEquals(15.sp, CoastChatTokens.ChatBodySize)
-        assertEquals(22.sp, CoastChatTokens.ChatBodyLineHeight)
+    fun roomScaleUsesPwaLikeNativeChatTokens() {
+        assertEquals(52.dp, CoastChatTokens.TopBarHeight)
+        assertEquals(16.sp, CoastChatTokens.ChatBodySize)
+        assertEquals(27.sp, CoastChatTokens.ChatBodyLineHeight)
+        assertEquals(24.sp, CoastChatTokens.UserBodyLineHeight)
         assertEquals(48.dp, CoastChatTokens.ComposerPillMinHeight)
         assertEquals(326.dp, CoastChatTokens.DrawerWidth)
-        assertEquals(30.dp, CoastChatTokens.AssistantAvatarSize)
+        assertEquals(34.dp, CoastChatTokens.AssistantAvatarSize)
+        assertEquals(20.dp, CoastChatTokens.UserBubbleRadius)
         assertTrue(CoastChatTokens.DogtalkExpandedMaxHeight <= 300.dp)
         assertEquals(30.dp, CoastChatTokens.DogtalkSaveVisualHeight)
         assertTrue(CoastChatTokens.DogtalkSaveTouchHeight >= CoastChatTokens.DogtalkSaveVisualHeight)
