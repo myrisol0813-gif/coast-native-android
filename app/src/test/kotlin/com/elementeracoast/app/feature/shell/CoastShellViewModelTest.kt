@@ -1,8 +1,10 @@
 package com.elementeracoast.app.feature.shell
 
+import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.RoomType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -43,7 +45,7 @@ class CoastShellViewModelTest {
     }
 
     @Test
-    fun deletingLastRoomWindowFallsBackToMain() {
+    fun deleteActiveRadioFallsBackToMainWhenNoOtherRadioExists() {
         val vm = CoastShellViewModel()
         vm.openRoomType(RoomType.Radio)
         val onlyRadio = vm.state.value.activeConversationId
@@ -51,28 +53,88 @@ class CoastShellViewModelTest {
         vm.deleteConversation(onlyRadio)
 
         assertEquals(RoomType.Main, vm.state.value.activeRoomType)
-        assertTrue(
+        assertEquals(
+            RoomType.Main,
             vm.state.value.conversations
                 .first { it.id == vm.state.value.activeConversationId }
-                .roomType == RoomType.Main
+                .roomType
         )
     }
 
     @Test
-    fun deletingActiveSpecialRoomCreatesMainWhenNoMainRemains() {
+    fun deletingLastConversationCreatesFreshEmptyMainFallback() {
         val vm = CoastShellViewModel()
-        vm.openRoomType(RoomType.Radio)
+        val oldId = vm.state.value.activeConversationId
+        assertTrue(vm.state.value.messages.isNotEmpty())
 
-        val mainIds = vm.state.value.conversations
-            .filter { it.roomType == RoomType.Main }
+        vm.state.value.conversations
             .map { it.id }
-        mainIds.forEach(vm::deleteConversation)
-        assertFalse(vm.state.value.conversations.any { it.roomType == RoomType.Main })
+            .filterNot { it == oldId }
+            .forEach(vm::deleteConversation)
+        assertEquals(1, vm.state.value.conversations.size)
 
-        val activeRadio = vm.state.value.activeConversationId
-        vm.deleteConversation(activeRadio)
+        vm.deleteConversation(oldId)
 
-        assertEquals(RoomType.Main, vm.state.value.activeRoomType)
-        assertTrue(vm.state.value.conversations.any { it.roomType == RoomType.Main })
+        val state = vm.state.value
+        assertEquals(1, state.conversations.size)
+        assertNotEquals(oldId, state.activeConversationId)
+        assertEquals(RoomType.Main, state.activeRoomType)
+        assertEquals("新聊天 1", state.conversations.single().title)
+        assertTrue(state.messages.isEmpty())
+        assertEquals("已清空最后一个窗口", state.snackbarMessage)
+    }
+
+    @Test
+    fun deletingNonActiveConversationDoesNotMoveActiveWindow() {
+        val vm = CoastShellViewModel()
+        val activeBefore = vm.state.value.activeConversationId
+        val target = vm.state.value.conversations.first { it.id != activeBefore }.id
+
+        vm.deleteConversation(target)
+
+        assertEquals(activeBefore, vm.state.value.activeConversationId)
+        assertFalse(vm.state.value.conversations.any { it.id == target })
+    }
+
+    @Test
+    fun likeAndFavoriteToggleOnlyCurrentLocalMessage() {
+        val vm = CoastShellViewModel()
+        val messageId = vm.state.value.messages.single().id
+
+        vm.handleMessageAction(MessageAction.ToggleLike(messageId))
+        vm.handleMessageAction(MessageAction.ToggleFavorite(messageId))
+
+        val message = vm.state.value.messages.single()
+        assertTrue(message.liked)
+        assertTrue(message.favorite)
+
+        vm.handleMessageAction(MessageAction.ToggleLike(messageId))
+        vm.handleMessageAction(MessageAction.ToggleFavorite(messageId))
+        val reset = vm.state.value.messages.single()
+        assertFalse(reset.liked)
+        assertFalse(reset.favorite)
+    }
+
+    @Test
+    fun deleteMessageDoesNotMutateAnotherConversation() {
+        val vm = CoastShellViewModel()
+        val firstConversation = vm.state.value.activeConversationId
+        val firstMessage = vm.state.value.messages.single().id
+        val other = vm.state.value.conversations.first { it.id != firstConversation }
+
+        vm.handleMessageAction(MessageAction.Delete(firstMessage))
+        assertTrue(vm.state.value.messages.isEmpty())
+
+        vm.selectConversation(other.id)
+        assertTrue(vm.state.value.messages.isNotEmpty())
+
+        vm.selectConversation(firstConversation)
+        assertTrue(vm.state.value.messages.isEmpty())
+    }
+
+    @Test
+    fun regenerateActionIsExplicitlyLocalMessageAction() {
+        val action = MessageAction.Regenerate(42L)
+        assertEquals(42L, action.messageId)
     }
 }
