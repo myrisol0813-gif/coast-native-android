@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,12 +43,15 @@ internal fun UserMessage(
             ) {
                 Text(
                     text = message.text,
-                    modifier = Modifier.background(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
-                    ).then(
-                        Modifier
-                    ),
+                    modifier = Modifier
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
+                        )
+                        .padding(
+                            horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
+                            vertical = CoastChatTokens.UserBubbleVerticalPadding
+                        ),
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = CoastChatTokens.ChatBodySize,
