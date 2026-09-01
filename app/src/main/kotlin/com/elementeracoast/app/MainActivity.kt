@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: CoastShellViewModel = viewModel()
             val state by vm.state.collectAsState()
-            CoastTheme(mode = state.theme) {
+            CoastTheme(mode = state.theme, accent = state.accent) {
                 if (!state.authenticated) {
                     GateScreen(
                         password = state.password,
@@ -27,6 +27,11 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MainShell(
                         state = state,
+                        preferencesStore = vm.preferencesStore,
+                        chatStore = vm.chatStore,
+                        dailyStore = vm.dailyStore,
+                        memoryStore = vm.memoryStore,
+                        actionLogStore = vm.actionLogStore,
                         onOpenRoomType = vm::openRoomType,
                         onSelectConversation = vm::selectConversation,
                         onNewConversation = vm::newConversation,
@@ -34,6 +39,7 @@ class MainActivity : ComponentActivity() {
                         onDeleteConversation = vm::deleteConversation,
                         onCycleTheme = vm::cycleTheme,
                         onOpenFeature = vm::openFeature,
+                        onOpenActionLog = vm::openActionLog,
                         onBackToChat = vm::backToChat,
                         onSend = vm::sendFakeMessage,
                         onStop = vm::stopGeneration,
