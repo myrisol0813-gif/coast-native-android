@@ -55,11 +55,11 @@ class LocalChatRuntimeTest {
         memory.addMemory("海鸟与岸", "核心", "归返关系", "使用", "避免", listOf("关系"))
         val runtime = LocalChatRuntime(daily, memory, log, preferences)
 
-        val runs = runtime.performLocalActions(
-            text = "写碳硅圈：潮声\n写日记：今天很好\n搜索记忆：海鸟",
-            roomType = RoomType.Main,
-            conversationId = "main-local"
-        )
+        val runs = buildList {
+            addAll(runtime.performLocalActions("写碳硅圈：潮声", RoomType.Main, "main-local"))
+            addAll(runtime.performLocalActions("写日记：今天很好", RoomType.Main, "main-local"))
+            addAll(runtime.performLocalActions("搜索记忆：海鸟", RoomType.Main, "main-local"))
+        }
 
         assertEquals(1, daily.state.value.moments.size)
         assertEquals(1, daily.state.value.diaries.size)
