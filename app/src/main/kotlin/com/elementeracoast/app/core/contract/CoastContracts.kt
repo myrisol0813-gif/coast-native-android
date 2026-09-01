@@ -64,10 +64,10 @@ data class MemoryEntry(
     val status: String
 )
 
-/** Wire keys remain body / true_core / weather / read_mode when backend mapping is added. */
+/** Dogtalk keeps its existing four-field contract verbatim. */
 data class DogtalkSubmission(
     val body: String,
-    val trueCore: String,
+    val true_core: String,
     val weather: String,
-    val readMode: String
+    val read_mode: String
 )
