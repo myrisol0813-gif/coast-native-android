@@ -7,7 +7,7 @@ import org.junit.Test
 class ConversationContractTest {
     @Test
     fun emptySearchKeepsAllRoomTypesVisible() {
-        val conversations = CoastShellState().conversations
+        val conversations = initialConversations()
         val visible = filterConversations(conversations, "")
         assertEquals(conversations, visible)
         assertTrue(visible.any { it.roomType == RoomType.Main })
