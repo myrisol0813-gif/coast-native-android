@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.HorizontalDivider
@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.R
 import com.elementeracoast.app.core.model.CoastShellState
+import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.ui.icons.CoastChatIcons
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 
@@ -50,19 +51,23 @@ internal fun CoastTopBar(
         ) {
             if (state.activeFeature != null) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                 }
                 Spacer(Modifier.width(6.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         state.activeFeature.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         state.activeFeature.subtitle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             } else {
@@ -73,36 +78,51 @@ internal fun CoastTopBar(
                         modifier = Modifier.size(CoastChatTokens.TopBarMenuGlyph)
                     )
                 }
-                Row(
+                Column(
                     modifier = Modifier
                         .weight(1f)
                         .clickable(onClick = onOpenModels)
                         .padding(
                             horizontal = CoastChatTokens.TopBarModelHorizontalPadding,
                             vertical = CoastChatTokens.TopBarModelVerticalPadding
-                        ),
-                    verticalAlignment = Alignment.CenterVertically
+                        )
                 ) {
-                    Text(
-                        "ChatGPT",
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = CoastChatTokens.TopBarTitleSize),
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
-                    Text(
-                        state.currentModel,
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = CoastChatTokens.TopBarModelSize),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Icon(
-                        Icons.Default.ExpandMore,
-                        contentDescription = "选择模型",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(CoastChatTokens.TopBarChevronGlyph)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "ChatGPT",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = CoastChatTokens.TopBarTitleSize
+                            ),
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
+                        Text(
+                            state.currentModel,
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = CoastChatTokens.TopBarModelSize
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Icon(
+                            Icons.Default.ExpandMore,
+                            contentDescription = "选择模型",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(CoastChatTokens.TopBarChevronGlyph)
+                        )
+                    }
+                    if (state.activeRoomType != RoomType.Main) {
+                        Text(
+                            text = state.activeRoomType.drawerLabel,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = .82f),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = CoastChatTokens.TopBarRoomSize
+                            ),
+                            maxLines = 1
+                        )
+                    }
                 }
                 IconButton(onClick = onNewConversation) {
                     Icon(

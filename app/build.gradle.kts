@@ -12,8 +12,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "0.1.6-app57-parity-clean"
+        versionCode = 9
+        versionName = "0.1.7-ui-parity-25"
     }
 
     buildTypes {

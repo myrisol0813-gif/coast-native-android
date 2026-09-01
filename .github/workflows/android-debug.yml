@@ -29,22 +29,56 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verify Native app-57 structure
+      - name: Verify Native app-57 UI structure
         shell: bash
         run: |
           set -euo pipefail
           root=app/src/main/kotlin/com/elementeracoast/app
+          chat="$root/feature/chat"
+
           test -f "$root/core/model/RoomType.kt"
           test -f "$root/core/contract/CoastContracts.kt"
           test -f "$root/feature/gate/GateScreen.kt"
+          test -f "$root/ui/brand/CoastBrandMark.kt"
           test -f "$root/feature/shell/MainShell.kt"
-          test -f "$root/feature/chat/ChatScreen.kt"
+          test -f "$chat/ChatScreen.kt"
+          test -f "$chat/ChatTimeline.kt"
+          test -f "$chat/MessageItem.kt"
+          test -f "$chat/AssistantMessage.kt"
+          test -f "$chat/UserMessage.kt"
+          test -f "$chat/MessageActions.kt"
+          test -f "$chat/VariantControl.kt"
+          test -f "$chat/GenerationFootprint.kt"
+          test -f "$chat/AvatarPickerDialog.kt"
           test -f "$root/feature/daily/DailyLanding.kt"
           test -f "$root/feature/memory/MemoryLanding.kt"
           test ! -f "$root/core/model/Models.kt"
-          grep -q 'fun ChatWindow(' "$root/feature/chat/ChatScreen.kt"
-          grep -q 'DogtalkScope.from(state.activeRoomType)' "$root/feature/chat/ChatScreen.kt"
+
+          grep -q 'fun ChatWindow(' "$chat/ChatScreen.kt"
+          grep -q 'ChatTimeline(' "$chat/ChatScreen.kt"
+          grep -q 'DogtalkScope.from(state.activeRoomType)' "$chat/ChatScreen.kt"
+          grep -q 'ToggleLike' "$chat/AssistantMessage.kt"
+          grep -q 'ToggleFavorite' "$chat/AssistantMessage.kt"
+          grep -q 'Regenerate' "$chat/AssistantMessage.kt"
+          grep -q 'MessageAction.Delete' "$chat/UserMessage.kt"
+          grep -q 'ActivityResultContracts.PickVisualMedia' "$chat/ChatScreen.kt"
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
+
+          if grep -RIE 'FeatureDestination\.Calendar|今日一瞥|海岸日历|一日总结|相册' \
+            "$root/core/model" "$root/feature/shell" "$root/feature/daily"; then
+            echo 'Retired Calendar/Summary/Album surface returned.'
+            exit 1
+          fi
+
+          if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
+            echo 'UI parity pass must stay local-only: INTERNET permission found.'
+            exit 1
+          fi
+
+          if find app/src -type f \( -name '*.ts' -o -name '*.tsx' -o -name 'package.json' \) | grep -q .; then
+            echo 'TypeScript/React-style material found in Native source.'
+            exit 1
+          fi
 
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
@@ -57,15 +91,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-debug.apk
-          sha256sum artifact/CoastGPT-native-debug.apk > artifact/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-ui-parity-25-debug.apk
+          sha256sum artifact/CoastGPT-native-ui-parity-25-debug.apk > artifact/SHA256SUMS.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-debug
+          name: CoastGPT-native-ui-parity-25-debug
           path: |
-            artifact/CoastGPT-native-debug.apk
+            artifact/CoastGPT-native-ui-parity-25-debug.apk
             artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7

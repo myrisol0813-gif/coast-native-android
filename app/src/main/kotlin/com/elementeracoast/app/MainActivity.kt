@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
                         onBackToChat = vm::backToChat,
                         onSend = vm::sendFakeMessage,
                         onStop = vm::stopGeneration,
+                        onMessageAction = vm::handleMessageAction,
                         onOpenModels = vm::openModelPicker,
                         onDismissModels = vm::dismissModelPicker,
                         onSelectModel = vm::selectModel,

@@ -11,6 +11,7 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.ConversationSummary
 import com.elementeracoast.app.core.model.FeatureDestination
+import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.core.model.roomConversationTitle
@@ -93,25 +94,40 @@ class CoastShellViewModel : ViewModel() {
         val remaining = current.conversations.filterNot { it.id == id }.toMutableList()
         threads.remove(id)
 
+        if (remaining.isEmpty()) {
+            val fallback = newConversationRecord(RoomType.Main, "新聊天 1")
+            threads[fallback.id] = emptyList()
+            _state.update {
+                it.copy(
+                    conversations = listOf(fallback),
+                    activeRoomType = RoomType.Main,
+                    activeFeature = null,
+                    activeConversationId = fallback.id,
+                    messages = emptyList(),
+                    showModelPicker = false,
+                    isStreaming = false,
+                    snackbarMessage = "已清空最后一个窗口"
+                )
+            }
+            return
+        }
+
         if (target.id != current.activeConversationId) {
             _state.update { it.copy(conversations = remaining) }
             return
         }
 
-        val resolvedReplacement = remaining.firstOrNull { it.roomType == target.roomType }
+        val replacement = remaining.firstOrNull { it.roomType == target.roomType }
             ?: remaining.firstOrNull { it.roomType == RoomType.Main }
-            ?: newConversationRecord(RoomType.Main, "新聊天 1").also { fallback ->
-                remaining.add(0, fallback)
-                threads[fallback.id] = greetingFor(RoomType.Main)
-            }
+            ?: remaining.first()
 
         _state.update {
             it.copy(
                 conversations = remaining,
-                activeRoomType = resolvedReplacement.roomType,
+                activeRoomType = replacement.roomType,
                 activeFeature = null,
-                activeConversationId = resolvedReplacement.id,
-                messages = threads[resolvedReplacement.id].orEmpty(),
+                activeConversationId = replacement.id,
+                messages = threads[replacement.id].orEmpty(),
                 showModelPicker = false,
                 isStreaming = false
             )
@@ -142,7 +158,7 @@ class CoastShellViewModel : ViewModel() {
             it.copy(
                 currentModel = model,
                 showModelPicker = false,
-                snackbarMessage = "模型选择已在 Native v1 本地壳中切换；真实 profile PUT 将在后端接入阶段启用。"
+                snackbarMessage = "模型已在本地壳中切换；尚未同步 profile。"
             )
         }
     }
@@ -157,36 +173,126 @@ class CoastShellViewModel : ViewModel() {
         val assistantId = nextMessageId++
         val nextThread = current.messages +
             ChatMessage(userId, MessageRole.User, clean) +
-            ChatMessage(assistantId, MessageRole.Assistant, "")
+            ChatMessage(
+                id = assistantId,
+                role = MessageRole.Assistant,
+                text = "",
+                modelId = current.currentModel,
+                generationSource = "local-mock"
+            )
         threads[conversationId] = nextThread
         _state.update { it.copy(messages = nextThread, isStreaming = true) }
 
-        generationJob = viewModelScope.launch {
-            val roomType = _state.value.conversations
-                .firstOrNull { it.id == conversationId }
-                ?.roomType
-                ?: RoomType.Main
-            val chunks = when (roomType) {
-                RoomType.Main -> listOf(
-                    "主聊天继续沿用 Coast 的普通窗口标题。 ",
-                    "这一轮只验证统一 ChatWindow、时间线、狗话行与底部输入框。 ",
-                    "真实 SSE 与历史保存仍然没有接回。"
-                )
-                RoomType.Radio -> listOf(
-                    "这里是同一副聊天身体里的电波 room。 ",
-                    "新建窗口会固定带上【电波】前缀， ",
-                    "这轮仍然只跑本地 mock。"
-                )
-                RoomType.Lighthouse -> listOf(
-                    "这里是同一副聊天身体里的灯塔 room。 ",
-                    "新建窗口会固定带上【灯塔】前缀， ",
-                    "不会生成真实 API 回复。"
-                )
+        startFakeStreaming(
+            conversationId = conversationId,
+            assistantId = assistantId,
+            roomType = current.activeRoomType,
+            regenerated = false
+        )
+    }
+
+    fun handleMessageAction(action: MessageAction) {
+        val current = _state.value
+        val conversationId = current.activeConversationId
+        val message = current.messages.firstOrNull { it.id == action.messageId } ?: return
+
+        when (action) {
+            is MessageAction.ToggleLike -> {
+                if (message.role != MessageRole.Assistant) return
+                mutateThread(conversationId) { messages ->
+                    messages.map { if (it.id == message.id) it.copy(liked = !it.liked) else it }
+                }
             }
 
+            is MessageAction.ToggleFavorite -> {
+                if (message.role != MessageRole.Assistant) return
+                mutateThread(conversationId) { messages ->
+                    messages.map { if (it.id == message.id) it.copy(favorite = !it.favorite) else it }
+                }
+            }
+
+            is MessageAction.Delete -> {
+                if (current.isStreaming) {
+                    showPlaceholder("生成中请先停止，再删除消息。")
+                    return
+                }
+                mutateThread(conversationId) { messages -> messages.filterNot { it.id == message.id } }
+                showPlaceholder("已从当前本地窗口删除这条消息")
+            }
+
+            is MessageAction.Edit -> {
+                if (message.role != MessageRole.User) return
+                val clean = action.text.trim()
+                if (clean.isBlank()) return
+                mutateThread(conversationId) { messages ->
+                    messages.map { if (it.id == message.id) it.copy(text = clean) else it }
+                }
+                showPlaceholder("已在当前本地窗口修改")
+            }
+
+            is MessageAction.Regenerate -> regenerateFakeMessage(message)
+        }
+    }
+
+    fun stopGeneration() {
+        generationJob?.cancel()
+    }
+
+    fun showPlaceholder(message: String) {
+        _state.update { it.copy(snackbarMessage = message) }
+    }
+
+    fun clearSnackbar() {
+        _state.update { it.copy(snackbarMessage = null) }
+    }
+
+    private fun regenerateFakeMessage(message: ChatMessage) {
+        val current = _state.value
+        if (message.role != MessageRole.Assistant) return
+        if (current.isStreaming || generationJob?.isActive == true) {
+            showPlaceholder("请先停止当前生成，再重新生成。")
+            return
+        }
+
+        val conversationId = current.activeConversationId
+        mutateThread(conversationId) { messages ->
+            messages.map {
+                if (it.id == message.id) {
+                    it.copy(
+                        text = "",
+                        modelId = current.currentModel,
+                        generationSource = "local-regenerate",
+                        liked = false,
+                        favorite = false,
+                        errorDetail = null,
+                        variantIndex = 0,
+                        variantCount = 1
+                    )
+                } else {
+                    it
+                }
+            }
+        }
+        _state.update { it.copy(isStreaming = true) }
+        startFakeStreaming(
+            conversationId = conversationId,
+            assistantId = message.id,
+            roomType = current.activeRoomType,
+            regenerated = true
+        )
+    }
+
+    private fun startFakeStreaming(
+        conversationId: String,
+        assistantId: Long,
+        roomType: RoomType,
+        regenerated: Boolean
+    ) {
+        generationJob = viewModelScope.launch {
+            val chunks = fakeChunks(roomType, regenerated)
             try {
                 for (chunk in chunks) {
-                    delay(280)
+                    delay(260)
                     appendAssistantDelta(conversationId, assistantId, chunk)
                 }
             } catch (cancelled: CancellationException) {
@@ -201,16 +307,38 @@ class CoastShellViewModel : ViewModel() {
         }
     }
 
-    fun stopGeneration() {
-        generationJob?.cancel()
+    private fun fakeChunks(roomType: RoomType, regenerated: Boolean): List<String> {
+        val opening = if (regenerated) "我把这一轮重新铺开。 " else ""
+        return when (roomType) {
+            RoomType.Main -> listOf(
+                opening + "这里仍是海岸的本地聊天身体。 ",
+                "复制、喜欢、收藏、编辑、删除与重新生成都只作用在这一扇本地窗口。 ",
+                "真实历史与 SSE 仍然没有接线。"
+            )
+
+            RoomType.Radio -> listOf(
+                opening + "电波房继续和主聊天共用同一副 ChatWindow。 ",
+                "这一轮的重新生成只是本地潮声， ",
+                "不会向任何服务器发送消息。"
+            )
+
+            RoomType.Lighthouse -> listOf(
+                opening + "灯塔房也仍在同一副聊天身体里。 ",
+                "生成足迹会标记 local mock， ",
+                "不会伪装成真实 API 回复。"
+            )
+        }
     }
 
-    fun showPlaceholder(message: String) {
-        _state.update { it.copy(snackbarMessage = message) }
-    }
-
-    fun clearSnackbar() {
-        _state.update { it.copy(snackbarMessage = null) }
+    private fun mutateThread(
+        conversationId: String,
+        transform: (List<ChatMessage>) -> List<ChatMessage>
+    ) {
+        val updated = transform(threads[conversationId].orEmpty())
+        threads[conversationId] = updated
+        if (_state.value.activeConversationId == conversationId) {
+            _state.update { it.copy(messages = updated) }
+        }
     }
 
     private fun createLocalConversation(roomType: RoomType, rawTitle: String): ConversationSummary {
@@ -255,13 +383,15 @@ class CoastShellViewModel : ViewModel() {
 
     private fun greetingFor(roomType: RoomType): List<ChatMessage> = listOf(
         ChatMessage(
-            nextMessageId++,
-            MessageRole.Assistant,
-            when (roomType) {
+            id = nextMessageId++,
+            role = MessageRole.Assistant,
+            text = when (roomType) {
                 RoomType.Main -> "海岸主聊天已就位。这个 Native v1 仍是本地视觉壳，不会向 Coast 或任何模型端点发送内容。"
                 RoomType.Radio -> "电波房与主聊天共用同一 ChatWindow。这里先用【电波】标题前缀区分 room_type。"
                 RoomType.Lighthouse -> "灯塔房与主聊天共用同一 ChatWindow。这里先用【灯塔】标题前缀区分 room_type。"
-            }
+            },
+            modelId = "Native local",
+            generationSource = "fixture"
         )
     )
 }
