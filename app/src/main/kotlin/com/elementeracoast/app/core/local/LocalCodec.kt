@@ -8,7 +8,7 @@ internal object LocalCodec {
     private val decoder = Base64.getUrlDecoder()
 
     fun pack(vararg fields: Any?): String = fields.joinToString(".") { field ->
-        encoder.encodeToString(String(field ?: "").toByteArray(StandardCharsets.UTF_8))
+        encoder.encodeToString((field ?: "").toString().toByteArray(StandardCharsets.UTF_8))
     }
 
     fun unpack(line: String): List<String> = if (line.isBlank()) {
@@ -16,7 +16,7 @@ internal object LocalCodec {
     } else {
         line.split('.').map { field ->
             runCatching {
-                String(decoder.decode(field), StandardCharsets.UTF_8)
+                decoder.decode(field).toString(StandardCharsets.UTF_8)
             }.getOrDefault("")
         }
     }
