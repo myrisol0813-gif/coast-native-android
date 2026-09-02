@@ -1,0 +1,266 @@
+package com.elementeracoast.app.core.network
+
+import com.elementeracoast.app.core.auth.AndroidKeystoreAuthStore
+import com.elementeracoast.app.core.auth.AuthSession
+import com.elementeracoast.app.core.remote.RemoteChatRequest
+import com.elementeracoast.app.core.remote.RemoteConversation
+import com.elementeracoast.app.core.remote.RemoteConversationListResponse
+import com.elementeracoast.app.core.remote.RemoteConversationResponse
+import com.elementeracoast.app.core.remote.RemoteDailyProfile
+import com.elementeracoast.app.core.remote.RemoteDailyProfileResponse
+import com.elementeracoast.app.core.remote.RemoteHistory
+import com.elementeracoast.app.core.remote.RemoteHistoryResponse
+import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
+import com.elementeracoast.app.core.remote.RemoteProfile
+import com.elementeracoast.app.core.remote.RemoteProfileResponse
+import com.elementeracoast.app.core.remote.RemoteSessionResponse
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+
+sealed interface ApiStreamEvent {
+    data class Meta(val data: JsonElement) : ApiStreamEvent
+    data class Delta(val text: String) : ApiStreamEvent
+    data class Tool(val data: JsonElement) : ApiStreamEvent
+    data class FurnitureRuns(val data: JsonElement) : ApiStreamEvent
+    data class DeskSlip(val data: JsonElement) : ApiStreamEvent
+    data class Usage(val data: JsonElement) : ApiStreamEvent
+    data class Error(val error: CoastApiException) : ApiStreamEvent
+    data class Done(val finishReason: String) : ApiStreamEvent
+}
+
+class CoastApiClient(
+    private val config: CoastApiConfig,
+    private val client: OkHttpClient,
+    private val json: Json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        encodeDefaults = false
+    }
+) {
+    suspend fun login(password: String): AuthSession {
+        val request = Request.Builder()
+            .url(config.url("/login"))
+            .post(FormBody.Builder().add("password", password).build())
+            .build()
+        val cookie = execute(request) { response ->
+            if (response.code == 401) throw CoastApiException(CoastApiErrorKind.Unauthorized, "invalid_password", "海岸密码不正确。", 401)
+            if (response.code !in 300..399) throw responseError(response)
+            val raw = response.headers.values("Set-Cookie")
+                .firstOrNull { it.startsWith("${AndroidKeystoreAuthStore.COOKIE_NAME}=") }
+                ?: throw CoastApiException(CoastApiErrorKind.Decode, "missing_session_cookie", "海岸没有返回登录凭据。")
+            raw.substringBefore(';').trim()
+        }
+        val provisional = AuthSession(cookie, 0L)
+        val verified = getSession(provisional)
+        if (!verified.authenticated || verified.expiresAt <= 0L) {
+            throw CoastApiException(CoastApiErrorKind.Unauthorized, "invalid_session", "海岸登录凭据未通过验证。", 401)
+        }
+        return AuthSession(cookie, verified.expiresAt)
+    }
+
+    suspend fun getSession(overrideSession: AuthSession? = null): RemoteSessionResponse {
+        val builder = Request.Builder().url(config.url("/api/session")).get()
+        overrideSession?.cookieHeader?.let { builder.header("Cookie", it) }
+        return jsonRequest(builder.build(), RemoteSessionResponse.serializer())
+    }
+
+    suspend fun logout(session: AuthSession?) {
+        val builder = Request.Builder().url(config.url("/logout")).get()
+        session?.cookieHeader?.let { builder.header("Cookie", it) }
+        runCatching { execute(builder.build()) { Unit } }
+    }
+
+    suspend fun getProfile(): RemoteProfile =
+        jsonRequest(Request.Builder().url(config.url("/api/chat/profile")).get().build(), RemoteProfileResponse.serializer()).profile
+
+    suspend fun putProfile(profile: RemoteProfile): RemoteProfile {
+        val payload = json.encodeToString(RemoteProfile.serializer(), profile)
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/chat/profile")).put(jsonBody(payload)).build(),
+            RemoteProfileResponse.serializer()
+        ).profile
+    }
+
+    suspend fun getDailyProfile(): RemoteDailyProfile =
+        jsonRequest(Request.Builder().url(config.url("/api/daily/profile")).get().build(), RemoteDailyProfileResponse.serializer()).profile
+
+    suspend fun listConversations(): List<RemoteConversation> =
+        jsonRequest(Request.Builder().url(config.url("/api/chat/conversations")).get().build(), RemoteConversationListResponse.serializer()).conversations
+
+    suspend fun createConversation(title: String, roomType: String): RemoteConversation {
+        val payload = json.encodeToString(mapOf("title" to title, "room_type" to roomType))
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/chat/conversations")).post(jsonBody(payload)).build(),
+            RemoteConversationResponse.serializer()
+        ).conversation
+    }
+
+    suspend fun renameConversation(id: String, title: String): RemoteConversation {
+        val payload = json.encodeToString(mapOf("title" to title))
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/chat/conversations/${encodePath(id)}")).patch(jsonBody(payload)).build(),
+            RemoteConversationResponse.serializer()
+        ).conversation
+    }
+
+    suspend fun deleteConversation(id: String) {
+        jsonRequestElement(Request.Builder().url(config.url("/api/chat/conversations/${encodePath(id)}")).delete().build())
+    }
+
+    suspend fun getHistory(conversationId: String): RemoteHistory =
+        jsonRequest(
+            Request.Builder().url(config.url("/api/chat/history?conversation_id=${encodeQuery(conversationId)}")).get().build(),
+            RemoteHistoryResponse.serializer()
+        ).history
+
+    suspend fun putHistory(conversationId: String, history: RemoteHistory): RemoteHistory {
+        val payload = json.encodeToString(RemoteHistory.serializer(), history.copy(conversationId = null))
+        return jsonRequest(
+            Request.Builder()
+                .url(config.url("/api/chat/history?conversation_id=${encodeQuery(conversationId)}"))
+                .put(jsonBody(payload))
+                .build(),
+            RemoteHistoryResponse.serializer()
+        ).history
+    }
+
+    suspend fun listModels(refresh: Boolean = false): RemoteModelCatalogResponse {
+        val suffix = if (refresh) "?refresh=1" else ""
+        return jsonRequest(Request.Builder().url(config.url("/api/models$suffix")).get().build(), RemoteModelCatalogResponse.serializer())
+    }
+
+    fun streamChat(payload: RemoteChatRequest): Flow<ApiStreamEvent> = callbackFlow {
+        val body = json.encodeToString(RemoteChatRequest.serializer(), payload)
+        val request = Request.Builder()
+            .url(config.url("/api/chat"))
+            .post(jsonBody(body))
+            .header("Accept", "text/event-stream")
+            .build()
+        val call = client.newCall(request)
+        val readerJob = launch(Dispatchers.IO) {
+            try {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) throw responseError(response)
+                    val source = response.body?.source()
+                        ?: throw CoastApiException(CoastApiErrorKind.Stream, "empty_stream", "海岸没有返回可读取的回复流。")
+                    val parser = SseParser(json)
+                    while (!source.exhausted()) {
+                        val event = parser.acceptLine(source.readUtf8Line()) ?: continue
+                        val mapped = mapStreamEvent(event)
+                        trySend(mapped)
+                    }
+                    parser.acceptLine(null)?.let { trySend(mapStreamEvent(it)) }
+                }
+                close()
+            } catch (error: Throwable) {
+                if (call.isCanceled()) close()
+                else close(asApiException(error))
+            }
+        }
+        awaitClose {
+            call.cancel()
+            readerJob.cancel()
+        }
+    }
+
+    private fun mapStreamEvent(event: CoastSseEvent): ApiStreamEvent {
+        val obj = event.data.runCatching { jsonObject }.getOrNull()
+        return when (event.event) {
+            "meta" -> ApiStreamEvent.Meta(event.data)
+            "delta" -> ApiStreamEvent.Delta(obj?.get("content")?.jsonPrimitive?.contentOrNull.orEmpty())
+            "tool" -> ApiStreamEvent.Tool(event.data)
+            "furniture_runs" -> ApiStreamEvent.FurnitureRuns(event.data)
+            "desk_slip" -> ApiStreamEvent.DeskSlip(event.data)
+            "usage" -> ApiStreamEvent.Usage(event.data)
+            "done" -> ApiStreamEvent.Done(obj?.get("finish_reason")?.jsonPrimitive?.contentOrNull.orEmpty())
+            "error" -> ApiStreamEvent.Error(
+                CoastApiException(
+                    coastErrorKind(0, obj?.get("type")?.jsonPrimitive?.contentOrNull.orEmpty()),
+                    obj?.get("type")?.jsonPrimitive?.contentOrNull ?: "stream_error",
+                    obj?.get("message")?.jsonPrimitive?.contentOrNull ?: "流式生成中断。"
+                )
+            )
+            else -> ApiStreamEvent.Meta(event.data)
+        }
+    }
+
+    private suspend fun <T> jsonRequest(request: Request, serializer: kotlinx.serialization.KSerializer<T>): T =
+        execute(request) { response ->
+            if (!response.isSuccessful) throw responseError(response)
+            val text = response.body?.string().orEmpty()
+            try {
+                json.decodeFromString(serializer, text)
+            } catch (cause: Throwable) {
+                throw CoastApiException(CoastApiErrorKind.Decode, "invalid_json", "海岸返回的数据格式无法读取。", response.code, cause)
+            }
+        }
+
+    private suspend fun jsonRequestElement(request: Request): JsonElement = execute(request) { response ->
+        if (!response.isSuccessful) throw responseError(response)
+        val text = response.body?.string().orEmpty()
+        try {
+            json.parseToJsonElement(text)
+        } catch (cause: Throwable) {
+            throw CoastApiException(CoastApiErrorKind.Decode, "invalid_json", "海岸返回的数据格式无法读取。", response.code, cause)
+        }
+    }
+
+    private suspend fun <T> execute(request: Request, block: (Response) -> T): T = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        try {
+            client.newCall(request).execute().use(block)
+        } catch (error: CoastApiException) {
+            throw error
+        } catch (error: IOException) {
+            throw CoastApiException(CoastApiErrorKind.Network, "network_unreachable", "无法连接海岸后端。", cause = error)
+        }
+    }
+
+    private fun responseError(response: Response): CoastApiException {
+        val text = response.body?.string().orEmpty()
+        var type = if (response.code == 401) "unauthorized" else "request_failed"
+        var message = if (response.code == 401) "登录状态已失效。" else "海岸请求失败（${response.code}）。"
+        runCatching {
+            val root = json.parseToJsonElement(text).jsonObject
+            val error = root["error"]
+            if (error != null) {
+                if (error is kotlinx.serialization.json.JsonObject) {
+                    type = error["type"]?.jsonPrimitive?.contentOrNull ?: type
+                    message = error["message"]?.jsonPrimitive?.contentOrNull ?: message
+                } else {
+                    message = error.jsonPrimitive.contentOrNull ?: message
+                }
+            }
+        }
+        return CoastApiException(coastErrorKind(response.code, type), type, message, response.code)
+    }
+
+    private fun asApiException(error: Throwable): CoastApiException = when (error) {
+        is CoastApiException -> error
+        is IOException -> CoastApiException(CoastApiErrorKind.Network, "network_unreachable", "无法连接海岸后端。", cause = error)
+        else -> CoastApiException(CoastApiErrorKind.Stream, "stream_error", "流式生成中断。", cause = error)
+    }
+
+    private fun jsonBody(value: String) = value.toRequestBody(JSON_MEDIA_TYPE)
+    private fun encodeQuery(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
+    private fun encodePath(value: String): String = java.net.URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
+
+    companion object {
+        private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+    }
+}
