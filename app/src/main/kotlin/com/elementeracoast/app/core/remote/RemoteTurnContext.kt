@@ -133,11 +133,14 @@ data class RemoteThoughtSoilResponse(
     val soil: RemoteThoughtSoil = RemoteThoughtSoil()
 )
 
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
 data class RemoteSoilOrganizeRequest(
     @SerialName("conversation_id") val conversationId: String,
     val model: String,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val force: Boolean = true,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val trigger: String = "reply"
 )
 
