@@ -17,6 +17,8 @@ import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.chat.LocalChatStore
 import com.elementeracoast.app.feature.chat.LocalFurnitureOrchestrator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +28,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class CoastShellViewModel(
-    persistence: LocalPersistence = MemoryLocalPersistence()
+    persistence: LocalPersistence = MemoryLocalPersistence(),
+    private val generationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate
 ) : ViewModel() {
     private val initial = CoastShellState()
     private val _state = MutableStateFlow(initial)
@@ -164,7 +167,7 @@ class CoastShellViewModel(
             )
         }
         _state.update { it.copy(messages = next, isStreaming = true, streamingMessageId = assistantId) }
-        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = false)
+        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = false, targetVariantIndex = null)
     }
 
     fun handleMessageAction(action: MessageAction) {
@@ -202,6 +205,10 @@ class CoastShellViewModel(
             }
             is MessageAction.SelectVariant -> {
                 if (message.variantCount <= 1) return
+                if (current.isStreaming && current.streamingMessageId == message.id) {
+                    showPlaceholder("当前回复还在生成，停止后再切换版本。")
+                    return
+                }
                 mutateCurrent { list -> list.map { item ->
                     if (item.id != message.id) item else selectVariant(item, action.index)
                 } }
@@ -232,10 +239,12 @@ class CoastShellViewModel(
         val runs = furniture.runForPrompt(text, current.activeRoomType, conversationId, assistantId)
         val updated = existing.toMutableList()
         updated[userIndex] = appendUserVariant(message, text)
+        var targetVariantIndex: Int? = null
 
         if (assistantIndex != null) {
             val assistant = existing[assistantIndex]
             val variants = assistant.normalizedVariants() + ""
+            targetVariantIndex = variants.lastIndex
             updated[assistantIndex] = assistant.copy(
                 text = "",
                 modelId = current.currentModel,
@@ -272,7 +281,7 @@ class CoastShellViewModel(
             )
         }
         logAction("message.edit.regenerate", "编辑消息并生成新回复版本", "user ${message.id} → assistant $assistantId", assistantMessageId = assistantId)
-        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = true)
+        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = true, targetVariantIndex = targetVariantIndex)
     }
 
     private fun appendUserVariant(message: ChatMessage, text: String): ChatMessage {
@@ -309,12 +318,13 @@ class CoastShellViewModel(
         val current = _state.value
         if (message.role != MessageRole.Assistant) return
         if (current.isStreaming || generationJob?.isActive == true) { showPlaceholder("请先停止当前生成，再重新生成。"); return }
+        val targetVariantIndex = message.variantIndex.takeIf { message.variantCount > 1 }
         mutateCurrent { list -> list.map {
             if (it.id != message.id) it else clearCurrentAssistantVariant(it, current.currentModel)
         } }
         logAction("chat.regenerate", "重新生成本地回复", "assistant message ${message.id}", assistantMessageId = message.id)
         _state.update { it.copy(isStreaming = true, streamingMessageId = message.id) }
-        startFakeStreaming(current.activeConversationId, message.id, current.activeRoomType, regenerated = true)
+        startFakeStreaming(current.activeConversationId, message.id, current.activeRoomType, regenerated = true, targetVariantIndex = targetVariantIndex)
     }
 
     private fun clearCurrentAssistantVariant(message: ChatMessage, model: String): ChatMessage {
@@ -338,12 +348,21 @@ class CoastShellViewModel(
         )
     }
 
-    private fun startFakeStreaming(conversationId: String, assistantId: Long, roomType: RoomType, regenerated: Boolean) {
-        generationJob = viewModelScope.launch {
+    private fun startFakeStreaming(
+        conversationId: String,
+        assistantId: Long,
+        roomType: RoomType,
+        regenerated: Boolean,
+        targetVariantIndex: Int?
+    ) {
+        generationJob = viewModelScope.launch(generationDispatcher) {
             try {
-                fakeChunks(roomType, regenerated).forEach { chunk -> delay(240); appendDelta(conversationId, assistantId, chunk) }
+                fakeChunks(roomType, regenerated).forEach { chunk ->
+                    delay(240)
+                    appendDelta(conversationId, assistantId, chunk, targetVariantIndex)
+                }
             } catch (cancelled: CancellationException) {
-                appendDelta(conversationId, assistantId, "\n\n[本地演示已停止]")
+                appendDelta(conversationId, assistantId, "\n\n[本地演示已停止]", targetVariantIndex)
                 throw cancelled
             } finally {
                 if (_state.value.activeConversationId == conversationId && _state.value.streamingMessageId == assistantId) {
@@ -381,15 +400,16 @@ class CoastShellViewModel(
         _state.update { it.copy(messages = updated) }
     }
 
-    private fun appendDelta(conversationId: String, messageId: Long, delta: String) {
+    private fun appendDelta(conversationId: String, messageId: Long, delta: String, targetVariantIndex: Int?) {
         val updated = chat.mutate(conversationId) { list ->
             list.map { message ->
                 if (message.id != messageId) message
-                else if (message.variantCount > 1) {
+                else if (targetVariantIndex != null && message.variantCount > 1) {
                     val variants = message.normalizedVariants().toMutableList()
-                    val index = message.variantIndex.coerceIn(0, variants.lastIndex)
-                    variants[index] = variants[index] + delta
-                    message.copy(text = variants[index], variants = variants)
+                    val target = targetVariantIndex.coerceIn(0, variants.lastIndex)
+                    variants[target] = variants[target] + delta
+                    val visibleIndex = message.variantIndex.coerceIn(0, variants.lastIndex)
+                    message.copy(text = variants[visibleIndex], variants = variants)
                 } else {
                     message.copy(text = message.text + delta)
                 }
