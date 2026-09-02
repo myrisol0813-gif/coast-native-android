@@ -15,7 +15,6 @@ internal fun MessageItem(
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
     onAction: (MessageAction) -> Unit,
-    onVariantPlaceholder: (ChatMessage) -> Unit,
     onFootprint: (ChatMessage) -> Unit,
     onOpenActionLog: (Set<String>) -> Unit
 ) {
@@ -24,8 +23,7 @@ internal fun MessageItem(
             message = message,
             onCopy = { onCopy(message) },
             onEdit = { onEdit(message) },
-            onAction = onAction,
-            onVariantPlaceholder = { onVariantPlaceholder(message) }
+            onAction = onAction
         )
         MessageRole.Assistant -> AssistantMessage(
             message = message,
@@ -34,7 +32,6 @@ internal fun MessageItem(
             onAvatarClick = onAvatarClick,
             onCopy = { onCopy(message) },
             onAction = onAction,
-            onVariantPlaceholder = { onVariantPlaceholder(message) },
             onFootprint = { onFootprint(message) },
             onOpenActionLog = onOpenActionLog
         )
