@@ -30,6 +30,7 @@ import com.elementeracoast.app.feature.daily.DailyPrimaryButton
 import com.elementeracoast.app.feature.daily.DailySurfaceCard
 import com.elementeracoast.app.feature.wolf.ChoiceRow
 import com.elementeracoast.app.feature.wolf.WolfTextField
+import java.time.LocalDate
 
 @Composable
 internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackbar: (String) -> Unit) {
@@ -42,7 +43,20 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
     var expandedId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(createRequest) { if (createRequest > 0) creating = true }
 
-    val visible = store.searchSeeds(query)
+    val filterValues = when (filterKind) {
+        MemoryFilterKind.Tag -> (canonicalMemoryTags + state.seeds.flatMap { it.tags }).distinct()
+        MemoryFilterKind.Date -> state.seeds.map { it.sourceDate }.filter(String::isNotBlank).distinct().sortedDescending()
+        MemoryFilterKind.Model -> state.seeds.map { it.sourceModel }.filter(String::isNotBlank).distinct().sorted()
+        MemoryFilterKind.Window -> state.seeds.map { it.sourceWindow }.filter(String::isNotBlank).distinct().sorted()
+    }
+    val visible = store.searchSeeds(query).filter { seed ->
+        filterValue.isBlank() || when (filterKind) {
+            MemoryFilterKind.Tag -> filterValue in seed.tags
+            MemoryFilterKind.Date -> seed.sourceDate == filterValue
+            MemoryFilterKind.Model -> seed.sourceModel == filterValue
+            MemoryFilterKind.Window -> seed.sourceWindow == filterValue
+        }
+    }
     LazyColumn(
         contentPadding = PaddingValues(top = 2.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -54,7 +68,7 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
                 filterKind = filterKind,
                 onFilterKindChange = { filterKind = it },
                 filterValue = filterValue,
-                values = emptyList(),
+                values = filterValues,
                 onFilterValueChange = { filterValue = it }
             )
         }
@@ -80,9 +94,11 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
                     DailySurfaceCard(onClick = { expandedId = if (expandedId == seed.id) null else seed.id }) {
                         Text(seed.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Text(seed.status.name.lowercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                        if (seed.tags.isNotEmpty()) Text(seed.tags.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         if (expandedId == seed.id) {
                             Spacer(Modifier.height(8.dp))
                             Text(seed.content, style = MaterialTheme.typography.bodyMedium)
+                            Text("索引：${seed.sourceModel} / ${seed.sourceWindow} / ${seed.sourceDate}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                                 Text("编辑", modifier = Modifier.clickable { editing = seed }, color = MaterialTheme.colorScheme.primary)
@@ -104,6 +120,10 @@ private fun SeedEditor(seed: LocalSeed?, onDismiss: () -> Unit, onSave: (LocalSe
     var title by remember(seed?.id) { mutableStateOf(seed?.title ?: "") }
     var content by remember(seed?.id) { mutableStateOf(seed?.content ?: "") }
     var status by remember(seed?.id) { mutableStateOf(seed?.status ?: SeedStatus.Active) }
+    var tags by remember(seed?.id) { mutableStateOf(seed?.tags?.joinToString(", ") ?: "") }
+    var sourceModel by remember(seed?.id) { mutableStateOf(seed?.sourceModel ?: "手动整理") }
+    var sourceWindow by remember(seed?.id) { mutableStateOf(seed?.sourceWindow ?: "本地") }
+    var sourceDate by remember(seed?.id) { mutableStateOf(seed?.sourceDate ?: LocalDate.now().toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (seed == null) "新增种子" else "编辑种子") },
@@ -111,10 +131,29 @@ private fun SeedEditor(seed: LocalSeed?, onDismiss: () -> Unit, onSave: (LocalSe
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 WolfTextField("标题", title, { title = it })
                 WolfTextField("内容", content, { content = it }, minLines = 3)
+                WolfTextField("标签", tags, { tags = it })
+                WolfTextField("模型", sourceModel, { sourceModel = it })
+                WolfTextField("窗口", sourceWindow, { sourceWindow = it })
+                WolfTextField("日期", sourceDate, { sourceDate = it })
                 SeedStatus.entries.forEach { ChoiceRow(it.name.lowercase(), status == it) { status = it } }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(LocalSeed(seed?.id.orEmpty(), title, content, status)) }) { Text("保存") } },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(
+                    LocalSeed(
+                        id = seed?.id.orEmpty(),
+                        title = title,
+                        content = content,
+                        status = status,
+                        tags = tags.split(',').map(String::trim).filter(String::isNotBlank),
+                        sourceModel = sourceModel,
+                        sourceWindow = sourceWindow,
+                        sourceDate = sourceDate
+                    )
+                )
+            }) { Text("保存") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }
