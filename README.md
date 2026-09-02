@@ -32,6 +32,8 @@ Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md`.
 - sidebar identity is `Serpent Desk / 小蛇书桌`; opening it lands on the desk home, whose current tool shelf contains `小蛇行动日志`
 - furniture deep links open the Action Log tool inside Serpent Desk
 - Daily: 碳硅圈 / 日记 / blank Pet interior
+- Carbon Circle keeps like/comment/delete on the first action row and a separate small second-row `叫 Myri 来评论` chip
+- the Myri-comment chip is intentionally local-only for now: it logs the request and states that real model commenting waits for backend wiring; it never fabricates a Myri comment
 - Memory: 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface with real local filters
 - local JSON / HTML chat export and JSON import
 - light / dark / gold plus local bubble/accent appearance
@@ -44,7 +46,7 @@ feature/wolf         WolfStore + ModelCatalog + ModelBoxScreen
 feature/letters      IslandLetterContent + IslandLetterStore + IslandLetterScreen
 feature/serpentdesk  SerpentDeskScreen + visible tool shelf/navigation
 feature/actionlog    ActionLogStore + ActionLogScreen tool implementation
-feature/daily        DailyStore + Daily surfaces
+feature/daily        DailyStore + MomentActions + Daily surfaces
 feature/memory       MemoryStore + Memory surfaces
 feature/shell        navigation + transient room landing/materialization coordination
 core/local           SharedPreferences / in-memory persistence boundary
@@ -55,7 +57,7 @@ A Radio/Lighthouse landing is not a hidden conversation or second thread store. 
 
 ## PWA reference
 
-The main Native body was reviewed against PWA app-60. Later read-only app-62 review confirms the Serpent Desk home/tool-shelf structure. Web/PWA source remains reference-only and is never copied into this repository.
+The main Native body was reviewed against PWA app-60. Later read-only app-62 review confirms the Serpent Desk home/tool-shelf structure and the current Daily model-comment action. Web/PWA source remains reference-only and is never copied into this repository.
 
 ## Hard boundaries
 
@@ -63,6 +65,7 @@ The main Native body was reviewed against PWA app-60. Later read-only app-62 rev
 - no real login/API/SSE/OpenRouter request/model call
 - no base URL/token/password/provider secret
 - no real Daily/Memory/MCP sync
+- no fake Myri-authored Daily comment while model-comment backend wiring is absent
 - no o3 reply-card changes
 - no Calendar / Today Coast / Summary / Album
 - no restored old desk pseudo-settings
