@@ -13,6 +13,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 @Composable
 internal fun SoilBottomSheet(
     soil: ThoughtSoilSnapshot,
+    onOpenPendingBag: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -82,6 +84,10 @@ internal fun SoilBottomSheet(
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
+                TextButton(onClick = {
+                    onDismiss()
+                    onOpenPendingBag()
+                }) { Text("打开待确认袋") }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f))
