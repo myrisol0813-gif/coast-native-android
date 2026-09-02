@@ -13,6 +13,20 @@ import org.junit.Test
 
 class CoastShellViewModelTest {
     @Test
+    fun startupAndNewConversationsContainNoFixtureReplies() {
+        val vm = CoastShellViewModel()
+        assertTrue(vm.state.value.messages.isEmpty())
+
+        vm.state.value.conversations.map { it.id }.forEach { id ->
+            vm.selectConversation(id)
+            assertTrue(vm.state.value.messages.isEmpty())
+        }
+
+        vm.newConversation()
+        assertTrue(vm.state.value.messages.isEmpty())
+    }
+
+    @Test
     fun newConversationUsesActiveRoomTypeWithoutRetaggingOthers() {
         val vm = CoastShellViewModel()
         vm.openRoomType(RoomType.Radio)
@@ -68,6 +82,7 @@ class CoastShellViewModelTest {
     fun deletingLastConversationCreatesFreshEmptyMainFallback() {
         val vm = CoastShellViewModel()
         val oldId = vm.state.value.activeConversationId
+        vm.importMessages(listOf(ChatMessage(9L, MessageRole.User, "旧内容")))
         assertTrue(vm.state.value.messages.isNotEmpty())
 
         vm.state.value.conversations
@@ -102,7 +117,8 @@ class CoastShellViewModelTest {
     @Test
     fun likeAndFavoriteToggleOnlyCurrentLocalMessage() {
         val vm = CoastShellViewModel()
-        val messageId = vm.state.value.messages.single().id
+        val messageId = 77L
+        vm.importMessages(listOf(ChatMessage(messageId, MessageRole.Assistant, "本地回复")))
 
         vm.handleMessageAction(MessageAction.ToggleLike(messageId))
         vm.handleMessageAction(MessageAction.ToggleFavorite(messageId))
@@ -166,14 +182,19 @@ class CoastShellViewModelTest {
     fun deleteMessageDoesNotMutateAnotherConversation() {
         val vm = CoastShellViewModel()
         val firstConversation = vm.state.value.activeConversationId
-        val firstMessage = vm.state.value.messages.single().id
+        val firstMessage = 201L
+        vm.importMessages(listOf(ChatMessage(firstMessage, MessageRole.Assistant, "第一窗口")))
+
         val other = vm.state.value.conversations.first { it.id != firstConversation }
+        vm.selectConversation(other.id)
+        vm.importMessages(listOf(ChatMessage(202L, MessageRole.Assistant, "第二窗口")))
+        vm.selectConversation(firstConversation)
 
         vm.handleMessageAction(MessageAction.Delete(firstMessage))
         assertTrue(vm.state.value.messages.isEmpty())
 
         vm.selectConversation(other.id)
-        assertTrue(vm.state.value.messages.isNotEmpty())
+        assertEquals("第二窗口", vm.state.value.messages.single().text)
 
         vm.selectConversation(firstConversation)
         assertTrue(vm.state.value.messages.isEmpty())
