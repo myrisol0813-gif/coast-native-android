@@ -19,6 +19,8 @@ internal fun FeatureLandingScreen(
     daily: DailyRepository,
     messages: List<ChatMessage>,
     onBackToChat: () -> Unit,
+    onRefresh: () -> Unit,
+    onUpdateMyriAvatar: (String) -> Unit,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
@@ -28,6 +30,9 @@ internal fun FeatureLandingScreen(
     when (feature) {
         FeatureDestination.Daily -> DailyLanding(
             repository = daily,
+            myriAvatarDataUrl = shellState.myriAvatarDataUrl,
+            onUpdateMyriAvatar = onUpdateMyriAvatar,
+            onRefreshCoast = onRefresh,
             onBackToChat = onBackToChat,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
