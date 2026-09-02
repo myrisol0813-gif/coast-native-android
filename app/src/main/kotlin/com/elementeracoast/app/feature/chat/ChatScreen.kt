@@ -1,10 +1,8 @@
 package com.elementeracoast.app.feature.chat
 
-import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Base64
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -58,22 +56,11 @@ fun ChatWindow(
     val dailyState by services.daily.state.collectAsState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val avatarUri = dailyState.myriAvatarUri
+    val avatarSource = state.myriAvatarDataUrl.ifBlank { dailyState.myriAvatarUri }
 
-    val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarUri) {
-        value = if (avatarUri.isBlank()) null else withContext(Dispatchers.IO) {
-            runCatching {
-                context.contentResolver.openInputStream(Uri.parse(avatarUri)).use { stream -> BitmapFactory.decodeStream(stream)?.asImageBitmap() }
-            }.getOrNull()
-        }
-    }
-
-    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            services.daily.setMyriAvatar(uri.toString())
-            avatarDialogOpen = false
-            onPlaceholder("已换成本机 Myri 头像；和碳硅圈共用同一来源。")
+    val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
+        value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) {
+            decodeImageSource(context, avatarSource)
         }
     }
 
@@ -93,9 +80,9 @@ fun ChatWindow(
             onEdit = { message -> editingMessage = message },
             onAction = onMessageAction,
             onFootprint = { message ->
-                val model = message.modelId ?: "Native local"
-                val source = message.generationSource ?: "local"
-                onPlaceholder("生成足迹：$model · $source；这是本地 UI 信息。")
+                val model = message.modelId ?: "未知模型"
+                val source = message.generationSource ?: "unknown"
+                onPlaceholder("生成足迹：$model · $source")
             },
             onOpenActionLog = onOpenActionLog,
             modifier = Modifier.weight(1f)
@@ -109,14 +96,14 @@ fun ChatWindow(
         )
         DogtalkCard(
             scope = DogtalkScope.from(state.activeRoomType),
-            onSaved = { onPlaceholder("狗话已暂存在本地小抽屉；没有写后端。") }
+            onSaved = { onPlaceholder("狗话仍属于本轮未接的本地小抽屉，没有写入后端。") }
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
         CoastComposer(
             value = input,
             onValueChange = { input = it },
             isStreaming = state.isStreaming,
-            enabled = true,
+            enabled = !state.historyLoading,
             onSend = { val outgoing = input; input = ""; onSend(outgoing) },
             onStop = onStop,
             onPlaceholder = onPlaceholder
@@ -136,13 +123,18 @@ fun ChatWindow(
     if (avatarDialogOpen) {
         AvatarPickerDialog(
             onDismiss = { avatarDialogOpen = false },
-            onPickLocalImage = { avatarPicker.launch(arrayOf("image/*")) },
-            onReset = {
-                services.daily.setMyriAvatar("")
+            onPickLocalImage = {
                 avatarDialogOpen = false
-                onPlaceholder("已恢复 Native 默认 Myri 头像。")
+                onPlaceholder("头像上传本轮未接线；当前继续显示海岸后端已有头像，没有只改本机。")
             },
-            onFutureSync = { onPlaceholder("profile 后端同步仍未接线；当前只保存本机。") }
+            onReset = {
+                avatarDialogOpen = false
+                onPlaceholder("头像写回本轮未接线，没有修改海岸后端资料。")
+            },
+            onFutureSync = {
+                avatarDialogOpen = false
+                onPlaceholder("当前头像已经从海岸 profile 读取；上传写回留到后续接线。")
+            }
         )
     }
 
@@ -154,3 +146,16 @@ fun ChatWindow(
         )
     }
 }
+
+private fun decodeImageSource(context: android.content.Context, source: String): ImageBitmap? = runCatching {
+    val bitmap = if (source.startsWith("data:image/", ignoreCase = true)) {
+        val encoded = source.substringAfter(',', "")
+        if (encoded.isBlank()) null else {
+            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }
+    } else {
+        context.contentResolver.openInputStream(Uri.parse(source)).use { stream -> BitmapFactory.decodeStream(stream) }
+    }
+    bitmap?.asImageBitmap()
+}.getOrNull()
