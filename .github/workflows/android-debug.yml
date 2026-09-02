@@ -64,7 +64,13 @@ jobs:
           grep -q 'defaultIslandLetter' "$root/feature/letters/IslandLetterContent.kt"
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
           grep -q 'val activeFieldNames' "$root/feature/wolf/WolfModels.kt"
+          grep -q 'openRoomLanding(roomType)' "$root/feature/shell/CoastShellViewModel.kt"
+          grep -q 'ensureActiveConversation()' "$root/feature/shell/CoastShellViewModel.kt"
 
+          if grep -qE 'radio-1|lighthouse-1' "$root/core/model/ConversationModels.kt"; then
+            echo 'Prebuilt Radio/Lighthouse conversation returned.'
+            exit 1
+          fi
           if grep -RIE 'FeatureDestination\.Calendar|FeatureDestination\.Desk|今日一瞥|海岸日历|一日总结|相册|Serpent Action Log|运行水闸' \
             "$root/core/model" "$root/feature/shell" "$root/feature/daily" "$root/feature/wolf"; then
             echo 'Retired Native surface returned.'
@@ -96,14 +102,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app62-desk-fix-27-debug.apk
-          sha256sum artifact/CoastGPT-native-app62-desk-fix-27-debug.apk > artifact/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app62-room-autocreate-fix-27-debug.apk
+          sha256sum artifact/CoastGPT-native-app62-room-autocreate-fix-27-debug.apk > artifact/SHA256SUMS.txt
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-app62-desk-fix-27-debug
+          name: CoastGPT-native-app62-room-autocreate-fix-27-debug
           path: |
-            artifact/CoastGPT-native-app62-desk-fix-27-debug.apk
+            artifact/CoastGPT-native-app62-room-autocreate-fix-27-debug.apk
             artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
