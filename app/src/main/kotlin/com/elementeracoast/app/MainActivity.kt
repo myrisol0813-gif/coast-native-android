@@ -47,6 +47,8 @@ class MainActivity : ComponentActivity() {
                         onCycleTheme = vm::cycleTheme,
                         onOpenFeature = vm::openFeature,
                         onBackToChat = vm::backToChat,
+                        onRefresh = vm::refreshCoastState,
+                        onUpdateMyriAvatar = vm::updateMyriAvatar,
                         onSend = vm::sendMessage,
                         onStop = vm::stopGeneration,
                         onMessageAction = vm::handleMessageAction,
