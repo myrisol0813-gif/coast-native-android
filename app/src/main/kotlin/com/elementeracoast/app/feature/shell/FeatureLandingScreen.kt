@@ -6,6 +6,7 @@ import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.feature.actionlog.ActionLogScreen
 import com.elementeracoast.app.feature.daily.DailyLanding
+import com.elementeracoast.app.feature.letters.IslandLetterScreen
 import com.elementeracoast.app.feature.memory.MemoryLanding
 import com.elementeracoast.app.feature.wolf.WolfScreen
 
@@ -47,6 +48,13 @@ internal fun FeatureLandingScreen(
             store = services.actionLog,
             conversationId = shellState.activeConversationId,
             focusIds = shellState.actionLogFocusIds
+        )
+        FeatureDestination.IslandLetter -> IslandLetterScreen(
+            store = services.islandLetter,
+            conversationId = shellState.activeConversationId,
+            modelName = shellState.currentModel,
+            onBack = onBackToChat,
+            onSnackbar = onPlaceholder
         )
     }
 }
