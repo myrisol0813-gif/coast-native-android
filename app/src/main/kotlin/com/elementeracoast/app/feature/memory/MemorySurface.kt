@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,12 +45,14 @@ internal val canonicalMemoryTags = listOf("关系", "历史锚点", "偏好", "�
 
 @Composable
 fun MemoryTabs(active: MemoryTab, onSelect: (MemoryTab) -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 18.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
-            .padding(8.dp),
+            .padding(horizontal = 28.dp, vertical = 14.dp)
+            .shadow(2.dp, shape, clip = false)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .padding(7.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -68,16 +71,16 @@ private fun MemoryTabCell(tab: MemoryTab, active: MemoryTab, modifier: Modifier,
     val selected = tab == active
     Column(
         modifier = modifier
-            .background(if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+            .background(if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
             .clickable { onSelect(tab) }
-            .padding(vertical = 15.dp),
+            .padding(vertical = 13.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             tab.title,
             color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -94,16 +97,18 @@ fun MemoryRetrievalCard(
 ) {
     var kindMenu by remember { mutableStateOf(false) }
     var valueMenu by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(22.dp)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+            .shadow(2.dp, shape, clip = false)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .padding(horizontal = 20.dp, vertical = 17.dp)
     ) {
-        Text("检索", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(10.dp))
+        Text("检索", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
         Text("搜索", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(6.dp))
         BasicTextField(
@@ -111,8 +116,8 @@ fun MemoryRetrievalCard(
             onValueChange = onQueryChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(18.dp))
-                .padding(horizontal = 14.dp, vertical = 14.dp),
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(17.dp))
+                .padding(horizontal = 14.dp, vertical = 13.dp),
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -157,33 +162,37 @@ fun MemoryRetrievalCard(
 
 @Composable
 private fun FilterChip(label: String, emphasized: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(2.dp, shape, clip = false)
             .background(
                 if (emphasized) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f) else MaterialTheme.colorScheme.surface,
-                RoundedCornerShape(22.dp)
+                shape
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
         Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 fun MemoryPendingCard(count: Int, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(21.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(22.dp))
+            .shadow(2.dp, shape, clip = false)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 18.dp)
+            .padding(horizontal = 20.dp, vertical = 17.dp)
     ) {
-        Text("待确认袋 · $count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("只有确认后才会进入记忆库或种子库。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Text("待确认袋 · $count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("只有确认后才会进入记忆库或种子库。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
 }
