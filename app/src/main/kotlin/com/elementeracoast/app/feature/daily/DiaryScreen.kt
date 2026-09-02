@@ -1,6 +1,5 @@
 package com.elementeracoast.app.feature.daily
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,9 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +41,7 @@ internal fun DiaryScreen(
 ) {
     val state by store.state.collectAsState()
     var editing by remember { mutableStateOf<LocalDiary?>(null) }
+    var deleting by remember { mutableStateOf<LocalDiary?>(null) }
 
     LazyColumn(
         contentPadding = PaddingValues(horizontal = 28.dp, vertical = 34.dp),
@@ -43,7 +50,7 @@ internal fun DiaryScreen(
         if (state.diaries.isEmpty()) {
             item {
                 DailySurfaceCard(onClick = onCompose) {
-                    Text("还没有日记。", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("还没有日记。", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
                     Text("想写的时候再留一张纸。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
                 }
@@ -60,13 +67,28 @@ internal fun DiaryScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        Text("编辑", modifier = Modifier.clickable { editing = entry }, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("删除", modifier = Modifier.clickable {
-                            store.deleteDiary(entry.id)
-                            onActionLogged("daily.diary.delete", "删除了一篇日记", "删除 1 篇本地日记")
-                        }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { editing = entry }, modifier = Modifier.size(34.dp)) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = "编辑日记",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        IconButton(onClick = { deleting = entry }, modifier = Modifier.size(34.dp)) {
+                            Icon(
+                                Icons.Outlined.DeleteOutline,
+                                contentDescription = "删除日记",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -80,6 +102,18 @@ internal fun DiaryScreen(
             onSnackbar("日记已更新")
             editing = null
         }
+    }
+    deleting?.let { entry ->
+        DailyDeleteConfirmDialog(
+            title = "删除这篇日记？",
+            body = "删除后只会从本机移除这一篇纸页。",
+            onDismiss = { deleting = null },
+            onConfirm = {
+                store.deleteDiary(entry.id)
+                onActionLogged("daily.diary.delete", "删除了一篇日记", "删除 1 篇本地日记")
+                deleting = null
+            }
+        )
     }
 }
 
