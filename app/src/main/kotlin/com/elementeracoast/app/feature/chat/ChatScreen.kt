@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -37,6 +37,7 @@ fun ChatWindow(
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
     onOpenActionLog: (Set<String>) -> Unit,
+    onOpenPendingMemory: () -> Unit,
     onPlaceholder: (String) -> Unit
 ) {
     var input by rememberSaveable(state.activeConversationId) { mutableStateOf("") }
@@ -100,7 +101,13 @@ fun ChatWindow(
     }
 
     val soil = state.thoughtSoil
-    if (soilOpen && soil != null) SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
+    if (soilOpen && soil != null) {
+        SoilBottomSheet(
+            soil = soil,
+            onOpenPendingBag = onOpenPendingMemory,
+            onDismiss = { soilOpen = false }
+        )
+    }
 
     if (deskOpen && deskReceipt != null) TurnDeskBottomSheet(receipt = deskReceipt, onDismiss = { deskOpen = false })
 
