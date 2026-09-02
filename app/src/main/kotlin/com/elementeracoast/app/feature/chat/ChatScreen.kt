@@ -1,9 +1,9 @@
 package com.elementeracoast.app.feature.chat
 
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,28 +51,29 @@ fun ChatWindow(
 ) {
     var input by rememberSaveable(state.activeConversationId) { mutableStateOf("") }
     var avatarDialogOpen by rememberSaveable { mutableStateOf(false) }
-    var avatarUri by rememberSaveable { mutableStateOf<String?>(null) }
     var editingMessage by androidx.compose.runtime.remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
     val wolfState by services.wolf.state.collectAsState()
     val memoryState by services.memory.state.collectAsState()
+    val dailyState by services.daily.state.collectAsState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val avatarUri = dailyState.myriAvatarUri
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarUri) {
-        val uri = avatarUri
-        value = if (uri == null) null else withContext(Dispatchers.IO) {
+        value = if (avatarUri.isBlank()) null else withContext(Dispatchers.IO) {
             runCatching {
-                context.contentResolver.openInputStream(Uri.parse(uri)).use { stream -> BitmapFactory.decodeStream(stream)?.asImageBitmap() }
+                context.contentResolver.openInputStream(Uri.parse(avatarUri)).use { stream -> BitmapFactory.decodeStream(stream)?.asImageBitmap() }
             }.getOrNull()
         }
     }
 
-    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            avatarUri = uri.toString()
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            services.daily.setMyriAvatar(uri.toString())
             avatarDialogOpen = false
-            onPlaceholder("已换成本机 Myri 头像；没有上传到海岸。")
+            onPlaceholder("已换成本机 Myri 头像；和碳硅圈共用同一来源。")
         }
     }
 
@@ -134,9 +135,13 @@ fun ChatWindow(
     if (avatarDialogOpen) {
         AvatarPickerDialog(
             onDismiss = { avatarDialogOpen = false },
-            onPickLocalImage = { avatarPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            onReset = { avatarUri = null; avatarDialogOpen = false; onPlaceholder("已恢复 Native 默认 Myri 头像。") },
-            onFutureSync = { onPlaceholder("profile 同步仍未接线；本轮不会上传头像。") }
+            onPickLocalImage = { avatarPicker.launch(arrayOf("image/*")) },
+            onReset = {
+                services.daily.setMyriAvatar("")
+                avatarDialogOpen = false
+                onPlaceholder("已恢复 Native 默认 Myri 头像。")
+            },
+            onFutureSync = { onPlaceholder("profile 后端同步仍未接线；当前只保存本机。") }
         )
     }
 
