@@ -2,11 +2,12 @@ package com.elementeracoast.app.feature.chat
 
 import com.elementeracoast.app.core.network.ApiStreamEvent
 import com.elementeracoast.app.core.network.CoastApiClient
+import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
+import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteHistory
-import com.elementeracoast.app.core.remote.RemoteCacheStore
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -23,20 +24,31 @@ sealed interface ChatProgress {
     data class Completed(val history: RemoteHistory, val modelId: String, val finishReason: String) : ChatProgress
 }
 
-class ChatRepository(
+interface ChatRepository {
+    fun cachedHistory(conversationId: String): RemoteHistory?
+    suspend fun loadHistory(conversationId: String): RemoteHistory
+    suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory
+    fun streamReply(conversationId: String, historyWithUser: RemoteHistory, turnId: String, modelId: String): Flow<ChatProgress>
+    fun failedHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, error: CoastApiException, partialContent: String = ""): RemoteHistory
+    fun cancelledHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, partialContent: String): RemoteHistory
+    fun clearFailure(history: RemoteHistory, turnId: String): RemoteHistory
+    fun cacheHistory(conversationId: String, history: RemoteHistory)
+}
+
+class DefaultChatRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore,
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
-) {
-    fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
+) : ChatRepository {
+    override fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
 
-    suspend fun loadHistory(conversationId: String): RemoteHistory =
+    override suspend fun loadHistory(conversationId: String): RemoteHistory =
         api.getHistory(conversationId).also { cache.putHistory(conversationId, it) }
 
-    suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory =
+    override suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory =
         api.putHistory(conversationId, history).also { cache.putHistory(conversationId, it) }
 
-    fun streamReply(
+    override fun streamReply(
         conversationId: String,
         historyWithUser: RemoteHistory,
         turnId: String,
@@ -51,7 +63,7 @@ class ChatRepository(
             conversationId = conversationId,
             sourceTurnId = turnId,
             model = modelId,
-            messages = ChatSyncMapper.activeMessages(historyWithUser),
+            messages = ChatSyncMapper.contextMessages(historyWithUser, turnId),
             localDate = LocalDate.now().toString(),
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
             stream = true
@@ -82,13 +94,13 @@ class ChatRepository(
                 is ApiStreamEvent.Usage -> Unit
             }
         }
-        if (!done) throw com.elementeracoast.app.core.network.CoastApiException(
-            com.elementeracoast.app.core.network.CoastApiErrorKind.Stream,
+        if (!done) throw CoastApiException(
+            CoastApiErrorKind.Stream,
             "stream_incomplete",
             "海岸回复流提前中断。"
         )
         val completed = ChatSyncMapper.appendAssistant(
-            history = historyWithUser,
+            history = ChatSyncMapper.clearUserFailure(historyWithUser, turnId),
             turnId = turnId,
             content = content,
             modelId = actualModel,
@@ -99,20 +111,42 @@ class ChatRepository(
         emit(ChatProgress.Completed(saved, actualModel, finishReason))
     }
 
-    fun failedHistory(
+    override fun failedHistory(
         historyWithUser: RemoteHistory,
         turnId: String,
         modelId: String,
         error: CoastApiException,
-        partialContent: String = ""
-    ): RemoteHistory = ChatSyncMapper.appendAssistant(
-        history = historyWithUser,
-        turnId = turnId,
-        content = partialContent,
-        modelId = modelId,
-        finishReason = "error",
-        errorDetail = "${error.type}: ${error.message}"
-    )
+        partialContent: String
+    ): RemoteHistory {
+        val marked = ChatSyncMapper.markUserFailure(historyWithUser, turnId, "${error.type}: ${error.message}")
+        return if (partialContent.isBlank()) marked else ChatSyncMapper.appendAssistant(
+            history = marked,
+            turnId = turnId,
+            content = partialContent,
+            modelId = modelId,
+            finishReason = "error",
+            errorDetail = "${error.type}: ${error.message}"
+        )
+    }
 
-    fun cacheHistory(conversationId: String, history: RemoteHistory) = cache.putHistory(conversationId, history)
+    override fun cancelledHistory(
+        historyWithUser: RemoteHistory,
+        turnId: String,
+        modelId: String,
+        partialContent: String
+    ): RemoteHistory {
+        val clean = ChatSyncMapper.clearUserFailure(historyWithUser, turnId)
+        return if (partialContent.isBlank()) clean else ChatSyncMapper.appendAssistant(
+            history = clean,
+            turnId = turnId,
+            content = partialContent,
+            modelId = modelId,
+            finishReason = "cancelled"
+        )
+    }
+
+    override fun clearFailure(history: RemoteHistory, turnId: String): RemoteHistory =
+        ChatSyncMapper.clearUserFailure(history, turnId)
+
+    override fun cacheHistory(conversationId: String, history: RemoteHistory) = cache.putHistory(conversationId, history)
 }
