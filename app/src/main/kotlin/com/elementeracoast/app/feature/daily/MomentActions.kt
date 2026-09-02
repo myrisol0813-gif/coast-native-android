@@ -13,8 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-internal const val MyriCommentActionLabel = "叫 Myri 来评论"
+internal const val MyriCommentActionLabel = "Myri 留言"
 internal const val MyriCommentOfflineMessage = "真实 Myri 评论将在后端接线后启用。"
 
 @Composable
@@ -34,9 +34,16 @@ internal fun MomentActionRows(
     footer: String,
     onLike: () -> Unit,
     onComment: () -> Unit,
-    onDelete: () -> Unit,
-    onMyriComment: () -> Unit
+    onMyriComment: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f),
+        thickness = .5.dp
+    )
+    Spacer(Modifier.height(7.dp))
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -45,7 +52,7 @@ internal fun MomentActionRows(
             footer,
             modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal)
         )
         IconButton(onClick = onLike, modifier = Modifier.size(34.dp)) {
             Icon(
@@ -63,30 +70,42 @@ internal fun MomentActionRows(
                 modifier = Modifier.size(18.dp)
             )
         }
-        IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
-            Icon(
-                Icons.Outlined.DeleteOutline,
-                contentDescription = "删除",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        MomentActionChip(MyriCommentActionLabel, onMyriComment)
     }
 
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(3.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            MyriCommentActionLabel,
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(13.dp))
-                .clickable(onClick = onMyriComment)
-                .padding(horizontal = 10.dp, vertical = 5.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold
-        )
+        MomentTextAction("编辑", onEdit)
+        Spacer(Modifier.size(5.dp))
+        MomentTextAction("删除", onDelete)
     }
+}
+
+@Composable
+private fun MomentActionChip(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        color = MaterialTheme.colorScheme.onSurface,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
+    )
+}
+
+@Composable
+private fun MomentTextAction(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
+    )
 }
