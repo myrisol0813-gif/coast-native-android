@@ -4,6 +4,7 @@ import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.actionlog.ActionLogStore
 import com.elementeracoast.app.feature.daily.DailyStore
+import com.elementeracoast.app.feature.daily.MomentAuthor
 import com.elementeracoast.app.feature.memory.LocalMemoryEntry
 import com.elementeracoast.app.feature.memory.MemoryStore
 import org.junit.Assert.assertEquals
@@ -31,6 +32,16 @@ class FurnitureLocalParityTest {
         assertTrue(runs.any { it.actionKey == "memory.search" })
         assertTrue(log.records.value.all { it.assistantMessageId == 88L })
         assertTrue(log.records.value.all { it.inputSummary.length <= 360 && it.outputSummary.length <= 360 })
+    }
+
+    @Test fun chatTriggeredCarbonCirclePostIsAuthoredByMyri() {
+        val p = MemoryLocalPersistence()
+        val daily = DailyStore(p)
+        val runs = LocalFurnitureOrchestrator(daily, MemoryStore(p), ActionLogStore(p))
+            .runForPrompt("帮我写一条碳硅圈动态", RoomType.Main, "main-1", 90L)
+
+        assertTrue(runs.any { it.actionKey == "daily.moment.write" })
+        assertEquals(MomentAuthor.Myri, daily.state.value.moments.single().author)
     }
 
     @Test fun memoryFurnitureReportsZeroWhenNothingMatches() {
