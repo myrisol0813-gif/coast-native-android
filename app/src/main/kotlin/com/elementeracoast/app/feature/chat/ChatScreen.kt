@@ -82,6 +82,7 @@ fun ChatWindow(
             conversationId = state.activeConversationId,
             messages = state.messages,
             isStreaming = state.isStreaming,
+            streamingMessageId = state.streamingMessageId,
             avatarBitmap = avatarBitmap,
             onAvatarClick = { avatarDialogOpen = true },
             onCopy = { message ->
