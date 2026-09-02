@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pets
@@ -57,7 +58,9 @@ fun DailyLanding(
 
         Box(Modifier.weight(1f)) {
             when (page) {
-                DailyPage.Home -> DailyHome { page = it }
+                DailyPage.Home -> DailyHome(onOpen = { page = it }, onFutureWidgets = {
+                    onSnackbar("未来小组件还没有长出来；这里只保留 PWA 母版入口。")
+                })
                 DailyPage.Moments -> MomentScreen(store, onActionLogged, onSnackbar) { page = DailyPage.MomentCompose }
                 DailyPage.MomentCompose -> MomentComposeScreen(store, onActionLogged, onSnackbar) { page = DailyPage.Moments }
                 DailyPage.Diary -> DiaryScreen(store, onActionLogged, onSnackbar) { page = DailyPage.DiaryCompose }
@@ -69,7 +72,7 @@ fun DailyLanding(
 }
 
 @Composable
-private fun DailyHome(onOpen: (DailyPage) -> Unit) {
+private fun DailyHome(onOpen: (DailyPage) -> Unit, onFutureWidgets: () -> Unit) {
     val mapping = listOf(
         Triple(DailyPage.Moments, DailyLandingItem("碳硅圈", "海岸内部朋友圈"), Icons.Default.FavoriteBorder),
         Triple(DailyPage.Diary, DailyLandingItem("日记", "留下今天的纸页"), Icons.Default.Edit),
@@ -81,6 +84,13 @@ private fun DailyHome(onOpen: (DailyPage) -> Unit) {
     ) {
         items(mapping) { (destination, item, icon) ->
             DailyHomeCard(item, icon) { onOpen(destination) }
+        }
+        item {
+            DailyHomeCard(
+                DailyLandingItem("未来小组件", "以后再慢慢长出来"),
+                Icons.Default.Add,
+                onFutureWidgets
+            )
         }
     }
 }
@@ -109,6 +119,7 @@ private fun DailyHomeCard(item: DailyLandingItem, icon: ImageVector, onClick: ()
     }
 }
 
+/** Active Daily destinations. Future widgets is a visual PWA-mother placeholder, not an active page. */
 internal fun dailyLandingItems(): List<DailyLandingItem> = listOf(
     DailyLandingItem("碳硅圈", "海岸内部朋友圈"),
     DailyLandingItem("日记", "留下今天的纸页"),
