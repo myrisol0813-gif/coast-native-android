@@ -1,10 +1,26 @@
 package com.elementeracoast.app.feature.shell
 
-import com.elementeracoast.app.core.model.ChatMessage
+import com.elementeracoast.app.core.auth.AuthRepository
+import com.elementeracoast.app.core.auth.AuthSession
+import com.elementeracoast.app.core.auth.SessionRestoreResult
+import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
+import com.elementeracoast.app.core.network.CoastApiErrorKind
+import com.elementeracoast.app.core.network.CoastApiException
+import com.elementeracoast.app.core.remote.RemoteDailyProfile
+import com.elementeracoast.app.core.remote.RemoteHistory
+import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
+import com.elementeracoast.app.core.remote.RemoteModelGroups
+import com.elementeracoast.app.core.remote.RemoteModelCatalogItem
+import com.elementeracoast.app.core.remote.RemoteProfile
+import com.elementeracoast.app.feature.chat.ChatProgress
+import com.elementeracoast.app.feature.chat.ChatRepository
+import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -13,236 +29,255 @@ import org.junit.Test
 
 class CoastShellViewModelTest {
     @Test
-    fun startupAndNewConversationsContainNoFixtureReplies() {
-        val vm = CoastShellViewModel()
-        assertTrue(vm.state.value.messages.isEmpty())
-        assertTrue(vm.state.value.conversations.all { it.roomType == RoomType.Main })
+    fun restoredSessionLoadsSharedConversationHistoryAndProfile() {
+        val fixture = Fixture()
+        val existing = fixture.conversations.seed(RoomType.Main, "PWA 已有窗口")
+        val user = ChatSyncMapper.appendUser(RemoteHistory(conversationId = existing.id), "PWA 留下的问题")
+        fixture.chat.histories[existing.id] = ChatSyncMapper.appendAssistant(
+            user.history,
+            user.turnId,
+            "PWA 已有回复",
+            "openai/gpt-5.6",
+            "stop"
+        )
 
-        vm.state.value.conversations.map { it.id }.forEach { id ->
-            vm.selectConversation(id)
-            assertTrue(vm.state.value.messages.isEmpty())
-        }
+        val vm = fixture.vm()
+        val state = vm.state.value
 
-        vm.newConversation()
-        assertTrue(vm.state.value.messages.isEmpty())
+        assertTrue(state.authenticated)
+        assertFalse(state.authBusy)
+        assertEquals(existing.id, state.activeConversationId)
+        assertEquals("openai/gpt-5.6", state.currentModel)
+        assertEquals(listOf("PWA 留下的问题", "PWA 已有回复"), state.messages.map { it.text })
+        assertTrue(state.models.contains("openai/gpt-5.6"))
     }
 
     @Test
-    fun radioAndLighthouseEntrancesAreTransientUntilFirstSend() {
-        val vm = CoastShellViewModel()
+    fun radioLandingDoesNotPrecreateThreadAndFirstSendCreatesRemoteConversation() {
+        val fixture = Fixture()
+        fixture.conversations.seed(RoomType.Main, "主聊天")
+        val vm = fixture.vm()
 
-        listOf(RoomType.Radio, RoomType.Lighthouse).forEach { roomType ->
-            vm.openRoomType(roomType)
-            val state = vm.state.value
-            assertEquals(roomType, state.activeRoomType)
-            assertEquals("", state.activeConversationId)
-            assertTrue(state.messages.isEmpty())
-            assertFalse(state.conversations.any { it.roomType == roomType })
-        }
-    }
-
-    @Test
-    fun firstRadioMessageCreatesPersistentConversationAndKeepsThread() {
-        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
         vm.openRoomType(RoomType.Radio)
-        vm.sendFakeMessage("电波测试")
-
-        val created = vm.state.value
-        val createdId = created.activeConversationId
-        assertTrue(createdId.isNotBlank())
-        assertEquals(RoomType.Radio, created.activeRoomType)
-        assertTrue(created.conversations.any { it.id == createdId && it.roomType == RoomType.Radio })
-        assertTrue(created.conversations.first { it.id == createdId }.title.startsWith("【电波】"))
-        assertEquals("电波测试", created.messages.first { it.role == MessageRole.User }.text)
-
-        vm.stopGeneration()
-        val mainId = vm.state.value.conversations.first { it.roomType == RoomType.Main }.id
-        vm.selectConversation(mainId)
-        assertTrue(vm.state.value.messages.isEmpty())
-
-        vm.selectConversation(createdId)
-        assertEquals("电波测试", vm.state.value.messages.first { it.role == MessageRole.User }.text)
-    }
-
-    @Test
-    fun openingRoomEntranceAgainStartsFreshLandingInsteadOfStealingOldThread() {
-        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
-        vm.openRoomType(RoomType.Lighthouse)
-        vm.sendFakeMessage("第一封灯塔信")
-        val firstId = vm.state.value.activeConversationId
-        vm.stopGeneration()
-
-        vm.openRoomType(RoomType.Lighthouse)
         assertEquals("", vm.state.value.activeConversationId)
-        assertTrue(vm.state.value.messages.isEmpty())
+        assertFalse(vm.state.value.conversations.any { it.roomType == RoomType.Radio })
 
-        vm.sendFakeMessage("第二封灯塔信")
-        val secondId = vm.state.value.activeConversationId
-        assertNotEquals(firstId, secondId)
-        assertEquals(2, vm.state.value.conversations.count { it.roomType == RoomType.Lighthouse })
-    }
-
-    @Test
-    fun manualNewConversationUsesActiveRoomType() {
-        val vm = CoastShellViewModel()
-        vm.openRoomType(RoomType.Radio)
-        vm.newConversation()
+        vm.sendMessage("电波测试")
 
         val state = vm.state.value
-        val created = state.conversations.first { it.id == state.activeConversationId }
         assertEquals(RoomType.Radio, state.activeRoomType)
-        assertEquals(RoomType.Radio, created.roomType)
-        assertTrue(created.title.startsWith("【电波】"))
-        assertTrue(state.messages.isEmpty())
+        assertTrue(state.activeConversationId.isNotBlank())
+        assertTrue(state.conversations.any { it.id == state.activeConversationId && it.roomType == RoomType.Radio })
+        assertEquals(listOf(MessageRole.User, MessageRole.Assistant), state.messages.map { it.role })
+        assertEquals("电波测试", state.messages.first().text)
+        assertEquals("真实流回复", state.messages.last().text)
+        assertEquals(1, fixture.chat.streamCalls)
     }
 
     @Test
-    fun renameKeepsRoomPrefixAndDeleteActiveRadioFallsBackToMain() {
-        val vm = CoastShellViewModel()
-        vm.openRoomType(RoomType.Radio)
-        vm.newConversation()
-        val createdId = vm.state.value.activeConversationId
+    fun lighthouseFirstSendPersistsUserTurnWithoutModelGeneration() {
+        val fixture = Fixture()
+        fixture.conversations.seed(RoomType.Main, "主聊天")
+        val vm = fixture.vm()
 
-        vm.renameConversation(createdId, "【灯塔】夜航")
-        assertEquals(
-            "【电波】夜航",
-            vm.state.value.conversations.first { it.id == createdId }.title
-        )
-
-        vm.deleteConversation(createdId)
-        assertFalse(vm.state.value.conversations.any { it.id == createdId })
-        assertEquals(RoomType.Main, vm.state.value.activeRoomType)
-        assertEquals(
-            RoomType.Main,
-            vm.state.value.conversations.first { it.id == vm.state.value.activeConversationId }.roomType
-        )
-    }
-
-    @Test
-    fun deletingLastConversationCreatesFreshEmptyMainFallback() {
-        val vm = CoastShellViewModel()
-        val oldId = vm.state.value.activeConversationId
-        vm.importMessages(listOf(ChatMessage(9L, MessageRole.User, "旧内容")))
-        assertTrue(vm.state.value.messages.isNotEmpty())
-
-        vm.state.value.conversations
-            .map { it.id }
-            .filterNot { it == oldId }
-            .forEach(vm::deleteConversation)
-        assertEquals(1, vm.state.value.conversations.size)
-
-        vm.deleteConversation(oldId)
+        vm.openRoomType(RoomType.Lighthouse)
+        vm.sendMessage("灯塔只收信")
 
         val state = vm.state.value
-        assertEquals(1, state.conversations.size)
-        assertNotEquals(oldId, state.activeConversationId)
-        assertEquals(RoomType.Main, state.activeRoomType)
-        assertEquals("新聊天 1", state.conversations.single().title)
-        assertTrue(state.messages.isEmpty())
-        assertEquals("已清空最后一个窗口", state.snackbarMessage)
+        assertEquals(RoomType.Lighthouse, state.activeRoomType)
+        assertTrue(state.activeConversationId.isNotBlank())
+        assertEquals(1, state.messages.size)
+        assertEquals(MessageRole.User, state.messages.single().role)
+        assertEquals("灯塔只收信", state.messages.single().text)
+        assertEquals(0, fixture.chat.streamCalls)
+        assertEquals(1, fixture.chat.persistCalls)
     }
 
     @Test
-    fun deletingNonActiveConversationDoesNotMoveActiveWindow() {
-        val vm = CoastShellViewModel()
-        val activeBefore = vm.state.value.activeConversationId
-        val target = vm.state.value.conversations.first { it.id != activeBefore }.id
+    fun failedStreamMarksSameUserTurnAndRetryDoesNotDuplicateUserMessage() {
+        val fixture = Fixture()
+        fixture.conversations.seed(RoomType.Main, "主聊天")
+        fixture.chat.failStream = true
+        val vm = fixture.vm()
 
-        vm.deleteConversation(target)
+        vm.sendMessage("只发一次")
+        var state = vm.state.value
+        val failedUser = state.messages.single { it.role == MessageRole.User }
+        assertTrue(failedUser.errorDetail!!.contains("network_unreachable"))
+        assertEquals(1, state.messages.count { it.role == MessageRole.User })
 
-        assertEquals(activeBefore, vm.state.value.activeConversationId)
-        assertFalse(vm.state.value.conversations.any { it.id == target })
+        fixture.chat.failStream = false
+        vm.handleMessageAction(MessageAction.Retry(failedUser.id))
+        state = vm.state.value
+
+        assertEquals(1, state.messages.count { it.role == MessageRole.User })
+        assertEquals(1, state.messages.count { it.role == MessageRole.Assistant })
+        assertEquals("只发一次", state.messages.first { it.role == MessageRole.User }.text)
+        assertEquals("真实流回复", state.messages.first { it.role == MessageRole.Assistant }.text)
+        assertEquals(2, fixture.chat.streamCalls)
     }
 
     @Test
-    fun likeAndFavoriteToggleOnlyCurrentLocalMessage() {
-        val vm = CoastShellViewModel()
-        val messageId = 77L
-        vm.importMessages(listOf(ChatMessage(messageId, MessageRole.Assistant, "本地回复")))
+    fun backendConversationDeleteNeverCreatesLocalFallbackConversation() {
+        val fixture = Fixture()
+        val only = fixture.conversations.seed(RoomType.Main, "唯一窗口")
+        val vm = fixture.vm()
+        assertEquals(only.id, vm.state.value.activeConversationId)
 
-        vm.handleMessageAction(MessageAction.ToggleLike(messageId))
-        vm.handleMessageAction(MessageAction.ToggleFavorite(messageId))
+        vm.deleteConversation(only.id)
 
-        val message = vm.state.value.messages.single()
-        assertTrue(message.liked)
-        assertTrue(message.favorite)
-
-        vm.handleMessageAction(MessageAction.ToggleLike(messageId))
-        vm.handleMessageAction(MessageAction.ToggleFavorite(messageId))
-        val reset = vm.state.value.messages.single()
-        assertFalse(reset.liked)
-        assertFalse(reset.favorite)
+        assertTrue(vm.state.value.conversations.isEmpty())
+        assertEquals("", vm.state.value.activeConversationId)
+        assertEquals(RoomType.Main, vm.state.value.activeRoomType)
     }
 
     @Test
-    fun userEditCreatesPairedAssistantVariantAndCurrentDeleteOnlyRemovesOneVersion() {
-        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
-        val userId = 500L
-        val assistantId = 501L
-        vm.importMessages(
-            listOf(
-                ChatMessage(userId, MessageRole.User, "旧消息"),
-                ChatMessage(assistantId, MessageRole.Assistant, "旧回复", modelId = "Native local")
+    fun localVariantViewingChangesCacheOnlyAndDoesNotPersistFakeSuccess() {
+        val fixture = Fixture()
+        val existing = fixture.conversations.seed(RoomType.Main, "分支窗口")
+        val first = ChatSyncMapper.appendUser(RemoteHistory(conversationId = existing.id), "问题")
+        var history = ChatSyncMapper.appendAssistant(first.history, first.turnId, "版本一", "model", "stop")
+        history = ChatSyncMapper.appendAssistant(history, first.turnId, "版本二", "model", "stop")
+        fixture.chat.histories[existing.id] = history
+        val vm = fixture.vm()
+        val assistant = vm.state.value.messages.first { it.role == MessageRole.Assistant }
+        val beforePersist = fixture.chat.persistCalls
+
+        vm.handleMessageAction(MessageAction.SelectVariant(assistant.id, 0))
+
+        assertEquals("版本一", vm.state.value.messages.first { it.role == MessageRole.Assistant }.text)
+        assertEquals(beforePersist, fixture.chat.persistCalls)
+    }
+
+    private class Fixture {
+        val auth = FakeAuthRepository()
+        val conversations = FakeConversationRepository()
+        val profile = FakeProfileRepository()
+        val chat = FakeChatRepository()
+        val persistence = MemoryLocalPersistence()
+
+        fun vm(): CoastShellViewModel = CoastShellViewModel(
+            persistence = persistence,
+            backend = CoastBackendGraph(auth, conversations, profile, chat),
+            workDispatcher = Dispatchers.Unconfined
+        )
+    }
+
+    private class FakeAuthRepository : AuthRepository {
+        private val session = AuthSession("__Host-coast_session=test", Long.MAX_VALUE / 1000)
+        var loggedOut = false
+
+        override suspend fun login(password: String): AuthSession = session
+        override suspend fun restore(): SessionRestoreResult = SessionRestoreResult.Restored(session)
+        override suspend fun logout() { loggedOut = true }
+        override fun current(): AuthSession = session
+        override fun clearConfirmedInvalidSession() = Unit
+    }
+
+    private class FakeConversationRepository : ConversationRepository {
+        private var next = 1
+        private val values = mutableListOf<com.elementeracoast.app.core.model.ConversationSummary>()
+
+        fun seed(roomType: RoomType, title: String) = com.elementeracoast.app.core.model.ConversationSummary(
+            "${roomType.wireValue}-${next++}", title, roomType
+        ).also { values += it }
+
+        override fun cached() = values.toList()
+        override suspend fun refresh() = values.toList()
+        override suspend fun create(roomType: RoomType, title: String) = seed(roomType, title)
+        override suspend fun rename(id: String, title: String): com.elementeracoast.app.core.model.ConversationSummary {
+            val index = values.indexOfFirst { it.id == id }
+            val updated = values[index].copy(title = title)
+            values[index] = updated
+            return updated
+        }
+        override suspend fun delete(id: String) { values.removeAll { it.id == id } }
+    }
+
+    private class FakeProfileRepository : ProfileRepository {
+        private val current = RemoteProfile(
+            currentChatModel = "openai/gpt-5.6",
+            modelBox = com.elementeracoast.app.core.remote.RemoteModelBox(chat = listOf("openai/gpt-5.6"))
+        )
+        private val catalog = RemoteModelCatalogResponse(
+            ok = true,
+            groups = RemoteModelGroups(
+                openAiChat = listOf(RemoteModelCatalogItem("openai/gpt-5.6", "GPT-5.6"))
             )
         )
 
-        vm.handleMessageAction(MessageAction.Edit(userId, "新消息"))
-        var user = vm.state.value.messages.first { it.id == userId }
-        var assistant = vm.state.value.messages.first { it.id == assistantId }
-        assertEquals(2, user.variantCount)
-        assertEquals(1, user.variantIndex)
-        assertEquals("新消息", user.text)
-        assertEquals(2, assistant.variantCount)
-        assertEquals(1, assistant.variantIndex)
-        assertEquals("", assistant.text)
-        assertEquals(assistantId, vm.state.value.streamingMessageId)
-        assertTrue(vm.state.value.isStreaming)
-
-        vm.stopGeneration()
-        vm.handleMessageAction(MessageAction.SelectVariant(userId, 0))
-        vm.handleMessageAction(MessageAction.SelectVariant(assistantId, 0))
-        user = vm.state.value.messages.first { it.id == userId }
-        assistant = vm.state.value.messages.first { it.id == assistantId }
-        assertEquals("旧消息", user.text)
-        assertEquals("旧回复", assistant.text)
-        assertEquals(0, user.variantIndex)
-        assertEquals(0, assistant.variantIndex)
-
-        vm.handleMessageAction(MessageAction.SelectVariant(userId, 1))
-        vm.handleMessageAction(MessageAction.Delete(userId))
-        user = vm.state.value.messages.first { it.id == userId }
-        assertEquals(1, user.variantCount)
-        assertEquals(0, user.variantIndex)
-        assertEquals("旧消息", user.text)
-        assertEquals(1, user.variants.size)
-        assertEquals(2, vm.state.value.messages.first { it.id == assistantId }.variantCount)
+        override fun cachedProfile() = current
+        override fun cachedDailyProfile() = RemoteDailyProfile()
+        override fun cachedModels() = catalog
+        override suspend fun refreshProfile() = current
+        override suspend fun refreshDailyProfile() = RemoteDailyProfile()
+        override suspend fun refreshModels(force: Boolean) = catalog
+        override suspend fun setCurrentChatModel(modelId: String) = current.copy(currentChatModel = modelId)
     }
 
-    @Test
-    fun deleteMessageDoesNotMutateAnotherConversation() {
-        val vm = CoastShellViewModel()
-        val firstConversation = vm.state.value.activeConversationId
-        val firstMessage = 201L
-        vm.importMessages(listOf(ChatMessage(firstMessage, MessageRole.Assistant, "第一窗口")))
+    private class FakeChatRepository : ChatRepository {
+        val histories = linkedMapOf<String, RemoteHistory>()
+        var streamCalls = 0
+        var persistCalls = 0
+        var failStream = false
 
-        val other = vm.state.value.conversations.first { it.id != firstConversation }
-        vm.selectConversation(other.id)
-        vm.importMessages(listOf(ChatMessage(202L, MessageRole.Assistant, "第二窗口")))
-        vm.selectConversation(firstConversation)
+        override fun cachedHistory(conversationId: String) = histories[conversationId]
 
-        vm.handleMessageAction(MessageAction.Delete(firstMessage))
-        assertTrue(vm.state.value.messages.isEmpty())
+        override suspend fun loadHistory(conversationId: String): RemoteHistory =
+            histories.getOrPut(conversationId) { RemoteHistory(conversationId = conversationId) }
 
-        vm.selectConversation(other.id)
-        assertEquals("第二窗口", vm.state.value.messages.single().text)
+        override suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory {
+            persistCalls += 1
+            val saved = history.copy(conversationId = conversationId)
+            histories[conversationId] = saved
+            return saved
+        }
 
-        vm.selectConversation(firstConversation)
-        assertTrue(vm.state.value.messages.isEmpty())
-    }
+        override fun streamReply(
+            conversationId: String,
+            historyWithUser: RemoteHistory,
+            turnId: String,
+            modelId: String
+        ): Flow<ChatProgress> = flow {
+            streamCalls += 1
+            if (failStream) throw CoastApiException(
+                CoastApiErrorKind.Network,
+                "network_unreachable",
+                "无法连接海岸后端。"
+            )
+            emit(ChatProgress.Delta("真实流"))
+            emit(ChatProgress.Delta("回复"))
+            val completed = ChatSyncMapper.appendAssistant(
+                ChatSyncMapper.clearUserFailure(historyWithUser, turnId),
+                turnId,
+                "真实流回复",
+                modelId,
+                "stop"
+            ).copy(conversationId = conversationId)
+            histories[conversationId] = completed
+            emit(ChatProgress.Completed(completed, modelId, "stop"))
+        }
 
-    @Test
-    fun regenerateActionIsExplicitlyLocalMessageAction() {
-        val action = MessageAction.Regenerate(42L)
-        assertEquals(42L, action.messageId)
+        override fun failedHistory(
+            historyWithUser: RemoteHistory,
+            turnId: String,
+            modelId: String,
+            error: CoastApiException,
+            partialContent: String
+        ): RemoteHistory = ChatSyncMapper.markUserFailure(
+            historyWithUser,
+            turnId,
+            "${error.type}: ${error.message}"
+        )
+
+        override fun cancelledHistory(
+            historyWithUser: RemoteHistory,
+            turnId: String,
+            modelId: String,
+            partialContent: String
+        ): RemoteHistory = ChatSyncMapper.clearUserFailure(historyWithUser, turnId)
+
+        override fun clearFailure(history: RemoteHistory, turnId: String) = ChatSyncMapper.clearUserFailure(history, turnId)
+        override fun cacheHistory(conversationId: String, history: RemoteHistory) { histories[conversationId] = history }
     }
 }
