@@ -1,6 +1,7 @@
 package com.elementeracoast.app.feature.daily
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -45,7 +46,7 @@ internal fun MomentActionRows(
             footer,
             modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal)
         )
         IconButton(onClick = onLike, modifier = Modifier.size(34.dp)) {
             Icon(
@@ -73,20 +74,21 @@ internal fun MomentActionRows(
         }
     }
 
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(5.dp))
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
     ) {
+        val chipShape = RoundedCornerShape(13.dp)
         Text(
             MyriCommentActionLabel,
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(13.dp))
+                .background(MaterialTheme.colorScheme.surface, chipShape)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, chipShape)
                 .clickable(onClick = onMyriComment)
-                .padding(horizontal = 10.dp, vertical = 5.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold
+                .padding(horizontal = 11.dp, vertical = 6.dp),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
         )
     }
 }
