@@ -3,6 +3,7 @@ package com.elementeracoast.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -15,18 +16,22 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val vm: CoastShellViewModel = viewModel()
+            val vm: CoastShellViewModel = viewModel(factory = CoastShellViewModel.factory(applicationContext))
             val state by vm.state.collectAsState()
-            CoastTheme(mode = state.theme) {
+            val wolf by vm.local.wolf.state.collectAsState()
+            LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
+
+            CoastTheme(
+                mode = wolf.appearance.theme,
+                accentHex = wolf.appearance.accentHex,
+                userBubbleHex = wolf.appearance.userBubbleHex
+            ) {
                 if (!state.authenticated) {
-                    GateScreen(
-                        password = state.password,
-                        onPasswordChange = vm::setPassword,
-                        onEnter = vm::enterLocalShell
-                    )
+                    GateScreen(state.password, vm::setPassword, vm::enterLocalShell)
                 } else {
                     MainShell(
                         state = state,
+                        services = vm.local,
                         onOpenRoomType = vm::openRoomType,
                         onSelectConversation = vm::selectConversation,
                         onNewConversation = vm::newConversation,
@@ -38,6 +43,9 @@ class MainActivity : ComponentActivity() {
                         onSend = vm::sendFakeMessage,
                         onStop = vm::stopGeneration,
                         onMessageAction = vm::handleMessageAction,
+                        onOpenActionLog = vm::openActionLog,
+                        onImportMessages = vm::importMessages,
+                        onLocalActionLogged = vm::logLocalAction,
                         onOpenModels = vm::openModelPicker,
                         onDismissModels = vm::dismissModelPicker,
                         onSelectModel = vm::selectModel,

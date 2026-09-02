@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.MessageAction
@@ -26,6 +27,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainShell(
     state: CoastShellState,
+    services: LocalFeatureServices,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -37,6 +39,9 @@ fun MainShell(
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
+    onOpenActionLog: (Set<String>) -> Unit,
+    onImportMessages: (List<ChatMessage>) -> Unit,
+    onLocalActionLogged: (String, String, String) -> Unit,
     onOpenModels: () -> Unit,
     onDismissModels: () -> Unit,
     onSelectModel: (String) -> Unit,
@@ -74,48 +79,56 @@ fun MainShell(
             )
         }
     ) {
+        val ownsPageChrome = state.activeFeature == FeatureDestination.Memory ||
+            state.activeFeature == FeatureDestination.Daily ||
+            state.activeFeature == FeatureDestination.IslandLetter
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                CoastTopBar(
-                    state = state,
-                    onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                    onBack = onBackToChat,
-                    onOpenModels = onOpenModels,
-                    onNewConversation = onNewConversation,
-                    onMore = { onPlaceholder("窗口更多操作暂未接线。") }
-                )
+                if (!ownsPageChrome) {
+                    CoastTopBar(
+                        state = state,
+                        onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                        onBack = onBackToChat,
+                        onOpenModels = onOpenModels,
+                        onNewConversation = onNewConversation,
+                        onMore = { onOpenFeature(FeatureDestination.IslandLetter) }
+                    )
+                }
             }
         ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
+            Box(Modifier.fillMaxSize().padding(innerPadding)) {
                 val feature = state.activeFeature
                 if (feature == null) {
                     ChatWindow(
                         state = state,
+                        services = services,
                         onSend = onSend,
                         onStop = onStop,
                         onMessageAction = onMessageAction,
+                        onOpenActionLog = onOpenActionLog,
                         onPlaceholder = onPlaceholder
                     )
                 } else {
-                    FeatureLandingScreen(feature = feature, onPlaceholder = onPlaceholder)
+                    FeatureLandingScreen(
+                        feature = feature,
+                        shellState = state,
+                        services = services,
+                        messages = state.messages,
+                        onBackToChat = onBackToChat,
+                        onSelectModel = onSelectModel,
+                        onImportMessages = onImportMessages,
+                        onLocalActionLogged = onLocalActionLogged,
+                        onPlaceholder = onPlaceholder
+                    )
                 }
             }
         }
     }
 
     if (state.showModelPicker && state.activeFeature == null) {
-        ModelQuickPicker(
-            models = state.models,
-            currentModel = state.currentModel,
-            onPick = onSelectModel,
-            onDismiss = onDismissModels
-        )
+        ModelQuickPicker(state.models, state.currentModel, onSelectModel, onDismissModels)
     }
 }

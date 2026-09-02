@@ -222,8 +222,8 @@ internal fun CoastDrawer(
                     R.drawable.ic_coast_serpent,
                     "Serpent Desk",
                     "小蛇书桌",
-                    state.activeFeature == FeatureDestination.Desk
-                ) { onOpenFeature(FeatureDestination.Desk) }
+                    state.activeFeature == FeatureDestination.ActionLog
+                ) { onOpenFeature(FeatureDestination.ActionLog) }
             }
         }
     }

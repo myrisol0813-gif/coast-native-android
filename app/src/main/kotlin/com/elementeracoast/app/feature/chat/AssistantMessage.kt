@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -41,14 +40,11 @@ internal fun AssistantMessage(
     onAvatarClick: () -> Unit,
     onCopy: () -> Unit,
     onAction: (MessageAction) -> Unit,
-    onVariantPlaceholder: () -> Unit,
-    onFootprint: () -> Unit
+    onFootprint: () -> Unit,
+    onOpenActionLog: (Set<String>) -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        AssistantAvatar(
-            bitmap = avatarBitmap,
-            onClick = onAvatarClick
-        )
+        AssistantAvatar(avatarBitmap, onAvatarClick)
         Spacer(Modifier.width(CoastChatTokens.AssistantAvatarGap))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -64,88 +60,48 @@ internal fun AssistantMessage(
                     lineHeight = CoastChatTokens.ChatBodyLineHeight
                 )
             )
-            message.errorDetail?.takeIf { it.isNotBlank() }?.let { detail ->
+            message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
                 Spacer(Modifier.height(5.dp))
-                Text(
-                    text = detail,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            if (!isStreamingTail && message.furnitureRuns.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                FurnitureBubble(message.furnitureRuns, onOpenActionLog)
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow {
-                MessageActionButton(
-                    icon = Icons.Default.ContentCopy,
-                    label = "复制",
-                    onClick = onCopy
-                )
-                MessageActionButton(
-                    icon = Icons.Default.ThumbUp,
-                    label = "点赞",
-                    active = message.liked,
-                    onClick = { onAction(MessageAction.ToggleLike(message.id)) }
-                )
-                MessageActionButton(
-                    icon = Icons.Default.Refresh,
-                    label = "重新生成",
-                    enabled = !isStreamingTail,
-                    onClick = { onAction(MessageAction.Regenerate(message.id)) }
-                )
-                MessageActionButton(
-                    icon = Icons.Default.FavoriteBorder,
-                    label = "收藏",
-                    active = message.favorite,
-                    onClick = { onAction(MessageAction.ToggleFavorite(message.id)) }
-                )
-                MessageActionButton(
-                    icon = Icons.Default.DeleteOutline,
-                    label = "删除",
-                    enabled = !isStreamingTail,
-                    onClick = { onAction(MessageAction.Delete(message.id)) }
-                )
-                Spacer(Modifier.width(3.dp))
-                VariantControl(
-                    index = message.variantIndex,
-                    count = message.variantCount,
-                    onPlaceholder = onVariantPlaceholder
-                )
+                MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
+                MessageActionButton(Icons.Default.ThumbUp, "点赞", active = message.liked, onClick = { onAction(MessageAction.ToggleLike(message.id)) })
+                MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
+                MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
+                MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
             }
-            GenerationFootprint(
-                message = message,
-                onClick = onFootprint,
-                modifier = Modifier.align(Alignment.End)
-            )
+            if (message.variantCount > 1) {
+                Spacer(Modifier.height(4.dp))
+                Row(modifier = Modifier.align(Alignment.End)) {
+                    VariantControl(
+                        index = message.variantIndex,
+                        count = message.variantCount,
+                        onPrevious = { onAction(MessageAction.SelectVariant(message.id, message.variantIndex - 1)) },
+                        onNext = { onAction(MessageAction.SelectVariant(message.id, message.variantIndex + 1)) }
+                    )
+                }
+            }
+            GenerationFootprint(message, onFootprint, Modifier.align(Alignment.End))
         }
     }
 }
 
 @Composable
 private fun AssistantAvatar(bitmap: ImageBitmap?, onClick: () -> Unit) {
-    val modifier = Modifier
-        .size(CoastChatTokens.AssistantAvatarSize)
-        .clip(CircleShape)
+    val modifier = Modifier.size(CoastChatTokens.AssistantAvatarSize).clip(CircleShape)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-        .background(MaterialTheme.colorScheme.surfaceVariant)
-        .clickable(onClick = onClick)
-
+        .background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick)
     if (bitmap != null) {
-        Image(
-            bitmap = bitmap,
-            contentDescription = "更换助手头像",
-            contentScale = ContentScale.Crop,
-            modifier = modifier
-        )
+        Image(bitmap = bitmap, contentDescription = "更换助手头像", contentScale = ContentScale.Crop, modifier = modifier)
     } else {
-        androidx.compose.foundation.layout.Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "M",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold
-            )
+        androidx.compose.foundation.layout.Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text("M", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
         }
     }
 }

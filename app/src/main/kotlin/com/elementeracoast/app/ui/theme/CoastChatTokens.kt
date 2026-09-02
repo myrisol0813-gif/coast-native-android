@@ -11,12 +11,12 @@ object CoastChatTokens {
     val TopBarHeight = 52.dp
     val TopBarHorizontalPadding = 4.dp
     val TopBarTitleSize = 18.sp
-    val TopBarModelSize = 13.sp
+    val TopBarModelSize = 15.sp
+    val TopBarModelMaxWidth = 158.dp
     val TopBarRoomSize = 11.sp
     val TopBarMenuGlyph = 22.dp
     val TopBarActionGlyph = 20.dp
-    val TopBarChevronGlyph = 12.dp
-    val TopBarModelGap = 5.dp
+    val TopBarModelGap = 6.dp
     val TopBarModelHorizontalPadding = 0.dp
     val TopBarModelVerticalPadding = 2.dp
     val TopBarDividerThickness = 0.5.dp
@@ -35,6 +35,7 @@ object CoastChatTokens {
     val UserBubbleHorizontalPadding = 15.dp
     val UserBubbleVerticalPadding = 10.dp
     val UserActionTopGap = 7.dp
+    val VariantActionGap = 3.dp
     val AssistantAvatarSize = 34.dp
     val AssistantAvatarGap = 14.dp
     val AssistantStarSize = 13.sp

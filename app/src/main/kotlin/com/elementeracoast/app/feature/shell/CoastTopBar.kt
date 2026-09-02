@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -98,19 +98,13 @@ internal fun CoastTopBar(
                         Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
                         Text(
                             state.currentModel,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.widthIn(max = CoastChatTokens.TopBarModelMaxWidth),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = CoastChatTokens.TopBarModelSize
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
-                        )
-                        Icon(
-                            Icons.Default.ExpandMore,
-                            contentDescription = "选择模型",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(CoastChatTokens.TopBarChevronGlyph)
                         )
                     }
                     if (state.activeRoomType != RoomType.Main) {

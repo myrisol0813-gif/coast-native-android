@@ -2,13 +2,23 @@ package com.elementeracoast.app.core.model
 
 enum class MessageRole { User, Assistant }
 
-/**
- * Native local UI state only.
- *
- * This is intentionally separate from core/contract/CoastMessage and the future API variant
- * skeletons. These fields exist so the local-only Native shell can render and exercise the
- * current PWA message affordances before backend wiring.
- */
+data class FurnitureItem(
+    val title: String,
+    val kind: String = ""
+)
+
+data class FurnitureRun(
+    val actionId: String,
+    val actionKey: String,
+    val label: String,
+    val success: Boolean = true,
+    val count: Int = 1,
+    val items: List<FurnitureItem> = emptyList(),
+    val extraCount: Int = 0,
+    val errorType: String = ""
+)
+
+/** Native local UI state only; deliberately separate from the future API contract skeleton. */
 data class ChatMessage(
     val id: Long,
     val role: MessageRole,
@@ -20,16 +30,21 @@ data class ChatMessage(
     val errorDetail: String? = null,
     val variantIndex: Int = 0,
     val variantCount: Int = 1,
-    val createdAtLabel: String? = null
-)
+    val variants: List<String> = emptyList(),
+    val createdAtLabel: String? = null,
+    val furnitureRuns: List<FurnitureRun> = emptyList()
+) {
+    fun normalizedVariants(): List<String> = variants.ifEmpty { listOf(text) }
+}
 
-/** Local-only message mutations. Clipboard ownership stays in the Compose UI layer. */
 sealed interface MessageAction {
     val messageId: Long
 
+    data class Copy(override val messageId: Long) : MessageAction
     data class ToggleLike(override val messageId: Long) : MessageAction
     data class ToggleFavorite(override val messageId: Long) : MessageAction
     data class Regenerate(override val messageId: Long) : MessageAction
     data class Delete(override val messageId: Long) : MessageAction
     data class Edit(override val messageId: Long, val text: String) : MessageAction
+    data class SelectVariant(override val messageId: Long, val index: Int) : MessageAction
 }

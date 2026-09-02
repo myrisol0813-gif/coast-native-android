@@ -1,7 +1,10 @@
 package com.elementeracoast.app.feature.shell
 
+import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -9,6 +12,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CoastShellViewModelTest {
+    @Test
+    fun startupAndNewConversationsContainNoFixtureReplies() {
+        val vm = CoastShellViewModel()
+        assertTrue(vm.state.value.messages.isEmpty())
+
+        vm.state.value.conversations.map { it.id }.forEach { id ->
+            vm.selectConversation(id)
+            assertTrue(vm.state.value.messages.isEmpty())
+        }
+
+        vm.newConversation()
+        assertTrue(vm.state.value.messages.isEmpty())
+    }
+
     @Test
     fun newConversationUsesActiveRoomTypeWithoutRetaggingOthers() {
         val vm = CoastShellViewModel()
@@ -65,6 +82,7 @@ class CoastShellViewModelTest {
     fun deletingLastConversationCreatesFreshEmptyMainFallback() {
         val vm = CoastShellViewModel()
         val oldId = vm.state.value.activeConversationId
+        vm.importMessages(listOf(ChatMessage(9L, MessageRole.User, "旧内容")))
         assertTrue(vm.state.value.messages.isNotEmpty())
 
         vm.state.value.conversations
@@ -99,7 +117,8 @@ class CoastShellViewModelTest {
     @Test
     fun likeAndFavoriteToggleOnlyCurrentLocalMessage() {
         val vm = CoastShellViewModel()
-        val messageId = vm.state.value.messages.single().id
+        val messageId = 77L
+        vm.importMessages(listOf(ChatMessage(messageId, MessageRole.Assistant, "本地回复")))
 
         vm.handleMessageAction(MessageAction.ToggleLike(messageId))
         vm.handleMessageAction(MessageAction.ToggleFavorite(messageId))
@@ -116,17 +135,66 @@ class CoastShellViewModelTest {
     }
 
     @Test
+    fun userEditCreatesPairedAssistantVariantAndCurrentDeleteOnlyRemovesOneVersion() {
+        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
+        val userId = 500L
+        val assistantId = 501L
+        vm.importMessages(
+            listOf(
+                ChatMessage(userId, MessageRole.User, "旧消息"),
+                ChatMessage(assistantId, MessageRole.Assistant, "旧回复", modelId = "Native local")
+            )
+        )
+
+        vm.handleMessageAction(MessageAction.Edit(userId, "新消息"))
+        var user = vm.state.value.messages.first { it.id == userId }
+        var assistant = vm.state.value.messages.first { it.id == assistantId }
+        assertEquals(2, user.variantCount)
+        assertEquals(1, user.variantIndex)
+        assertEquals("新消息", user.text)
+        assertEquals(2, assistant.variantCount)
+        assertEquals(1, assistant.variantIndex)
+        assertEquals("", assistant.text)
+        assertEquals(assistantId, vm.state.value.streamingMessageId)
+        assertTrue(vm.state.value.isStreaming)
+
+        vm.stopGeneration()
+        vm.handleMessageAction(MessageAction.SelectVariant(userId, 0))
+        vm.handleMessageAction(MessageAction.SelectVariant(assistantId, 0))
+        user = vm.state.value.messages.first { it.id == userId }
+        assistant = vm.state.value.messages.first { it.id == assistantId }
+        assertEquals("旧消息", user.text)
+        assertEquals("旧回复", assistant.text)
+        assertEquals(0, user.variantIndex)
+        assertEquals(0, assistant.variantIndex)
+
+        vm.handleMessageAction(MessageAction.SelectVariant(userId, 1))
+        vm.handleMessageAction(MessageAction.Delete(userId))
+        user = vm.state.value.messages.first { it.id == userId }
+        assertEquals(1, user.variantCount)
+        assertEquals(0, user.variantIndex)
+        assertEquals("旧消息", user.text)
+        assertEquals(1, user.variants.size)
+        assertEquals(2, vm.state.value.messages.first { it.id == assistantId }.variantCount)
+    }
+
+    @Test
     fun deleteMessageDoesNotMutateAnotherConversation() {
         val vm = CoastShellViewModel()
         val firstConversation = vm.state.value.activeConversationId
-        val firstMessage = vm.state.value.messages.single().id
+        val firstMessage = 201L
+        vm.importMessages(listOf(ChatMessage(firstMessage, MessageRole.Assistant, "第一窗口")))
+
         val other = vm.state.value.conversations.first { it.id != firstConversation }
+        vm.selectConversation(other.id)
+        vm.importMessages(listOf(ChatMessage(202L, MessageRole.Assistant, "第二窗口")))
+        vm.selectConversation(firstConversation)
 
         vm.handleMessageAction(MessageAction.Delete(firstMessage))
         assertTrue(vm.state.value.messages.isEmpty())
 
         vm.selectConversation(other.id)
-        assertTrue(vm.state.value.messages.isNotEmpty())
+        assertEquals("第二窗口", vm.state.value.messages.single().text)
 
         vm.selectConversation(firstConversation)
         assertTrue(vm.state.value.messages.isEmpty())
