@@ -38,11 +38,14 @@ internal fun SeedLibraryScreen(store: MemoryStore) {
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.weight(1f)) { Text("种子库", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("active / dormant", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("种子库", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("active / dormant", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 SmallButton("新增") { creating = true }
             }
         }
-        item { WolfTextField("搜索种子", query) { query = it } }
+        item { WolfTextField("搜索种子", query, { query = it }) }
         if (visible.isEmpty()) item { QuietDailyCard { Text(if (state.seeds.isEmpty()) "还没有种子。" else "没有匹配的种子。") } }
         items(visible, key = { it.id }) { seed ->
             QuietDailyCard {
@@ -69,11 +72,13 @@ private fun SeedEditor(seed: LocalSeed?, onDismiss: () -> Unit, onSave: (LocalSe
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (seed == null) "新增种子" else "编辑种子") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            WolfTextField("标题", title) { title = it }
-            WolfTextField("内容", content, { content = it }, minLines = 3)
-            SeedStatus.entries.forEach { ChoiceRow(it.name.lowercase(), status == it) { status = it } }
-        } },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                WolfTextField("标题", title, { title = it })
+                WolfTextField("内容", content, { content = it }, minLines = 3)
+                SeedStatus.entries.forEach { ChoiceRow(it.name.lowercase(), status == it) { status = it } }
+            }
+        },
         confirmButton = { TextButton(onClick = { onSave(LocalSeed(seed?.id.orEmpty(), title, content, status)) }) { Text("保存") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
@@ -89,11 +94,14 @@ internal fun WorldbookScreen(store: MemoryStore) {
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.weight(1f)) { Text("世界书", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold); Text("海岸词典 · 本地启停", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("世界书", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text("海岸词典 · 本地启停", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 SmallButton("新增") { creating = true }
             }
         }
-        item { WolfTextField("搜索词条", query) { query = it } }
+        item { WolfTextField("搜索词条", query, { query = it }) }
         if (visible.isEmpty()) item { QuietDailyCard { Text(if (state.worldbook.isEmpty()) "还没有世界书词条。" else "没有匹配词条。") } }
         items(visible, key = { it.id }) { entry ->
             QuietDailyCard {
@@ -121,11 +129,13 @@ private fun WorldbookEditor(entry: LocalWorldbookEntry?, onDismiss: () -> Unit, 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (entry == null) "新增世界书" else "编辑世界书") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            WolfTextField("词条", term) { term = it }
-            WolfTextField("内容", content, { content = it }, minLines = 3)
-            ChoiceRow(if (enabled) "已启用" else "已停用", enabled) { enabled = !enabled }
-        } },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                WolfTextField("词条", term, { term = it })
+                WolfTextField("内容", content, { content = it }, minLines = 3)
+                ChoiceRow(if (enabled) "已启用" else "已停用", enabled) { enabled = !enabled }
+            }
+        },
         confirmButton = { TextButton(onClick = { onSave(LocalWorldbookEntry(entry?.id.orEmpty(), term, content, enabled)) }) { Text("保存") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
