@@ -72,13 +72,18 @@ jobs:
           grep -q 'ensureActiveConversation()' "$root/feature/shell/CoastShellViewModel.kt"
           grep -q 'MyriCommentActionLabel = "Myri 留言"' "$daily/MomentActions.kt"
           grep -q '真实 Myri 评论将在后端接线后启用' "$daily/MomentActions.kt"
-          grep -q 'HorizontalDivider' "$daily/MomentActions.kt"
+          grep -q 'HorizontalDivider' "$daily/MomentScreen.kt"
+          grep -q 'fontSize = 15.sp' "$daily/MomentScreen.kt"
           grep -q 'DailyIdentityBar' "$daily/MomentScreen.kt"
           grep -q 'DailyIdentityBar' "$daily/DailySurface.kt"
           grep -q 'fontWeight = FontWeight.Normal' "$chat/UserMessage.kt"
           grep -q 'fontWeight = FontWeight.Normal' "$chat/AssistantMessage.kt"
           grep -q 'Color(0xFF000000L or clean.toLong(16))' "$theme/CoastAppearance.kt"
 
+          if grep -q 'HorizontalDivider' "$daily/MomentActions.kt"; then
+            echo 'Moment divider drifted back into the tools owner.'
+            exit 1
+          fi
           if grep -q 'toULong()' "$theme/CoastAppearance.kt"; then
             echo 'Unsafe packed ULong color parsing returned.'
             exit 1
@@ -122,14 +127,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app62-ui-stability-fix-28-debug.apk
-          sha256sum artifact/CoastGPT-native-app62-ui-stability-fix-28-debug.apk > artifact/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app62-comment-order-fix-28-debug.apk
+          sha256sum artifact/CoastGPT-native-app62-comment-order-fix-28-debug.apk > artifact/SHA256SUMS.txt
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-app62-ui-stability-fix-28-debug
+          name: CoastGPT-native-app62-comment-order-fix-28-debug
           path: |
-            artifact/CoastGPT-native-app62-ui-stability-fix-28-debug.apk
+            artifact/CoastGPT-native-app62-comment-order-fix-28-debug.apk
             artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
