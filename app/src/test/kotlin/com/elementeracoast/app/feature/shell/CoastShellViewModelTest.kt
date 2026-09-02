@@ -4,6 +4,7 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -119,7 +120,7 @@ class CoastShellViewModelTest {
 
     @Test
     fun userEditCreatesPairedAssistantVariantAndCurrentDeleteOnlyRemovesOneVersion() {
-        val vm = CoastShellViewModel()
+        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
         val userId = 500L
         val assistantId = 501L
         vm.importMessages(
