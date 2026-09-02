@@ -1,7 +1,5 @@
 package com.elementeracoast.app.feature.daily
 
-import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,13 +28,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Composable
 internal fun DailySurfaceCard(
@@ -120,20 +115,8 @@ internal fun DailyIdentityBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        DailyIdentityChip(
-            label = "小寒",
-            uri = profileUri,
-            fallback = "寒",
-            modifier = Modifier.weight(1f),
-            onClick = onProfileClick
-        )
-        DailyIdentityChip(
-            label = "Myri",
-            uri = myriUri,
-            fallback = "M",
-            modifier = Modifier.weight(1f),
-            onClick = onMyriClick
-        )
+        DailyIdentityChip("小寒", profileUri, "寒", Modifier.weight(1f), onProfileClick)
+        DailyIdentityChip("Myri", myriUri, "M", Modifier.weight(1f), onMyriClick)
     }
 }
 
@@ -146,47 +129,28 @@ private fun DailyIdentityChip(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 5.dp),
+        modifier = modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         DailyMiniAvatar(uri, fallback)
         Spacer(Modifier.width(8.dp))
-        Text(
-            label,
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-        )
+        Text(label, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
     }
 }
 
 @Composable
 private fun DailyMiniAvatar(uri: String, fallback: String) {
     val bitmap = rememberDailyBitmap(uri)
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surface),
-        contentAlignment = Alignment.Center
-    ) {
-        if (bitmap != null) {
-            Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        } else {
-            Text(fallback, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        }
+    Box(Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
+        if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else Text(fallback, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 internal fun DailyAvatar(uri: String, fallback: String) {
     val bitmap = rememberDailyBitmap(uri)
-    Box(
-        modifier = Modifier.size(54.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.size(54.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
         if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text(fallback, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
     }
@@ -196,43 +160,25 @@ internal fun DailyAvatar(uri: String, fallback: String) {
 internal fun DailyCover(uri: String, onClick: () -> Unit) {
     val bitmap = rememberDailyBitmap(uri)
     val shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
-
     if (bitmap != null) {
         Image(
             bitmap = bitmap,
             contentDescription = "碳硅圈封面",
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = shape, clip = false)
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(onClick = onClick),
+            modifier = Modifier.fillMaxWidth().shadow(2.dp, shape, clip = false).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick),
             contentScale = ContentScale.FillWidth
         )
     } else {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .shadow(elevation = 2.dp, shape = shape, clip = false)
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable(onClick = onClick),
+            modifier = Modifier.fillMaxWidth().height(180.dp).shadow(2.dp, shape, clip = false).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick),
             contentAlignment = Alignment.Center
-        ) {
-            Text("轻触设置封面", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        ) { Text("轻触设置封面", color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
 @Composable
-private fun rememberDailyBitmap(uri: String): ImageBitmap? {
+private fun rememberDailyBitmap(source: String): ImageBitmap? {
     val context = LocalContext.current
-    return produceState<ImageBitmap?>(initialValue = null, uri) {
-        value = if (uri.isBlank()) null else withContext(Dispatchers.IO) {
-            runCatching {
-                context.contentResolver.openInputStream(Uri.parse(uri)).use { stream -> BitmapFactory.decodeStream(stream)?.asImageBitmap() }
-            }.getOrNull()
-        }
+    return produceState<ImageBitmap?>(initialValue = null, source) {
+        value = if (source.isBlank()) null else DailyImageCodec.decodeForDisplay(context, source)
     }.value
 }

@@ -1,6 +1,5 @@
 package com.elementeracoast.app.feature.daily
 
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
@@ -39,39 +39,54 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.elementeracoast.app.core.network.CoastApiException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun MomentScreen(
-    store: DailyStore,
+    repository: DailyRepository,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit,
     onCompose: () -> Unit
 ) {
-    val state by store.state.collectAsState()
+    val snapshot by repository.snapshot.collectAsState()
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var commenting by remember { mutableStateOf<LocalMoment?>(null) }
-    var editing by remember { mutableStateOf<LocalMoment?>(null) }
-    var deleting by remember { mutableStateOf<LocalMoment?>(null) }
+    var commenting by remember { mutableStateOf<DailyMoment?>(null) }
+    var editing by remember { mutableStateOf<DailyMoment?>(null) }
+    var deleting by remember { mutableStateOf<DailyMoment?>(null) }
+    var myriBusyId by remember { mutableStateOf<String?>(null) }
 
-    fun keepUri(uri: Uri?, save: (String) -> Unit, message: String) {
+    fun reportFailure(label: String, error: Throwable) {
+        val detail = if (error is CoastApiException) error.message else error.message ?: "未知错误"
+        onSnackbar("$label：$detail")
+    }
+
+    fun uploadImage(uri: Uri?, field: DailyProfileImageField, label: String) {
         if (uri == null) return
-        runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-        save(uri.toString())
-        onSnackbar(message)
+        scope.launch {
+            try {
+                val dataUrl = DailyImageCodec.encodeForProfile(context, uri, field)
+                repository.updateProfile(field, dataUrl)
+                onSnackbar("$label 已写回海岸")
+            } catch (error: Throwable) {
+                reportFailure("$label 更新失败", error)
+            }
+        }
     }
 
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        keepUri(uri, store::setProfileAvatar, "小寒头像已保存在本机")
+        uploadImage(uri, DailyProfileImageField.XiaohanAvatar, "小寒头像")
     }
     val myriPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        keepUri(uri, store::setMyriAvatar, "Myri 头像已保存在本机")
+        uploadImage(uri, DailyProfileImageField.MyriAvatar, "Myri 头像")
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        keepUri(uri, store::setCover, "碳硅圈封面已保存在本机")
+        uploadImage(uri, DailyProfileImageField.MomentCover, "碳硅圈封面")
     }
 
     LazyColumn(
@@ -79,18 +94,18 @@ internal fun MomentScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            DailyCover(state.coverUri) { coverPicker.launch(arrayOf("image/*")) }
+            DailyCover(snapshot.profile.momentCoverDataUrl) { coverPicker.launch(arrayOf("image/*")) }
             Spacer(Modifier.height(12.dp))
         }
         item {
             DailyIdentityBar(
-                profileUri = state.profileAvatarUri,
-                myriUri = state.myriAvatarUri,
+                profileUri = snapshot.profile.xiaohanAvatarDataUrl,
+                myriUri = snapshot.profile.myriAvatarDataUrl,
                 onProfileClick = { avatarPicker.launch(arrayOf("image/*")) },
                 onMyriClick = { myriPicker.launch(arrayOf("image/*")) }
             )
         }
-        if (state.moments.isEmpty()) {
+        if (snapshot.moments.isEmpty()) {
             item {
                 Spacer(Modifier.height(18.dp))
                 DailySurfaceCard {
@@ -101,22 +116,36 @@ internal fun MomentScreen(
                 }
             }
         } else {
-            items(state.moments, key = { it.id }) { moment ->
-                val isMyri = moment.author == MomentAuthor.Myri
+            items(snapshot.moments, key = { it.id }) { moment ->
+                val xiaohan = moment.isXiaohan
                 MomentCard(
                     moment = moment,
-                    avatarUri = if (isMyri) state.myriAvatarUri else state.profileAvatarUri,
-                    avatarFallback = if (isMyri) "M" else "寒",
-                    authorLabel = moment.author.label,
-                    onLike = { store.toggleMomentLike(moment.id) },
+                    avatarUri = if (xiaohan) snapshot.profile.xiaohanAvatarDataUrl else snapshot.profile.myriAvatarDataUrl,
+                    avatarFallback = if (xiaohan) "寒" else "M",
+                    authorLabel = moment.displayAuthor,
+                    myriCommentBusy = myriBusyId == moment.id,
+                    onLike = {
+                        scope.launch {
+                            try { repository.setMomentLike(moment.id, !moment.liked) }
+                            catch (error: Throwable) { reportFailure("点赞写回失败", error) }
+                        }
+                    },
                     onComment = { commenting = moment },
                     onMyriComment = {
-                        onActionLogged(
-                            "daily.moment.myri-comment.request",
-                            "Myri 留言",
-                            "本地壳未接模型评论 · moment ${moment.id}"
-                        )
-                        onSnackbar(MyriCommentOfflineMessage)
+                        if (myriBusyId == null) {
+                            myriBusyId = moment.id
+                            scope.launch {
+                                try {
+                                    repository.requestMyriComment(moment.id)
+                                    onActionLogged("daily.moment.myri-comment", "Myri 留言", "海岸已生成并保存 1 条真实留言")
+                                    onSnackbar("Myri 已在海岸留下回复")
+                                } catch (error: Throwable) {
+                                    reportFailure("Myri 留言失败", error)
+                                } finally {
+                                    myriBusyId = null
+                                }
+                            }
+                        }
                     },
                     onEdit = { editing = moment },
                     onDelete = { deleting = moment }
@@ -128,26 +157,41 @@ internal fun MomentScreen(
 
     commenting?.let { moment ->
         TextEditDialog("评论", "", onDismiss = { commenting = null }) { text ->
-            store.addComment(moment.id, text)
-            commenting = null
+            if (text.isBlank()) onSnackbar("评论还是空的") else scope.launch {
+                try {
+                    repository.addMomentComment(moment.id, text)
+                    onActionLogged("daily.moment.comment", "评论了一条碳硅圈", "海岸新增 1 条小寒评论")
+                    commenting = null
+                } catch (error: Throwable) { reportFailure("评论写回失败", error) }
+            }
         }
     }
     editing?.let { moment ->
         TextEditDialog("编辑动态", moment.text, onDismiss = { editing = null }) { text ->
-            store.editMoment(moment.id, text)
-            onActionLogged("daily.moment.edit", "编辑了一条碳硅圈", "更新 1 条本地动态")
-            editing = null
+            if (text.isBlank()) onSnackbar("正文还是空的") else scope.launch {
+                try {
+                    repository.patchMoment(moment.id, text = text)
+                    onActionLogged("daily.moment.edit", "编辑了一条碳硅圈", "海岸更新 1 条动态")
+                    onSnackbar("动态已写回海岸")
+                    editing = null
+                } catch (error: Throwable) { reportFailure("动态更新失败", error) }
+            }
         }
     }
     deleting?.let { moment ->
         DailyDeleteConfirmDialog(
             title = "删除这条动态？",
-            body = "删除后只会从本地碳硅圈移除这一条。",
+            body = "这是海岸里的正式动态；删除后 PWA 与 Native 都不会再看到它。",
             onDismiss = { deleting = null },
             onConfirm = {
-                store.deleteMoment(moment.id)
-                onActionLogged("daily.moment.delete", "删除了一条碳硅圈", "删除 1 条本地动态")
-                deleting = null
+                scope.launch {
+                    try {
+                        repository.deleteMoment(moment.id)
+                        onActionLogged("daily.moment.delete", "删除了一条碳硅圈", "海岸删除 1 条动态")
+                        onSnackbar("动态已从海岸删除")
+                        deleting = null
+                    } catch (error: Throwable) { reportFailure("动态删除失败", error) }
+                }
             }
         )
     }
@@ -155,13 +199,15 @@ internal fun MomentScreen(
 
 @Composable
 internal fun MomentComposeScreen(
-    store: DailyStore,
+    repository: DailyRepository,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit,
     onDone: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     var date by remember { mutableStateOf(LocalDate.now().toString().replace('-', '/')) }
     var body by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
 
     LazyColumn(contentPadding = PaddingValues(horizontal = 28.dp, vertical = 34.dp)) {
         item {
@@ -170,14 +216,22 @@ internal fun MomentComposeScreen(
                 Spacer(Modifier.height(18.dp))
                 DailyField("正文", body, { body = it }, "今天想留什么？", minLines = 10, maxLines = 18)
                 Spacer(Modifier.height(18.dp))
-                DailyPrimaryButton("发布动态") {
-                    val saved = store.publishMoment(body, date, MomentAuthor.Xiaohan)
-                    if (saved == null) {
+                DailyPrimaryButton(if (saving) "正在写回海岸…" else "发布动态") {
+                    if (body.isBlank()) {
                         onSnackbar("正文还是空的")
-                    } else {
-                        onActionLogged("daily.moment.write", "写了一条碳硅圈", "新增 1 条小寒本地动态")
-                        onSnackbar("动态已发布到本地碳硅圈")
-                        onDone()
+                    } else if (!saving) {
+                        saving = true
+                        scope.launch {
+                            try {
+                                repository.createMoment(date, body)
+                                onActionLogged("daily.moment.write", "写了一条碳硅圈", "海岸新增 1 条小寒动态")
+                                onSnackbar("动态已发布到海岸碳硅圈")
+                                onDone()
+                            } catch (error: Throwable) {
+                                val detail = if (error is CoastApiException) error.message else error.message ?: "未知错误"
+                                onSnackbar("动态发布失败：$detail")
+                            } finally { saving = false }
+                        }
                     }
                 }
             }
@@ -187,10 +241,11 @@ internal fun MomentComposeScreen(
 
 @Composable
 private fun MomentCard(
-    moment: LocalMoment,
+    moment: DailyMoment,
     avatarUri: String,
     avatarFallback: String,
     authorLabel: String,
+    myriCommentBusy: Boolean,
     onLike: () -> Unit,
     onComment: () -> Unit,
     onMyriComment: () -> Unit,
@@ -204,17 +259,9 @@ private fun MomentCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    moment.text,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal)
-                )
-
+                Text(moment.text, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal))
                 Spacer(Modifier.height(12.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f),
-                    thickness = .5.dp
-                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f), thickness = .5.dp)
 
                 if (moment.comments.isNotEmpty()) {
                     Spacer(Modifier.height(9.dp))
@@ -222,16 +269,12 @@ private fun MomentCard(
                         moment.comments.takeLast(5).forEach { comment ->
                             Text(
                                 text = buildAnnotatedString {
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("小寒") }
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(comment.authorLabel) }
                                     append("：")
-                                    append(comment)
+                                    append(comment.text)
                                 },
                                 color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontSize = 15.sp,
-                                    lineHeight = 21.sp,
-                                    fontWeight = FontWeight.Normal
-                                )
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal)
                             )
                         }
                     }
@@ -241,6 +284,7 @@ private fun MomentCard(
                 MomentActionRows(
                     moment = moment,
                     footer = momentFooter(moment),
+                    myriCommentBusy = myriCommentBusy,
                     onLike = onLike,
                     onComment = onComment,
                     onMyriComment = onMyriComment,
@@ -252,12 +296,13 @@ private fun MomentCard(
     }
 }
 
-private fun momentFooter(moment: LocalMoment): String {
+private fun momentFooter(moment: DailyMoment): String {
     val clock = runCatching {
         DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.parse(moment.createdAt))
     }.getOrDefault("")
     val date = runCatching { LocalDate.parse(moment.date).format(DateTimeFormatter.ofPattern("MM月dd日")) }.getOrDefault(moment.date)
-    return if (clock.isBlank()) date else "$date · $clock"
+    val likes = if (moment.likeCount > 0) " · ${moment.likeCount} 赞" else ""
+    return (if (clock.isBlank()) date else "$date · $clock") + likes
 }
 
 @Composable

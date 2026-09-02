@@ -25,16 +25,16 @@ import androidx.compose.ui.text.AnnotatedString
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
-import com.elementeracoast.app.feature.shell.LocalFeatureServices
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
 fun ChatWindow(
     state: CoastShellState,
-    services: LocalFeatureServices,
+    daily: DailyRepository,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
@@ -46,15 +46,13 @@ fun ChatWindow(
     var editingMessage by androidx.compose.runtime.remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
     var deskOpen by rememberSaveable { mutableStateOf(false) }
-    val dailyState by services.daily.state.collectAsState()
+    val dailySnapshot by daily.snapshot.collectAsState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val avatarSource = state.myriAvatarDataUrl.ifBlank { dailyState.myriAvatarUri }
+    val avatarSource = dailySnapshot.profile.myriAvatarDataUrl.ifBlank { state.myriAvatarDataUrl }
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
-        value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) {
-            decodeImageSource(context, avatarSource)
-        }
+        value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).imePadding()) {
@@ -83,9 +81,7 @@ fun ChatWindow(
             modifier = Modifier.weight(1f)
         )
 
-        state.turnDeskReceipt?.let { receipt ->
-            TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true })
-        }
+        state.turnDeskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
         DogtalkCard(
             scope = DogtalkScope.from(state.activeRoomType),
             onSaved = { onPlaceholder("狗话仍属于本轮未接的本地小抽屉，没有写入后端。") }
@@ -103,21 +99,17 @@ fun ChatWindow(
     }
 
     val soil = state.thoughtSoil
-    if (soilOpen && soil != null) {
-        SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
-    }
+    if (soilOpen && soil != null) SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
 
     val deskReceipt = state.turnDeskReceipt
-    if (deskOpen && deskReceipt != null) {
-        TurnDeskBottomSheet(receipt = deskReceipt, onDismiss = { deskOpen = false })
-    }
+    if (deskOpen && deskReceipt != null) TurnDeskBottomSheet(receipt = deskReceipt, onDismiss = { deskOpen = false })
 
     if (avatarDialogOpen) {
         AvatarPickerDialog(
             onDismiss = { avatarDialogOpen = false },
             onUploadLater = {
                 avatarDialogOpen = false
-                onPlaceholder("头像上传写回留到后续接线；当前没有修改本机或海岸资料。")
+                onPlaceholder("请从海岸日报的头像入口更新；同一张海岸头像会回到聊天窗口。")
             }
         )
     }

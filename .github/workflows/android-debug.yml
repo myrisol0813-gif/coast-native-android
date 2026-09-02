@@ -1,4 +1,4 @@
-name: Android native backend wiring
+name: Android native single-source
 
 on:
   push:
@@ -56,7 +56,7 @@ jobs:
             echo "Stable signing: not configured; artifact will use the runner debug key and overwrite compatibility is NOT guaranteed."
           fi
 
-      - name: Verify Native backend wiring structure
+      - name: Verify Native single-source structure
         shell: bash
         run: |
           set -euo pipefail
@@ -65,6 +65,7 @@ jobs:
           auth="$root/core/auth"
           remote="$root/core/remote"
           chat="$root/feature/chat"
+          daily="$root/feature/daily"
           shell="$root/feature/shell"
           gate="$root/feature/gate"
           wolf="$root/feature/wolf"
@@ -78,9 +79,13 @@ jobs:
           test -f "$network/CoastApiError.kt"
           test -f "$network/SseParser.kt"
           test -f "$remote/RemoteModels.kt"
+          test -f "$remote/RemoteDaily.kt"
           test -f "$remote/RemoteCacheStore.kt"
           test -f "$chat/ChatRepository.kt"
           test -f "$chat/ChatSyncMapper.kt"
+          test -f "$daily/DailyCanonicalModels.kt"
+          test -f "$daily/DailyRepository.kt"
+          test -f "$daily/DailyImageCodec.kt"
           test -f "$shell/ConversationRepository.kt"
           test -f "$shell/ProfileRepository.kt"
           test -f "$shell/CoastBackendGraph.kt"
@@ -88,8 +93,8 @@ jobs:
           grep -q '<uses-permission android:name="android.permission.INTERNET"' app/src/main/AndroidManifest.xml
           grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 21' app/build.gradle.kts
-          grep -q 'versionName = "0.1.19-backend-wiring-29"' app/build.gradle.kts
+          grep -q 'versionCode = 22' app/build.gradle.kts
+          grep -q 'versionName = "0.1.20-single-source-30"' app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -99,6 +104,9 @@ jobs:
           grep -q '/api/chat/history' "$network/CoastApiClient.kt"
           grep -q '/api/chat/profile' "$network/CoastApiClient.kt"
           grep -q '/api/chat' "$network/CoastApiClient.kt"
+          grep -q '/api/daily/moments' "$network/CoastApiClient.kt"
+          grep -q '/api/daily/diaries' "$network/CoastApiClient.kt"
+          grep -q '/api/daily/profile' "$network/CoastApiClient.kt"
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
           grep -q 'MessageAction.Retry' "$shell/CoastShellViewModel.kt"
@@ -109,7 +117,16 @@ jobs:
           test ! -e "$chat/LocalChatStore.kt"
           test ! -e "$chat/LocalFurnitureOrchestrator.kt"
           test ! -e "$network/CoastGatewayClient.kt"
+          test ! -e "$daily/DailyStore.kt"
+          test ! -e "$daily/DailyModels.kt"
+          test ! -e app/src/test/kotlin/com/elementeracoast/app/feature/daily/DailyLocalStoreTest.kt
+          ! grep -q 'feature.daily.DailyStore' "$shell/LocalFeatureServices.kt"
+          ! grep -q 'val daily' "$shell/LocalFeatureServices.kt"
 
+          if grep -RIE 'daily\.moments|daily\.diaries|daily\.profile\.avatar|daily\.profile\.myri-avatar|daily\.cover' "$daily" "$shell/LocalFeatureServices.kt"; then
+            echo 'Formal Daily data returned to a Native local owner.'
+            exit 1
+          fi
           if grep -RIE 'sendFakeMessage|fakeChunks|local-mock|fake generation|fake generation' \
             "$root/MainActivity.kt" "$shell" "$chat"; then
             echo 'Retired fake chat/generation path returned.'
@@ -162,18 +179,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-backend-wiring-29-0.1.19-debug.apk
+          apk=artifact/CoastGPT-native-single-source-30-0.1.20-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.19-backend-wiring-29\nversionCode=21\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=0.1.20-single-source-30\nversionCode=22\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-backend-wiring-29-0.1.19-debug
+          name: CoastGPT-native-single-source-30-0.1.20-debug
           path: |
-            artifact/CoastGPT-native-backend-wiring-29-0.1.19-debug.apk
+            artifact/CoastGPT-native-single-source-30-0.1.20-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error

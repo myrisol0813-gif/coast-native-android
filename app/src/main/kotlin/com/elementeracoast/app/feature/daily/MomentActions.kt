@@ -24,22 +24,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 internal const val MyriCommentActionLabel = "Myri 留言"
-internal const val MyriCommentOfflineMessage = "真实 Myri 评论将在后端接线后启用。"
 
 @Composable
 internal fun MomentActionRows(
-    moment: LocalMoment,
+    moment: DailyMoment,
     footer: String,
+    myriCommentBusy: Boolean,
     onLike: () -> Unit,
     onComment: () -> Unit,
     onMyriComment: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             footer,
             modifier = Modifier.weight(1f),
@@ -55,22 +52,13 @@ internal fun MomentActionRows(
             )
         }
         IconButton(onClick = onComment, modifier = Modifier.size(34.dp)) {
-            Icon(
-                Icons.Outlined.ChatBubbleOutline,
-                contentDescription = "评论",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
+            Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "评论", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
-        MomentActionChip(MyriCommentActionLabel, onMyriComment)
+        MomentActionChip(if (myriCommentBusy) "留言中…" else MyriCommentActionLabel, enabled = !myriCommentBusy, onClick = onMyriComment)
     }
 
     Spacer(Modifier.size(3.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
         MomentTextAction("编辑", onEdit)
         Spacer(Modifier.size(5.dp))
         MomentTextAction("删除", onDelete)
@@ -78,14 +66,14 @@ internal fun MomentActionRows(
 }
 
 @Composable
-private fun MomentActionChip(label: String, onClick: () -> Unit) {
+private fun MomentActionChip(label: String, enabled: Boolean, onClick: () -> Unit) {
     Text(
         label,
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 10.dp, vertical = 6.dp),
-        color = MaterialTheme.colorScheme.onSurface,
+        color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
     )
 }
@@ -94,9 +82,7 @@ private fun MomentActionChip(label: String, onClick: () -> Unit) {
 private fun MomentTextAction(label: String, onClick: () -> Unit) {
     Text(
         label,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 5.dp),
+        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
     )

@@ -22,12 +22,14 @@ import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
+import com.elementeracoast.app.feature.daily.DailyRepository
 import kotlinx.coroutines.launch
 
 @Composable
 fun MainShell(
     state: CoastShellState,
     services: LocalFeatureServices,
+    daily: DailyRepository,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -105,7 +107,7 @@ fun MainShell(
                 if (feature == null) {
                     ChatWindow(
                         state = state,
-                        services = services,
+                        daily = daily,
                         onSend = onSend,
                         onStop = onStop,
                         onMessageAction = onMessageAction,
@@ -117,6 +119,7 @@ fun MainShell(
                         feature = feature,
                         shellState = state,
                         services = services,
+                        daily = daily,
                         messages = state.messages,
                         onBackToChat = onBackToChat,
                         onSelectModel = onSelectModel,

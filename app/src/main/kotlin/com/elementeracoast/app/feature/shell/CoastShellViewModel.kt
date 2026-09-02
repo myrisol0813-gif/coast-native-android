@@ -23,6 +23,7 @@ import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.feature.chat.ChatBranchNavigator
 import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
+import com.elementeracoast.app.feature.daily.DailyRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +45,7 @@ class CoastShellViewModel(
     val state: StateFlow<CoastShellState> = _state.asStateFlow()
 
     val local = LocalFeatureServices(persistence)
+    val daily: DailyRepository get() = backend.daily
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private val soilJobs = mutableMapOf<String, Job>()
@@ -432,7 +434,7 @@ class CoastShellViewModel(
     private fun applyCachedBootstrap() {
         val conversations = backend.conversations.cached()
         val profile = backend.profile.cachedProfile()
-        val daily = backend.profile.cachedDailyProfile()
+        val dailyProfile = backend.profile.cachedDailyProfile()
         val models = backend.profile.cachedModels()
         val remembered = persistence.get(KEY_CURRENT_CONVERSATION)
         val target = conversations.firstOrNull { it.id == remembered }
@@ -449,7 +451,7 @@ class CoastShellViewModel(
                 turnDeskReceipt = null
             )
         }
-        applyProfile(profile, daily)
+        applyProfile(profile, dailyProfile)
         applyModels(models)
     }
 

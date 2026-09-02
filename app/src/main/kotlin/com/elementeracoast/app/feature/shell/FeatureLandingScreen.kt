@@ -5,6 +5,7 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.feature.daily.DailyLanding
+import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.letters.IslandLetterScreen
 import com.elementeracoast.app.feature.memory.MemoryLanding
 import com.elementeracoast.app.feature.serpentdesk.SerpentDeskScreen
@@ -15,6 +16,7 @@ internal fun FeatureLandingScreen(
     feature: FeatureDestination,
     shellState: CoastShellState,
     services: LocalFeatureServices,
+    daily: DailyRepository,
     messages: List<ChatMessage>,
     onBackToChat: () -> Unit,
     onSelectModel: (String) -> Unit,
@@ -25,7 +27,7 @@ internal fun FeatureLandingScreen(
 ) {
     when (feature) {
         FeatureDestination.Daily -> DailyLanding(
-            store = services.daily,
+            repository = daily,
             onBackToChat = onBackToChat,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
