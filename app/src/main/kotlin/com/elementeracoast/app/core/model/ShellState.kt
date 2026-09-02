@@ -12,8 +12,11 @@ data class CoastShellState(
     val authenticated: Boolean = false,
     val password: String = "",
     val theme: CoastThemeMode = CoastThemeMode.Light,
+    val userBubbleHex: String = "",
+    val accentHex: String = "",
     val activeRoomType: RoomType = RoomType.Main,
     val activeFeature: FeatureDestination? = null,
+    val actionLogFocusIds: Set<String> = emptySet(),
     val conversations: List<ConversationSummary> = initialConversations(),
     val activeConversationId: String = "main-o3",
     val messages: List<ChatMessage> = initialMessages(),
@@ -28,7 +31,7 @@ private fun initialMessages(): List<ChatMessage> = listOf(
     ChatMessage(
         id = 1L,
         role = MessageRole.Assistant,
-        text = "我把那张还带着潮味的信纸在掌心轻轻抚平。Native v1 继续用同一副聊天身体承接主聊天、电波与灯塔；真实 Coast 水管仍留到后端接线轮。",
+        text = "我把那张还带着潮味的信纸在掌心轻轻抚平。Native 继续用同一副聊天身体承接主聊天、电波与灯塔；真实 Coast 水管仍留到后端接线轮。",
         modelId = "Native local",
         generationSource = "fixture"
     )
