@@ -29,6 +29,7 @@ internal fun ChatTimeline(
     conversationId: String,
     messages: List<ChatMessage>,
     isStreaming: Boolean,
+    streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
     onAvatarClick: () -> Unit,
     onCopy: (ChatMessage) -> Unit,
@@ -39,15 +40,17 @@ internal fun ChatTimeline(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    val tailLength = messages.lastOrNull()?.text?.length ?: 0
-    LaunchedEffect(conversationId, messages.size, tailLength) {
-        if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
+    val streamingIndex = messages.indexOfFirst { it.id == streamingMessageId }
+    val streamingLength = messages.getOrNull(streamingIndex)?.text?.length ?: 0
+    LaunchedEffect(conversationId, messages.size, streamingMessageId, streamingLength) {
+        val target = if (streamingIndex >= 0) streamingIndex else messages.lastIndex
+        if (target >= 0) listState.scrollToItem(target)
     }
 
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         if (messages.isEmpty()) {
             Column(modifier = Modifier.align(Alignment.Center).padding(horizontal = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("潮水退到纸页外。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("潮水退到纸页外。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("写点什么，新的窗口会从这里长出来。", modifier = Modifier.padding(top = 7.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .68f))
             }
             return@Box
@@ -66,7 +69,7 @@ internal fun ChatTimeline(
             items(messages, key = { it.id }) { message ->
                 MessageItem(
                     message = message,
-                    isStreamingTail = isStreaming && message.id == messages.lastOrNull()?.id,
+                    isStreamingTail = isStreaming && message.id == streamingMessageId,
                     avatarBitmap = avatarBitmap,
                     onAvatarClick = onAvatarClick,
                     onCopy = onCopy,
