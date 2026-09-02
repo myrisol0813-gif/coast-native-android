@@ -123,17 +123,9 @@ fun ChatWindow(
     if (avatarDialogOpen) {
         AvatarPickerDialog(
             onDismiss = { avatarDialogOpen = false },
-            onPickLocalImage = {
+            onUploadLater = {
                 avatarDialogOpen = false
-                onPlaceholder("头像上传本轮未接线；当前继续显示海岸后端已有头像，没有只改本机。")
-            },
-            onReset = {
-                avatarDialogOpen = false
-                onPlaceholder("头像写回本轮未接线，没有修改海岸后端资料。")
-            },
-            onFutureSync = {
-                avatarDialogOpen = false
-                onPlaceholder("当前头像已经从海岸 profile 读取；上传写回留到后续接线。")
+                onPlaceholder("头像上传写回留到后续接线；当前没有修改本机或海岸资料。")
             }
         )
     }
