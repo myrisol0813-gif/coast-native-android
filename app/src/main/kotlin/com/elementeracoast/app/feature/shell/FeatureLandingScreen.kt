@@ -18,6 +18,7 @@ internal fun FeatureLandingScreen(
     messages: List<ChatMessage>,
     onBackToChat: () -> Unit,
     onSelectModel: (String) -> Unit,
+    onRefreshModels: () -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onLocalActionLogged: (String, String, String) -> Unit,
     onPlaceholder: (String) -> Unit
@@ -40,6 +41,7 @@ internal fun FeatureLandingScreen(
             shellState = shellState,
             messages = messages,
             onSelectModel = onSelectModel,
+            onRefreshModels = onRefreshModels,
             onImportMessages = onImportMessages,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
