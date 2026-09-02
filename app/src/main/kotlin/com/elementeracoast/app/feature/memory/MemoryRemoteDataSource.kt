@@ -154,8 +154,9 @@ class MemoryRemoteDataSource(
         }
         val kind = when {
             status == 401 -> CoastApiErrorKind.Unauthorized
-            status in 400..499 -> CoastApiErrorKind.Http
-            else -> CoastApiErrorKind.Http
+            status == 404 -> CoastApiErrorKind.NotFound
+            status >= 500 -> CoastApiErrorKind.Server
+            else -> CoastApiErrorKind.Request
         }
         return CoastApiException(kind, type, message, status)
     }
