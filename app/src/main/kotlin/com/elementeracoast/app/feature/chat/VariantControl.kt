@@ -34,7 +34,7 @@ internal fun VariantControl(
         VariantArrow(previous = true, enabled = safeIndex > 0, onClick = onPrevious)
         Spacer(Modifier.width(5.dp))
         Text(
-            text = "${safeIndex + 1}/$safeCount",
+            text = "$safeCount/${safeIndex + 1}",
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
             fontSize = 12.sp
         )
