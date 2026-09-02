@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -104,30 +106,53 @@ internal fun DailyField(
 }
 
 @Composable
-internal fun DailyAvatarRow(
-    title: String,
-    subtitle: String,
-    uri: String,
-    fallback: String,
-    onClick: () -> Unit
+internal fun DailyAvatarStrip(
+    profileUri: String,
+    myriUri: String,
+    onProfileClick: () -> Unit,
+    onMyriClick: () -> Unit
 ) {
-    DailySurfaceCard(onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            DailyAvatar(uri, fallback)
-            Spacer(Modifier.size(14.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
-        }
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 1.dp, shape = shape, clip = false)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(22.dp)
+    ) {
+        DailyAvatarChip("小寒", profileUri, "寒", onProfileClick)
+        DailyAvatarChip("Myri", myriUri, "M", onMyriClick)
     }
 }
 
 @Composable
-internal fun DailyAvatar(uri: String, fallback: String) {
+private fun DailyAvatarChip(
+    label: String,
+    uri: String,
+    fallback: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.clickable(onClick = onClick).padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DailyAvatar(uri, fallback, 26.dp)
+        Spacer(Modifier.size(7.dp))
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal)
+        )
+    }
+}
+
+@Composable
+internal fun DailyAvatar(uri: String, fallback: String, size: Dp = 54.dp) {
     val bitmap = rememberDailyBitmap(uri)
     Box(
-        modifier = Modifier.size(54.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
+        modifier = Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center
     ) {
         if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
