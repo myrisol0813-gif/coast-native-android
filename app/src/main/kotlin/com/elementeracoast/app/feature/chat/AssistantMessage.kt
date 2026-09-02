@@ -40,8 +40,7 @@ internal fun AssistantMessage(
     onAvatarClick: () -> Unit,
     onCopy: () -> Unit,
     onAction: (MessageAction) -> Unit,
-    onFootprint: () -> Unit,
-    onOpenActionLog: (Set<String>) -> Unit
+    onFootprint: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         AssistantAvatar(avatarBitmap, onAvatarClick)
@@ -64,10 +63,6 @@ internal fun AssistantMessage(
             message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
                 Spacer(Modifier.height(5.dp))
                 Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-            if (!isStreamingTail && message.furnitureRuns.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                FurnitureBubble(message.furnitureRuns, onOpenActionLog)
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow {
