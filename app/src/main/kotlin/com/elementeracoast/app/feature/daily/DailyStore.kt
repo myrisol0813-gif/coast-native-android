@@ -14,7 +14,11 @@ class DailyStore(private val persistence: LocalPersistence) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<DailyState> = _state.asStateFlow()
 
-    fun publishMoment(text: String, date: String = LocalDate.now().toString()): LocalMoment? {
+    fun publishMoment(
+        text: String,
+        date: String = LocalDate.now().toString(),
+        author: MomentAuthor = MomentAuthor.Xiaohan
+    ): LocalMoment? {
         val clean = text.trim()
         if (clean.isBlank()) return null
         val normalizedDate = normalizeDate(date)
@@ -22,7 +26,8 @@ class DailyStore(private val persistence: LocalPersistence) {
             id = id("moment"),
             text = clean.take(4000),
             createdAt = Instant.now().toString(),
-            date = normalizedDate
+            date = normalizedDate,
+            author = author
         )
         update { it.copy(moments = listOf(moment) + it.moments) }
         return moment
@@ -90,7 +95,8 @@ class DailyStore(private val persistence: LocalPersistence) {
                 moment.liked.toString(),
                 moment.comments.joinToString("\u001f"),
                 moment.createdAt,
-                moment.date
+                moment.date,
+                moment.author.name
             )
         })
         persistence.put(KEY_DIARIES, state.diaries.joinToString("\n") { diary ->
@@ -112,7 +118,8 @@ class DailyStore(private val persistence: LocalPersistence) {
                 liked = f[2].toBoolean(),
                 comments = f[3].split('\u001f').filter(String::isNotBlank),
                 createdAt = f[4],
-                date = f.getOrNull(5)?.takeIf(String::isNotBlank) ?: f[4].take(10).ifBlank { LocalDate.now().toString() }
+                date = f.getOrNull(5)?.takeIf(String::isNotBlank) ?: f[4].take(10).ifBlank { LocalDate.now().toString() },
+                author = f.getOrNull(6)?.let { runCatching { MomentAuthor.valueOf(it) }.getOrNull() } ?: MomentAuthor.Xiaohan
             )
         }.toList(),
         diaries = persistence.get(KEY_DIARIES).lineSequence().filter { it.isNotBlank() }.mapNotNull { line ->
