@@ -49,6 +49,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun MomentScreen(
     repository: DailyRepository,
+    myriAvatarDataUrl: String,
+    onUpdateMyriAvatar: (String) -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit,
     onCompose: () -> Unit
@@ -66,7 +68,7 @@ internal fun MomentScreen(
         onSnackbar("$label：$detail")
     }
 
-    fun uploadImage(uri: Uri?, field: DailyProfileImageField, label: String) {
+    fun uploadDailyImage(uri: Uri?, field: DailyProfileImageField, label: String) {
         if (uri == null) return
         scope.launch {
             try {
@@ -80,13 +82,22 @@ internal fun MomentScreen(
     }
 
     val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uploadImage(uri, DailyProfileImageField.XiaohanAvatar, "小寒头像")
+        uploadDailyImage(uri, DailyProfileImageField.XiaohanAvatar, "小寒头像")
     }
     val myriPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uploadImage(uri, DailyProfileImageField.MyriAvatar, "Myri 头像")
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val dataUrl = DailyImageCodec.encodeForProfile(context, uri, DailyProfileImageField.MyriAvatar)
+                    onUpdateMyriAvatar(dataUrl)
+                } catch (error: Throwable) {
+                    reportFailure("Myri 头像更新失败", error)
+                }
+            }
+        }
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uploadImage(uri, DailyProfileImageField.MomentCover, "碳硅圈封面")
+        uploadDailyImage(uri, DailyProfileImageField.MomentCover, "碳硅圈封面")
     }
 
     LazyColumn(
@@ -100,7 +111,7 @@ internal fun MomentScreen(
         item {
             DailyIdentityBar(
                 profileUri = snapshot.profile.xiaohanAvatarDataUrl,
-                myriUri = snapshot.profile.myriAvatarDataUrl,
+                myriUri = myriAvatarDataUrl,
                 onProfileClick = { avatarPicker.launch(arrayOf("image/*")) },
                 onMyriClick = { myriPicker.launch(arrayOf("image/*")) }
             )
@@ -120,7 +131,7 @@ internal fun MomentScreen(
                 val xiaohan = moment.isXiaohan
                 MomentCard(
                     moment = moment,
-                    avatarUri = if (xiaohan) snapshot.profile.xiaohanAvatarDataUrl else snapshot.profile.myriAvatarDataUrl,
+                    avatarUri = if (xiaohan) snapshot.profile.xiaohanAvatarDataUrl else myriAvatarDataUrl,
                     avatarFallback = if (xiaohan) "寒" else "M",
                     authorLabel = moment.displayAuthor,
                     myriCommentBusy = myriBusyId == moment.id,
