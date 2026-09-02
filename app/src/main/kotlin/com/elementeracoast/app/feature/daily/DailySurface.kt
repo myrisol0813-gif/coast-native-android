@@ -181,26 +181,6 @@ private fun DailyMiniAvatar(uri: String, fallback: String) {
 }
 
 @Composable
-internal fun DailyAvatarRow(
-    title: String,
-    subtitle: String,
-    uri: String,
-    fallback: String,
-    onClick: () -> Unit
-) {
-    DailySurfaceCard(onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            DailyAvatar(uri, fallback)
-            Spacer(Modifier.size(14.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-}
-
-@Composable
 internal fun DailyAvatar(uri: String, fallback: String) {
     val bitmap = rememberDailyBitmap(uri)
     Box(
