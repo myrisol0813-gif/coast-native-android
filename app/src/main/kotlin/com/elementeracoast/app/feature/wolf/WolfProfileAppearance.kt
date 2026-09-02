@@ -48,13 +48,6 @@ internal fun ProfileScreen(
         item { WolfTextField("聊天署名 / 导出显示名", signature, { signature = it }) }
         item { WolfRow("用户气泡颜色", "复用外观里的同一项设置", onAppearance) }
         item {
-            Text(
-                "头像在碳硅圈资料中设置。本页不另建第二套小寒头像存储。",
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp)).padding(16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        item {
             PrimaryLocalButton("保存个人资料") {
                 store.saveProfile(nickname, signature)
                 onSnackbar("个人资料已保存在本机")
