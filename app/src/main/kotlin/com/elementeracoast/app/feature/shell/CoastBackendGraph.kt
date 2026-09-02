@@ -13,7 +13,10 @@ import com.elementeracoast.app.feature.chat.ChatRepository
 import com.elementeracoast.app.feature.chat.DefaultChatRepository
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DefaultDailyRepository
+import com.elementeracoast.app.feature.memory.DefaultMemoryRepository
 import com.elementeracoast.app.feature.memory.DefaultThoughtSoilRepository
+import com.elementeracoast.app.feature.memory.MemoryRemoteDataSource
+import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
 
 data class CoastBackendGraph(
@@ -22,7 +25,8 @@ data class CoastBackendGraph(
     val profile: ProfileRepository,
     val chat: ChatRepository,
     val thoughtSoil: ThoughtSoilRepository,
-    val daily: DailyRepository
+    val daily: DailyRepository,
+    val memory: MemoryRepository
 ) {
     companion object {
         fun production(context: Context, persistence: LocalPersistence): CoastBackendGraph {
@@ -31,13 +35,15 @@ data class CoastBackendGraph(
             val http = CoastHttpClient(config, authStore).client
             val api = CoastApiClient(config, http)
             val cache = RemoteCacheStore(persistence)
+            val memoryRemote = MemoryRemoteDataSource(config, http)
             return CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
                 conversations = DefaultConversationRepository(api, cache),
                 profile = DefaultProfileRepository(api, cache),
                 chat = DefaultChatRepository(api, cache),
                 thoughtSoil = DefaultThoughtSoilRepository(api),
-                daily = DefaultDailyRepository(api, cache)
+                daily = DefaultDailyRepository(api, cache),
+                memory = DefaultMemoryRepository(memoryRemote, cache)
             )
         }
     }
