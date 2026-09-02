@@ -14,6 +14,10 @@ import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
 import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.core.remote.RemoteProfileResponse
 import com.elementeracoast.app.core.remote.RemoteSessionResponse
+import com.elementeracoast.app.core.remote.RemoteSoilOrganizeRequest
+import com.elementeracoast.app.core.remote.RemoteSoilOrganizeResponse
+import com.elementeracoast.app.core.remote.RemoteThoughtSoil
+import com.elementeracoast.app.core.remote.RemoteThoughtSoilResponse
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -145,6 +149,23 @@ class CoastApiClient(
     suspend fun listModels(refresh: Boolean = false): RemoteModelCatalogResponse {
         val suffix = if (refresh) "?refresh=1" else ""
         return jsonRequest(Request.Builder().url(config.url("/api/models$suffix")).get().build(), RemoteModelCatalogResponse.serializer())
+    }
+
+    suspend fun getThoughtSoil(conversationId: String): RemoteThoughtSoil =
+        jsonRequest(
+            Request.Builder().url(config.url("/api/memory/soil?conversation_id=${encodeQuery(conversationId)}")).get().build(),
+            RemoteThoughtSoilResponse.serializer()
+        ).soil
+
+    suspend fun organizeThoughtSoil(conversationId: String, modelId: String): RemoteSoilOrganizeResponse {
+        val payload = json.encodeToString(
+            RemoteSoilOrganizeRequest.serializer(),
+            RemoteSoilOrganizeRequest(conversationId = conversationId, model = modelId)
+        )
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/memory/soil/organize")).post(jsonBody(payload)).build(),
+            RemoteSoilOrganizeResponse.serializer()
+        )
     }
 
     fun streamChat(payload: RemoteChatRequest): Flow<ApiStreamEvent> = callbackFlow {
