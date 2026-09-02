@@ -220,8 +220,8 @@ internal fun CoastDrawer(
                 ) { onOpenFeature(FeatureDestination.Wolf) }
                 DrawerUtilityEntry(
                     R.drawable.ic_coast_serpent,
-                    "Serpent Action Log",
-                    "小蛇行动日志",
+                    "Serpent Desk",
+                    "小蛇书桌",
                     state.activeFeature == FeatureDestination.ActionLog
                 ) { onOpenFeature(FeatureDestination.ActionLog) }
             }
