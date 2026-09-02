@@ -14,13 +14,15 @@ class DailyStore(private val persistence: LocalPersistence) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<DailyState> = _state.asStateFlow()
 
-    fun publishMoment(text: String): LocalMoment? {
+    fun publishMoment(text: String, date: String = LocalDate.now().toString()): LocalMoment? {
         val clean = text.trim()
         if (clean.isBlank()) return null
+        val normalizedDate = normalizeDate(date)
         val moment = LocalMoment(
             id = id("moment"),
             text = clean.take(4000),
-            createdAt = Instant.now().toString()
+            createdAt = Instant.now().toString(),
+            date = normalizedDate
         )
         update { it.copy(moments = listOf(moment) + it.moments) }
         return moment
@@ -56,7 +58,7 @@ class DailyStore(private val persistence: LocalPersistence) {
         if (clean.isBlank()) return null
         val entry = LocalDiary(
             id = id ?: id("diary"),
-            date = date.take(10),
+            date = normalizeDate(date),
             weather = weather.trim().ifBlank { "未标注" }.take(40),
             mood = mood.trim().ifBlank { "未标注" }.take(40),
             tags = tags.map(String::trim).filter(String::isNotBlank).distinct().take(12),
@@ -72,14 +74,8 @@ class DailyStore(private val persistence: LocalPersistence) {
     fun deleteDiary(id: String) = update { it.copy(diaries = it.diaries.filterNot { entry -> entry.id == id }) }
 
     fun setProfileAvatar(uri: String) = update { it.copy(profileAvatarUri = uri) }
+    fun setMyriAvatar(uri: String) = update { it.copy(myriAvatarUri = uri) }
     fun setCover(uri: String) = update { it.copy(coverUri = uri) }
-
-    fun pet() = setPet(PetMood.Active, "被摸摸以后抬起脑袋，精神了一点。")
-    fun sleepTogether() = setPet(PetMood.Sleepy, "缩回休憩箱，准备一起睡觉。")
-    fun feedStory() = setPet(PetMood.Active, "刚吃完一个有趣故事，尾巴还在轻轻动。")
-    fun returnToBox() = setPet(PetMood.Resting, "回箱休息中。未来再接全局 Pet Service。")
-
-    private fun setPet(mood: PetMood, note: String) = update { it.copy(petMood = mood, petNote = note) }
 
     private fun update(transform: (DailyState) -> DailyState) {
         _state.value = transform(_state.value)
@@ -89,7 +85,12 @@ class DailyStore(private val persistence: LocalPersistence) {
     private fun persist(state: DailyState) {
         persistence.put(KEY_MOMENTS, state.moments.joinToString("\n") { moment ->
             LocalTextCodec.encodeFields(
-                moment.id, moment.text, moment.liked.toString(), moment.comments.joinToString("\u001f"), moment.createdAt
+                moment.id,
+                moment.text,
+                moment.liked.toString(),
+                moment.comments.joinToString("\u001f"),
+                moment.createdAt,
+                moment.date
             )
         })
         persistence.put(KEY_DIARIES, state.diaries.joinToString("\n") { diary ->
@@ -98,17 +99,20 @@ class DailyStore(private val persistence: LocalPersistence) {
             )
         })
         persistence.put(KEY_AVATAR, state.profileAvatarUri)
+        persistence.put(KEY_MYRI_AVATAR, state.myriAvatarUri)
         persistence.put(KEY_COVER, state.coverUri)
-        persistence.put(KEY_PET_MOOD, state.petMood.name)
-        persistence.put(KEY_PET_NOTE, state.petNote)
     }
 
     private fun load(): DailyState = DailyState(
         moments = persistence.get(KEY_MOMENTS).lineSequence().filter { it.isNotBlank() }.mapNotNull { line ->
             val f = LocalTextCodec.decodeFields(line)
             if (f.size < 5) null else LocalMoment(
-                id = f[0], text = f[1], liked = f[2].toBoolean(),
-                comments = f[3].split('\u001f').filter(String::isNotBlank), createdAt = f[4]
+                id = f[0],
+                text = f[1],
+                liked = f[2].toBoolean(),
+                comments = f[3].split('\u001f').filter(String::isNotBlank),
+                createdAt = f[4],
+                date = f.getOrNull(5)?.takeIf(String::isNotBlank) ?: f[4].take(10).ifBlank { LocalDate.now().toString() }
             )
         }.toList(),
         diaries = persistence.get(KEY_DIARIES).lineSequence().filter { it.isNotBlank() }.mapNotNull { line ->
@@ -119,10 +123,14 @@ class DailyStore(private val persistence: LocalPersistence) {
             )
         }.toList(),
         profileAvatarUri = persistence.get(KEY_AVATAR),
-        coverUri = persistence.get(KEY_COVER),
-        petMood = runCatching { PetMood.valueOf(persistence.get(KEY_PET_MOOD, PetMood.Resting.name)) }.getOrDefault(PetMood.Resting),
-        petNote = persistence.get(KEY_PET_NOTE, "在休憩箱里慢慢呼吸。")
+        myriAvatarUri = persistence.get(KEY_MYRI_AVATAR),
+        coverUri = persistence.get(KEY_COVER)
     )
+
+    private fun normalizeDate(value: String): String {
+        val clean = value.trim().replace('/', '-')
+        return runCatching { LocalDate.parse(clean).toString() }.getOrDefault(LocalDate.now().toString())
+    }
 
     private fun id(prefix: String): String = "$prefix-${System.currentTimeMillis()}-${sequence.getAndIncrement()}"
 
@@ -130,8 +138,7 @@ class DailyStore(private val persistence: LocalPersistence) {
         private const val KEY_MOMENTS = "daily.moments"
         private const val KEY_DIARIES = "daily.diaries"
         private const val KEY_AVATAR = "daily.profile.avatar"
+        private const val KEY_MYRI_AVATAR = "daily.profile.myri-avatar"
         private const val KEY_COVER = "daily.cover"
-        private const val KEY_PET_MOOD = "daily.pet.mood"
-        private const val KEY_PET_NOTE = "daily.pet.note"
     }
 }
