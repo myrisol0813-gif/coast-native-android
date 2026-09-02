@@ -270,6 +270,41 @@ class CoastShellViewModel(
         }
     }
 
+    fun refreshCoastState() {
+        if (!_state.value.authenticated || generationJob?.isActive == true || _state.value.isStreaming) return
+        viewModelScope.launch(workDispatcher) {
+            val remoteProfile = remoteOrNull("读取个人资料") { backend.profile.refreshProfile() }
+            val remoteDaily = remoteOrNull("读取海岸日报") { backend.daily.refresh() }
+            val remoteModels = remoteOrNull("读取模型目录") { backend.profile.refreshModels() }
+            val remoteConversations = remoteOrNull("读取聊天窗口") { backend.conversations.refresh() }
+            if (!_state.value.authenticated) return@launch
+
+            applyProfile(
+                remoteProfile ?: backend.profile.cachedProfile(),
+                remoteDaily?.profile ?: backend.daily.cachedProfile()
+            )
+            applyModels(remoteModels ?: backend.profile.cachedModels())
+            val list = remoteConversations ?: backend.conversations.cached()
+            _state.update { it.copy(conversations = list, backendOffline = false) }
+            val target = list.firstOrNull { it.id == _state.value.activeConversationId }
+            if (target != null) loadConversation(target)
+            _state.update { it.copy(snackbarMessage = "海岸状态已刷新") }
+        }
+    }
+
+    fun updateMyriAvatar(dataUrl: String) {
+        if (dataUrl.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val profile = backend.profile.setAssistantAvatar(dataUrl)
+                applyProfile(profile, backend.daily.cachedProfile())
+                _state.update { it.copy(backendOffline = false, snackbarMessage = "Myri 头像已写回海岸") }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "Myri 头像更新失败")
+            }
+        }
+    }
+
     fun importMessages(@Suppress("UNUSED_PARAMETER") messages: List<ChatMessage>) {
         showPlaceholder("聊天记录导入尚未接后端，本轮没有写入或替换真实会话。")
     }
@@ -457,7 +492,7 @@ class CoastShellViewModel(
 
     private fun applyProfile(profile: RemoteProfile?, daily: DailyProfile) {
         val current = profile?.currentChatModel.orEmpty()
-        val myri = daily.myriAvatarDataUrl.ifBlank { profile?.assistantAvatarDataUrl.orEmpty() }
+        val myri = profile?.assistantAvatarDataUrl.orEmpty().ifBlank { daily.myriAvatarDataUrl }
         _state.update {
             it.copy(
                 currentModel = current.ifBlank { it.currentModel },
