@@ -2,6 +2,7 @@ package com.elementeracoast.app.feature.serpentdesk
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +30,21 @@ import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.feature.actionlog.ActionLogScreen
 import com.elementeracoast.app.feature.actionlog.ActionLogStore
 
-private enum class SerpentDeskTool { ActionLog }
+internal enum class SerpentDeskTool { ActionLog }
+
+internal data class SerpentDeskItem(
+    val tool: SerpentDeskTool,
+    val title: String,
+    val subtitle: String
+)
+
+internal fun serpentDeskItems(): List<SerpentDeskItem> = listOf(
+    SerpentDeskItem(
+        tool = SerpentDeskTool.ActionLog,
+        title = "小蛇行动日志",
+        subtitle = "工具调用成功 / 失败 · 房间 · 脱敏摘要"
+    )
+)
 
 @Composable
 fun SerpentDeskScreen(
@@ -41,20 +56,19 @@ fun SerpentDeskScreen(
         mutableStateOf(if (focusIds.isNotEmpty()) SerpentDeskTool.ActionLog else null)
     }
 
-    if (activeTool == SerpentDeskTool.ActionLog) {
-        ActionLogToolPage(
+    when (activeTool) {
+        SerpentDeskTool.ActionLog -> ActionLogToolPage(
             store = actionLogStore,
             conversationId = conversationId,
             focusIds = focusIds,
             onBack = { activeTool = null }
         )
-    } else {
-        SerpentDeskHome(onOpenActionLog = { activeTool = SerpentDeskTool.ActionLog })
+        null -> SerpentDeskHome(onOpenTool = { activeTool = it })
     }
 }
 
 @Composable
-private fun SerpentDeskHome(onOpenActionLog: () -> Unit) {
+private fun SerpentDeskHome(onOpenTool: (SerpentDeskTool) -> Unit) {
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp)) {
         Text(
             "小蛇书桌",
@@ -67,35 +81,42 @@ private fun SerpentDeskHome(onOpenActionLog: () -> Unit) {
             style = MaterialTheme.typography.bodySmall
         )
         Spacer(Modifier.height(18.dp))
-        val shape = RoundedCornerShape(22.dp)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(2.dp, shape, clip = false)
-                .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-                .clickable(onClick = onOpenActionLog)
-                .padding(horizontal = 18.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "小蛇行动日志",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "工具调用成功 / 失败 · 房间 · 脱敏摘要",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            serpentDeskItems().forEach { item -> SerpentDeskItemCard(item, onOpenTool) }
+        }
+    }
+}
+
+@Composable
+private fun SerpentDeskItemCard(item: SerpentDeskItem, onOpenTool: (SerpentDeskTool) -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, shape, clip = false)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .clickable { onOpenTool(item.tool) }
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                item.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                item.subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
             )
         }
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
