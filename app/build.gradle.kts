@@ -12,8 +12,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 18
-        versionName = "0.1.16-app62-ui-stability-fix-28"
+        versionCode = 19
+        versionName = "0.1.17-app62-comment-order-fix-28"
     }
 
     buildTypes {
