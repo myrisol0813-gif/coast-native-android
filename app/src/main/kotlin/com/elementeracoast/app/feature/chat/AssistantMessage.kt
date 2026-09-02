@@ -57,7 +57,8 @@ internal fun AssistantMessage(
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontSize = CoastChatTokens.ChatBodySize,
-                    lineHeight = CoastChatTokens.ChatBodyLineHeight
+                    lineHeight = CoastChatTokens.ChatBodyLineHeight,
+                    fontWeight = FontWeight.Normal
                 )
             )
             message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
