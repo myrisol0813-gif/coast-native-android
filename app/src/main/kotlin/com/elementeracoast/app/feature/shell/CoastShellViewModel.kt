@@ -92,7 +92,8 @@ class CoastShellViewModel(
                 it.copy(
                     conversations = chat.conversations(), activeRoomType = RoomType.Main,
                     activeFeature = null, activeConversationId = fallback.id, messages = emptyList(),
-                    showModelPicker = false, isStreaming = false, snackbarMessage = "已清空最后一个窗口"
+                    showModelPicker = false, isStreaming = false, streamingMessageId = null,
+                    snackbarMessage = "已清空最后一个窗口"
                 )
             }
             return
@@ -162,7 +163,7 @@ class CoastShellViewModel(
                 furnitureRuns = furnitureRuns
             )
         }
-        _state.update { it.copy(messages = next, isStreaming = true) }
+        _state.update { it.copy(messages = next, isStreaming = true, streamingMessageId = assistantId) }
         startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = false)
     }
 
@@ -183,9 +184,9 @@ class CoastShellViewModel(
             }
             is MessageAction.Delete -> {
                 if (current.isStreaming) { showPlaceholder("生成中请先停止，再删除消息。"); return }
-                if (message.role == MessageRole.User && message.variantCount > 1) {
+                if (message.variantCount > 1) {
                     mutateCurrent { list -> list.map { item -> if (item.id == message.id) removeCurrentVariant(item) else item } }
-                    logAction("message.variant.delete", "删除当前消息版本", "user message ${message.id}")
+                    logAction("message.variant.delete", "删除当前消息版本", "${message.role.name.lowercase()} message ${message.id}")
                     showPlaceholder("已删除当前版本；其他版本与前后消息保持不变")
                 } else {
                     mutateCurrent { it.filterNot { item -> item.id == message.id } }
@@ -197,13 +198,10 @@ class CoastShellViewModel(
                 if (message.role != MessageRole.User) return
                 val clean = action.text.trim()
                 if (clean.isBlank()) return
-                mutateCurrent { list -> list.map { item ->
-                    if (item.id != message.id) item else appendUserVariant(item, clean)
-                } }
-                showPlaceholder("已生成新的本地消息版本")
+                editUserAndRegenerate(message, clean)
             }
             is MessageAction.SelectVariant -> {
-                if (message.role != MessageRole.User || message.variantCount <= 1) return
+                if (message.variantCount <= 1) return
                 mutateCurrent { list -> list.map { item ->
                     if (item.id != message.id) item else selectVariant(item, action.index)
                 } }
@@ -212,9 +210,70 @@ class CoastShellViewModel(
         }
     }
 
-    fun stopGeneration() { generationJob?.cancel() }
+    fun stopGeneration() {
+        generationJob?.cancel()
+        _state.update { it.copy(isStreaming = false, streamingMessageId = null) }
+    }
     fun showPlaceholder(message: String) { _state.update { it.copy(snackbarMessage = message) } }
     fun clearSnackbar() { _state.update { it.copy(snackbarMessage = null) } }
+
+    private fun editUserAndRegenerate(message: ChatMessage, text: String) {
+        val current = _state.value
+        if (current.isStreaming || generationJob?.isActive == true) {
+            showPlaceholder("请先停止当前生成，再编辑消息。")
+            return
+        }
+        val conversationId = current.activeConversationId
+        val existing = current.messages
+        val userIndex = existing.indexOfFirst { it.id == message.id }
+        if (userIndex < 0) return
+        val assistantIndex = (userIndex + 1).takeIf { index -> existing.getOrNull(index)?.role == MessageRole.Assistant }
+        val assistantId = assistantIndex?.let { existing[it].id } ?: chat.nextMessageId()
+        val runs = furniture.runForPrompt(text, current.activeRoomType, conversationId, assistantId)
+        val updated = existing.toMutableList()
+        updated[userIndex] = appendUserVariant(message, text)
+
+        if (assistantIndex != null) {
+            val assistant = existing[assistantIndex]
+            val variants = assistant.normalizedVariants() + ""
+            updated[assistantIndex] = assistant.copy(
+                text = "",
+                modelId = current.currentModel,
+                generationSource = "local-edit-regenerate · ${localGenerationLabel()}",
+                liked = false,
+                favorite = false,
+                errorDetail = null,
+                variantIndex = variants.lastIndex,
+                variantCount = variants.size,
+                variants = variants,
+                furnitureRuns = runs
+            )
+        } else {
+            updated.add(
+                userIndex + 1,
+                ChatMessage(
+                    id = assistantId,
+                    role = MessageRole.Assistant,
+                    text = "",
+                    modelId = current.currentModel,
+                    generationSource = "local-edit-regenerate · ${localGenerationLabel()}",
+                    furnitureRuns = runs
+                )
+            )
+        }
+
+        chat.replaceMessages(conversationId, updated)
+        _state.update {
+            it.copy(
+                messages = updated,
+                isStreaming = true,
+                streamingMessageId = assistantId,
+                snackbarMessage = "已保留旧版本，并为新消息生成新的本地回复"
+            )
+        }
+        logAction("message.edit.regenerate", "编辑消息并生成新回复版本", "user ${message.id} → assistant $assistantId", assistantMessageId = assistantId)
+        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = true)
+    }
 
     private fun appendUserVariant(message: ChatMessage, text: String): ChatMessage {
         val variants = message.normalizedVariants() + text
@@ -251,14 +310,32 @@ class CoastShellViewModel(
         if (message.role != MessageRole.Assistant) return
         if (current.isStreaming || generationJob?.isActive == true) { showPlaceholder("请先停止当前生成，再重新生成。"); return }
         mutateCurrent { list -> list.map {
-            if (it.id == message.id) it.copy(
-                text = "", modelId = current.currentModel, generationSource = "local-regenerate · ${localGenerationLabel()}",
-                liked = false, favorite = false, errorDetail = null, variantIndex = 0, variantCount = 1, variants = emptyList()
-            ) else it
+            if (it.id != message.id) it else clearCurrentAssistantVariant(it, current.currentModel)
         } }
         logAction("chat.regenerate", "重新生成本地回复", "assistant message ${message.id}", assistantMessageId = message.id)
-        _state.update { it.copy(isStreaming = true) }
+        _state.update { it.copy(isStreaming = true, streamingMessageId = message.id) }
         startFakeStreaming(current.activeConversationId, message.id, current.activeRoomType, regenerated = true)
+    }
+
+    private fun clearCurrentAssistantVariant(message: ChatMessage, model: String): ChatMessage {
+        if (message.variantCount <= 1) {
+            return message.copy(
+                text = "", modelId = model, generationSource = "local-regenerate · ${localGenerationLabel()}",
+                liked = false, favorite = false, errorDetail = null
+            )
+        }
+        val variants = message.normalizedVariants().toMutableList()
+        val index = message.variantIndex.coerceIn(0, variants.lastIndex)
+        variants[index] = ""
+        return message.copy(
+            text = "",
+            modelId = model,
+            generationSource = "local-regenerate · ${localGenerationLabel()}",
+            liked = false,
+            favorite = false,
+            errorDetail = null,
+            variants = variants
+        )
     }
 
     private fun startFakeStreaming(conversationId: String, assistantId: Long, roomType: RoomType, regenerated: Boolean) {
@@ -269,7 +346,9 @@ class CoastShellViewModel(
                 appendDelta(conversationId, assistantId, "\n\n[本地演示已停止]")
                 throw cancelled
             } finally {
-                if (_state.value.activeConversationId == conversationId) _state.update { it.copy(isStreaming = false) }
+                if (_state.value.activeConversationId == conversationId && _state.value.streamingMessageId == assistantId) {
+                    _state.update { it.copy(isStreaming = false, streamingMessageId = null) }
+                }
                 generationJob = null
             }
         }
@@ -303,7 +382,19 @@ class CoastShellViewModel(
     }
 
     private fun appendDelta(conversationId: String, messageId: Long, delta: String) {
-        val updated = chat.mutate(conversationId) { list -> list.map { if (it.id == messageId) it.copy(text = it.text + delta) else it } }
+        val updated = chat.mutate(conversationId) { list ->
+            list.map { message ->
+                if (message.id != messageId) message
+                else if (message.variantCount > 1) {
+                    val variants = message.normalizedVariants().toMutableList()
+                    val index = message.variantIndex.coerceIn(0, variants.lastIndex)
+                    variants[index] = variants[index] + delta
+                    message.copy(text = variants[index], variants = variants)
+                } else {
+                    message.copy(text = message.text + delta)
+                }
+            }
+        }
         if (_state.value.activeConversationId == conversationId) _state.update { it.copy(messages = updated) }
     }
 
@@ -312,7 +403,8 @@ class CoastShellViewModel(
             it.copy(
                 conversations = chat.conversations(), activeRoomType = conversation.roomType, activeFeature = null,
                 actionLogFocusIds = emptySet(), activeConversationId = conversation.id,
-                messages = chat.messages(conversation.id), showModelPicker = false
+                messages = chat.messages(conversation.id), showModelPicker = false,
+                isStreaming = false, streamingMessageId = null
             )
         }
     }
