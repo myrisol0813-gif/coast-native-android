@@ -33,7 +33,12 @@ import com.elementeracoast.app.feature.wolf.WolfTextField
 import java.time.LocalDate
 
 @Composable
-internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackbar: (String) -> Unit) {
+internal fun SeedLibraryScreen(
+    store: MemoryStore,
+    createRequested: Boolean,
+    onCreateConsumed: () -> Unit,
+    onSnackbar: (String) -> Unit
+) {
     val state by store.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var filterKind by remember { mutableStateOf(MemoryFilterKind.Tag) }
@@ -41,7 +46,12 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
     var editing by remember { mutableStateOf<LocalSeed?>(null) }
     var creating by remember { mutableStateOf(false) }
     var expandedId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(createRequest) { if (createRequest > 0) creating = true }
+    LaunchedEffect(createRequested) {
+        if (createRequested) {
+            creating = true
+            onCreateConsumed()
+        }
+    }
 
     val filterValues = when (filterKind) {
         MemoryFilterKind.Tag -> (canonicalMemoryTags + state.seeds.flatMap { it.tags }).distinct()
@@ -78,8 +88,8 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
                 "种子库",
                 modifier = Modifier.padding(start = 36.dp, end = 36.dp, top = 8.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
         }
         if (visible.isEmpty()) {
@@ -92,7 +102,7 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
             items(visible, key = { it.id }) { seed ->
                 Column(Modifier.padding(horizontal = 28.dp)) {
                     DailySurfaceCard(onClick = { expandedId = if (expandedId == seed.id) null else seed.id }) {
-                        Text(seed.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(seed.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(seed.status.name.lowercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                         if (seed.tags.isNotEmpty()) Text(seed.tags.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         if (expandedId == seed.id) {
@@ -159,13 +169,23 @@ private fun SeedEditor(seed: LocalSeed?, onDismiss: () -> Unit, onSave: (LocalSe
 }
 
 @Composable
-internal fun WorldbookScreen(store: MemoryStore, createRequest: Int, onSnackbar: (String) -> Unit) {
+internal fun WorldbookScreen(
+    store: MemoryStore,
+    createRequested: Boolean,
+    onCreateConsumed: () -> Unit,
+    onSnackbar: (String) -> Unit
+) {
     val state by store.state.collectAsState()
     var testText by remember { mutableStateOf("") }
     var testResult by remember { mutableStateOf<List<LocalWorldbookEntry>>(emptyList()) }
     var editing by remember { mutableStateOf<LocalWorldbookEntry?>(null) }
     var creating by remember { mutableStateOf(false) }
-    LaunchedEffect(createRequest) { if (createRequest > 0) creating = true }
+    LaunchedEffect(createRequested) {
+        if (createRequested) {
+            creating = true
+            onCreateConsumed()
+        }
+    }
 
     LazyColumn(
         contentPadding = PaddingValues(horizontal = 28.dp, vertical = 34.dp),
@@ -194,7 +214,7 @@ internal fun WorldbookScreen(store: MemoryStore, createRequest: Int, onSnackbar:
         } else {
             items(state.worldbook, key = { it.id }) { entry ->
                 DailySurfaceCard {
-                    Text(entry.term, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(entry.term, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(if (entry.enabled) "已启用" else "已停用", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                     Spacer(Modifier.height(6.dp))
                     Text(entry.content)
