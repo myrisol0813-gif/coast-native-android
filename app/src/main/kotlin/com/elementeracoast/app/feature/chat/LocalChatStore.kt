@@ -2,7 +2,6 @@ package com.elementeracoast.app.feature.chat
 
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.ConversationSummary
-import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.core.model.roomConversationTitle
 
@@ -18,7 +17,7 @@ class LocalChatStore(
     private var nextConversationId = 10L
 
     init {
-        conversations.forEach { threads[it.id] = greetingFor(it.roomType) }
+        conversations.forEach { threads[it.id] = emptyList() }
         threads[initialConversationId] = initialMessages
     }
 
@@ -26,10 +25,10 @@ class LocalChatStore(
     fun messages(id: String): List<ChatMessage> = threads[id].orEmpty()
     fun nextMessageId(): Long = nextMessageId++
 
-    fun create(roomType: RoomType, rawTitle: String, empty: Boolean = false): ConversationSummary {
+    fun create(roomType: RoomType, rawTitle: String): ConversationSummary {
         val record = newRecord(roomType, rawTitle)
         conversations = listOf(record) + conversations
-        threads[record.id] = if (empty) emptyList() else greetingFor(roomType)
+        threads[record.id] = emptyList()
         return record
     }
 
@@ -65,18 +64,4 @@ class LocalChatStore(
         val id = "${roomType.wireValue}-${nextConversationId++}"
         return ConversationSummary(id, roomConversationTitle(roomType, rawTitle), roomType)
     }
-
-    private fun greetingFor(roomType: RoomType): List<ChatMessage> = listOf(
-        ChatMessage(
-            id = nextMessageId++,
-            role = MessageRole.Assistant,
-            text = when (roomType) {
-                RoomType.Main -> "海岸主聊天已就位。这里仍是本地版海岸，不会向任何模型端点发送内容。"
-                RoomType.Radio -> "电波房与主聊天共用同一 ChatWindow。"
-                RoomType.Lighthouse -> "灯塔房与主聊天共用同一 ChatWindow。"
-            },
-            modelId = "Native local",
-            generationSource = "fixture"
-        )
-    )
 }
