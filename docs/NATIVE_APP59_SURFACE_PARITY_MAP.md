@@ -13,9 +13,10 @@ This Native pass starts from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a
 | Sidebar | preserved Native 25 layout/status/search/conversation list; footer now Theme / Wolf Den / Serpent Action Log |
 | Main / Radio / Lighthouse | one shared `ChatWindow` and `RoomType` |
 | Chat topbar model | no chevron; larger model label with bounded/ellipsis display |
+| Feature page chrome | Memory / Daily / Carbon / Diary / Worldbook / Instructions use a compact 54dp-class local top bar with smaller title/subtitle than the chat shell |
 | Assistant message actions | copy / like / favorite / local regenerate / delete / footprint |
 | User message actions | normal state: edit + copy; edited messages gain real local variants and current-variant delete/navigation |
-| User variants | edit appends a variant; counter is total/current (`2/1`, `2/2`); single variant shows no `1/1`; delete removes only current variant |
+| User + assistant variants | editing a user message appends its new variant and opens a paired assistant reply variant; counters use total/current (`2/1`, `2/2`); single variants show no `1/1` |
 | 本轮家具 | `FurnitureBubble`, only when explicit local action ids are bound to assistant message |
 | Dogtalk | existing four-field local drawer unchanged |
 | 思维壤 / 手持种 | local bottom sheet: current delivery, recent context, Basic Settings, local memory, furniture |
@@ -35,12 +36,14 @@ This Native pass starts from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a
 | 宠物系统 | entrance retained; interior intentionally blank until its dedicated UI round; no hidden pet-state model remains active |
 | Memory | PWA-like 2×2 tabs: 记忆库 / 种子库 / 世界书 / 自定义指令 |
 | 记忆检索 | search plus 日期 / 模型 / 窗口 / 标签 dropdown filters; all four dimensions operate on local source metadata |
+| Memory create actions | add-memory / add-seed / add-worldbook are one-shot consumed UI events; switching/back navigation clears pending create state so dialogs do not reopen by themselves |
 | 记忆库 | local add/edit/delete/search, Memory v2 content fields plus source model/window/date facets |
 | 种子库 | local add/edit/delete/search/filter, active/dormant plus source/tags facets |
 | 世界书 / 海岸词典 | separate PWA-like page with “试一句” local hit test, add/edit/delete/enable-disable |
 | 自定义指令 | PWA-like single active document, local edit/save/clear, explicitly not sent to backend |
 | Theme | sidebar cycle plus Wolf Appearance selector |
-| Typography | platform sans; slightly heavier body weights and softer foreground colors, without bundled font assets |
+| Typography | Android platform sans; bold compact titles, medium body text, smaller gray subtitles; no bundled/online font dependency |
+| Rounded surface depth | restrained ~2dp shadow on user bubbles and content-bearing rounded cards/chips; assistant body remains plain |
 | Toast/Snackbar | shared shell snackbar for local action results / placeholders |
 | Dialog | edit message, local avatar, Daily/Memory editors |
 | BottomSheet | thought-soil structure preview |
@@ -75,22 +78,23 @@ core/local         LocalPersistence + line-safe persistence codec
 core/model         shared stable shell/chat models
 ```
 
-`CoastShellViewModel` coordinates shell/navigation/generation and user-message variant mutation. Feature data is owned by feature stores; `MainShell` only routes those owners. Memory and Daily own their own feature-page chrome so their PWA-like dynamic titles/actions are not duplicated by the global shell topbar.
+`CoastShellViewModel` coordinates shell/navigation/generation and chat variant mutation. Feature data is owned by feature stores; `MainShell` only routes those owners. Memory and Daily own their own compact feature-page chrome so their PWA-like dynamic titles/actions are not duplicated by the global shell topbar.
 
-## User-message variant rule
+## Message variant rule
 
 Native local edit behavior follows the reviewed PWA interaction:
 
 1. a one-version user message shows only edit + copy;
-2. edit preserves the old text and appends a new variant;
-3. the newly edited variant becomes current, so two versions show `2/2`;
-4. navigating back to the first variant shows `2/1`;
-5. delete in variant mode removes only the current variant and never adjacent messages;
-6. when one variant remains, the counter and variant-delete chrome disappear instead of displaying `1/1`.
+2. edit preserves the old user text and appends a new user variant;
+3. the directly paired assistant reply preserves its old reply and appends a new assistant variant;
+4. fake generation streams into that exact assistant message id and new reply variant;
+5. both newly edited sides therefore show `2/2`; navigating to the old side shows `2/1`;
+6. delete in variant mode removes only the current variant and never adjacent messages;
+7. when one variant remains, the counter and variant-delete chrome disappear instead of displaying `1/1`.
 
-This is local UI state, not a claim about a future backend variant schema.
+`streamingMessageId` identifies the actual reply being generated, so an edited historical pair does not pretend that only the timeline tail can stream. This remains local UI state, not a claim about a future backend variant schema.
 
-## Memory retrieval rule
+## Memory retrieval and create rule
 
 The PWA filter-kind menu is mirrored as:
 
@@ -101,7 +105,7 @@ The PWA filter-kind menu is mirrored as:
 
 Canonical PWA tag labels retained in the Native local surface: `关系`, `历史锚点`, `偏好`, `人物档案`, `海岸世界观`, `工程技术`.
 
-Memory and Seed both apply the selected filter to the visible local list. Existing older local rows are read directly with default source metadata when those appended fields are absent; the active writer only emits the current structure. There is no second legacy writer or compatibility route.
+Memory and Seed both apply the selected filter to the visible local list. Create intent is held by `MemoryLanding` as a nullable target tab and consumed once by the owning screen; tab changes/back clear it. Existing older local rows are read directly with default source metadata when appended source fields are absent; the active writer only emits the current structure. There is no second legacy writer or compatibility route.
 
 ## Daily profile rule
 
@@ -127,7 +131,7 @@ No timestamp-window guessing is used.
 
 ## Local-only actions
 
-Working locally: message copy/like/favorite/edit/delete/regenerate, user variant switching/current-variant deletion, model switch, Wolf settings/profile, JSON/HTML export, JSON import, Carbon Circle cover/avatar/publish/edit/delete/comment/like, Diary CRUD, Memory/Seed/Worldbook CRUD/search/filter, Worldbook hit test, Custom Instructions save/clear, local fake furniture actions and Action Log filters.
+Working locally: message copy/like/favorite/edit/delete/regenerate, user/assistant variant switching and current-variant deletion, paired assistant fake-regeneration after user edit, model switch, Wolf settings/profile, JSON/HTML export, JSON import, Carbon Circle cover/avatar/publish/edit/delete/comment/like, Diary CRUD, Memory/Seed/Worldbook CRUD/search/filter, Worldbook hit test, Custom Instructions save/clear, local fake furniture actions and Action Log filters.
 
 Placeholders remain explicit for real profile sync, real model catalog, real backend history/SSE, attachment/mic/call transport, future widgets, and any future Pet service. The Pet interior is intentionally empty rather than presenting a temporary local behavior as product design.
 
