@@ -8,6 +8,7 @@ import com.elementeracoast.app.feature.daily.DailyLanding
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.letters.IslandLetterScreen
 import com.elementeracoast.app.feature.memory.MemoryLanding
+import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.serpentdesk.SerpentDeskScreen
 import com.elementeracoast.app.feature.wolf.WolfScreen
 
@@ -17,6 +18,7 @@ internal fun FeatureLandingScreen(
     shellState: CoastShellState,
     services: LocalFeatureServices,
     daily: DailyRepository,
+    memory: MemoryRepository,
     messages: List<ChatMessage>,
     onBackToChat: () -> Unit,
     onRefresh: () -> Unit,
@@ -38,7 +40,8 @@ internal fun FeatureLandingScreen(
             onSnackbar = onPlaceholder
         )
         FeatureDestination.Memory -> MemoryLanding(
-            store = services.memory,
+            repository = memory,
+            conversationId = shellState.activeConversationId,
             onBackToChat = onBackToChat,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
