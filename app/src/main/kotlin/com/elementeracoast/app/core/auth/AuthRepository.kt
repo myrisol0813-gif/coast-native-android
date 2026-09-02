@@ -1,20 +1,28 @@
 package com.elementeracoast.app.core.auth
 
+import com.elementeracoast.app.core.network.CoastApiClient
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
-import com.elementeracoast.app.core.network.CoastApiClient
 
-class AuthRepository(
+interface AuthRepository {
+    suspend fun login(password: String): AuthSession
+    suspend fun restore(): SessionRestoreResult
+    suspend fun logout()
+    fun current(): AuthSession?
+    fun clearConfirmedInvalidSession()
+}
+
+class DefaultAuthRepository(
     private val store: AuthStore,
     private val api: CoastApiClient
-) {
-    suspend fun login(password: String): AuthSession {
+) : AuthRepository {
+    override suspend fun login(password: String): AuthSession {
         val session = api.login(password)
         store.save(session)
         return session
     }
 
-    suspend fun restore(): SessionRestoreResult {
+    override suspend fun restore(): SessionRestoreResult {
         val session = store.load() ?: return SessionRestoreResult.Missing
         if (session.isExpired()) {
             store.clear()
@@ -40,12 +48,13 @@ class AuthRepository(
         }
     }
 
-    suspend fun logout() {
+    override suspend fun logout() {
         val session = store.load()
         runCatching { api.logout(session) }
         store.clear()
     }
 
-    fun current(): AuthSession? = store.load()
-    fun clearConfirmedInvalidSession() = store.clear()
+    override fun current(): AuthSession? = store.load()
+
+    override fun clearConfirmedInvalidSession() = store.clear()
 }
