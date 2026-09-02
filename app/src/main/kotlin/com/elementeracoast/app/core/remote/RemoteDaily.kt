@@ -99,6 +99,7 @@ data class RemoteDailyDiaryResponse(
     val diary: RemoteDailyDiary
 )
 
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
 data class RemoteDailyDiaryCreateRequest(
     val date: String,
@@ -106,7 +107,9 @@ data class RemoteDailyDiaryCreateRequest(
     val mood: String = "未标注",
     val tags: List<String> = emptyList(),
     val text: String,
-    @SerialName("conflict_mode") val conflictMode: String = "append"
+    @SerialName("conflict_mode")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
+    val conflictMode: String = "append"
 )
 
 @Serializable
@@ -128,8 +131,12 @@ data class RemoteDailyProfilePatch(
 @Serializable
 data class RemoteDailyProfileUpdateRequest(val profile: RemoteDailyProfilePatch)
 
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
-data class RemoteDailyMyriCommentRequest(val mode: String = "instant")
+data class RemoteDailyMyriCommentRequest(
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
+    val mode: String = "instant"
+)
 
 @Serializable
 data class RemoteDailyMyriCommentResult(
