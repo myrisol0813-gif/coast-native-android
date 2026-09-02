@@ -2,9 +2,9 @@
 
 Private Android native client for Elementera Coast / CoastGPT.
 
-**Status: Native v1 local review shell aligned through the app-60 body plus the reviewed app-62 Serpent Desk delta. Real backend wiring is intentionally deferred.**
+**Status: Native v1 local review shell aligned through the app-60 body plus reviewed app-62 deltas. Real backend wiring is intentionally deferred.**
 
-Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md` (app-60 baseline with later reviewed deltas recorded in-place).
+Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md`.
 
 ## Product identity
 
@@ -15,9 +15,12 @@ Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md` (app-60 basel
 
 ## Native body
 
-- preserved tuned drawer/topbar, `RoomType` and one shared `ChatWindow`
-- Main / Radio / Lighthouse threads start empty; no fixture assistant message appears before user input
-- chat top-right More opens the local `登岛信`
+- tuned drawer/topbar, `RoomType` and one shared `ChatWindow`
+- Main history is concrete; Radio / Lighthouse sidebar entries are transient empty room landings
+- there are no prebuilt `radio-1` / `lighthouse-1` fixture conversations
+- first send in Radio / Lighthouse creates a fresh persistent conversation before writing messages; explicit New still creates immediately
+- created Radio / Lighthouse conversations appear in sidebar history and keep their local thread when revisited
+- chat top-right More opens local `登岛信`
 - island letter uses current-model `To ...` text and is stored independently per conversation + model; delivery remains unwired
 - assistant actions: copy / like / favorite / local regenerate / delete / footprint
 - user edit creates paired local user + assistant variants; fake generation targets the exact assistant variant
@@ -26,8 +29,8 @@ Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md` (app-60 basel
 - Model Box renders the current model as one compact solid bubble; all unselected models stay inside one grouped expandable catalog
 - catalog groups: o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image
 - Refresh is visible but explicitly offline until backend OpenRouter catalog wiring exists; no fake network result
-- sidebar identity is `Serpent Desk / 小蛇书桌`; opening it now lands on the desk home, whose current tool shelf contains `小蛇行动日志`
-- furniture deep links still open the Action Log tool inside Serpent Desk, rather than bypassing the desk product structure
+- sidebar identity is `Serpent Desk / 小蛇书桌`; opening it lands on the desk home, whose current tool shelf contains `小蛇行动日志`
+- furniture deep links open the Action Log tool inside Serpent Desk
 - Daily: 碳硅圈 / 日记 / blank Pet interior
 - Memory: 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface with real local filters
 - local JSON / HTML chat export and JSON import
@@ -43,18 +46,16 @@ feature/serpentdesk  SerpentDeskScreen + visible tool shelf/navigation
 feature/actionlog    ActionLogStore + ActionLogScreen tool implementation
 feature/daily        DailyStore + Daily surfaces
 feature/memory       MemoryStore + Memory surfaces
-feature/shell        navigation, drawer, topbars and cross-feature coordination
+feature/shell        navigation + transient room landing/materialization coordination
 core/local           SharedPreferences / in-memory persistence boundary
 core/model           shared stable shell/chat models
 ```
 
-`Serpent Desk` is the visible container; `Action Log` is a tool inside it. They do not duplicate state or UI. `CoastShellViewModel` still owns shell coordination and the focus ids used when furniture links directly into the log tool.
+A Radio/Lighthouse landing is not a hidden conversation or second thread store. The first real send creates one normal `LocalChatStore` conversation and all subsequent message operations use that exact thread.
 
 ## PWA reference
 
-The main Native body was reviewed against PWA app-60. The Serpent Desk home/tool-shelf behavior in version `0.1.13-app62-desk-fix-27` additionally follows the read-only current app-62 `settings.js`, where `settings:desk` opens `小蛇书桌 / Myri 的工作台` and currently exposes `小蛇行动日志` as one row.
-
-Web/PWA source remains reference-only and is never copied into this repository.
+The main Native body was reviewed against PWA app-60. Later read-only app-62 review confirms the Serpent Desk home/tool-shelf structure. Web/PWA source remains reference-only and is never copied into this repository.
 
 ## Hard boundaries
 
