@@ -1,0 +1,185 @@
+package com.elementeracoast.app.core.remote
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class RemoteDeskSlip(
+    val summary: String = "",
+    val comfort: String = "",
+    @SerialName("current_message") val currentMessage: RemoteDeskCurrentMessage = RemoteDeskCurrentMessage(),
+    @SerialName("recent_context") val recentContext: RemoteDeskRecentContext = RemoteDeskRecentContext(),
+    @SerialName("custom_instructions") val customInstructions: RemoteDeskCustomInstructions = RemoteDeskCustomInstructions(),
+    @SerialName("thinking_soil") val thinkingSoil: RemoteDeskThinkingSoil = RemoteDeskThinkingSoil(),
+    @SerialName("related_memory") val relatedMemory: RemoteDeskMemory = RemoteDeskMemory(),
+    val worldbook: RemoteDeskWorldbook = RemoteDeskWorldbook(),
+    val dogtalk: RemoteDeskDogtalk = RemoteDeskDogtalk(),
+    val workbench: RemoteDeskWorkbench = RemoteDeskWorkbench()
+)
+
+@Serializable
+data class RemoteDeskCurrentMessage(
+    val status: String = "未递给",
+    val delivered: Boolean = false,
+    val content: String = ""
+)
+
+@Serializable
+data class RemoteDeskRecentContext(
+    val status: String = "0 轮",
+    val turns: Int = 0,
+    val messages: List<RemoteChatMessage> = emptyList()
+)
+
+@Serializable
+data class RemoteDeskCustomInstructions(
+    val status: String = "未填写",
+    val delivered: Boolean = false,
+    val length: Int = 0,
+    val content: String = ""
+)
+
+@Serializable
+data class RemoteDeskThinkingSoil(
+    val status: String = "未填写",
+    val delivered: Boolean = false,
+    val context: String = "",
+    @SerialName("current_text") val currentText: String = "",
+    @SerialName("hand_seeds") val handSeeds: List<String> = emptyList(),
+    @SerialName("hand_seeds_count") val handSeedsCount: Int = 0,
+    @SerialName("pocket_candidates_count") val pocketCandidatesCount: Int = 0
+)
+
+@Serializable
+data class RemoteDeskMemory(
+    val status: String = "0 条",
+    val count: Int = 0,
+    val items: List<RemoteDeskMemoryItem> = emptyList()
+)
+
+@Serializable
+data class RemoteDeskMemoryItem(
+    val title: String = "",
+    @SerialName("entry_type") val entryType: String = "memory",
+    val tag: String = "",
+    @SerialName("source_model") val sourceModel: String = "",
+    @SerialName("source_window") val sourceWindow: String = "",
+    @SerialName("source_time") val sourceTime: String = "",
+    @SerialName("source_date") val sourceDate: String = "",
+    val reason: String = "",
+    @SerialName("life_core") val lifeCore: String = "",
+    @SerialName("usage_hint") val usageHint: String = "",
+    @SerialName("avoid_hint") val avoidHint: String = "",
+    val content: String = "",
+    @SerialName("delivered_text") val deliveredText: String = ""
+)
+
+@Serializable
+data class RemoteDeskWorldbook(
+    val status: String = "未命中",
+    @SerialName("matched_count") val matchedCount: Int = 0,
+    @SerialName("delivered_count") val deliveredCount: Int = 0,
+    val entries: List<RemoteDeskWorldbookItem> = emptyList()
+)
+
+@Serializable
+data class RemoteDeskWorldbookItem(
+    val title: String = "",
+    val content: String = "",
+    val scope: String = "",
+    @SerialName("matched_by") val matchedBy: String = "",
+    val delivered: Boolean = false,
+    @SerialName("delivered_text") val deliveredText: String = ""
+)
+
+@Serializable
+data class RemoteDeskDogtalk(
+    val status: String = "未递给",
+    val delivered: Boolean = false,
+    val context: String = ""
+)
+
+@Serializable
+data class RemoteDeskWorkbench(
+    val status: String = "未动用",
+    @SerialName("prompt_delivered") val promptDelivered: Boolean = false,
+    val prompt: String = "",
+    val labels: Map<String, String> = emptyMap(),
+    @SerialName("model_visible_tools") val modelVisibleTools: List<RemoteDeskTool> = emptyList(),
+    @SerialName("backend_tools") val backendTools: List<RemoteDeskTool> = emptyList(),
+    @SerialName("core_tools") val coreTools: List<RemoteDeskTool> = emptyList(),
+    @SerialName("side_tools") val sideTools: List<RemoteDeskTool> = emptyList(),
+    val furniture: List<String> = emptyList(),
+    @SerialName("tool_results") val toolResults: List<RemoteDeskToolResult> = emptyList()
+)
+
+@Serializable
+data class RemoteDeskTool(
+    val name: String = "",
+    @SerialName("display_name") val displayName: String = "",
+    @SerialName("tool_key") val toolKey: String = ""
+)
+
+@Serializable
+data class RemoteDeskToolResult(
+    val name: String = "",
+    val delivered: Boolean = false,
+    val content: String = ""
+)
+
+@Serializable
+data class RemoteThoughtSoilResponse(
+    val ok: Boolean = false,
+    val soil: RemoteThoughtSoil = RemoteThoughtSoil()
+)
+
+@Serializable
+data class RemoteSoilOrganizeRequest(
+    @SerialName("conversation_id") val conversationId: String,
+    val model: String,
+    val force: Boolean = true,
+    val trigger: String = "reply"
+)
+
+@Serializable
+data class RemoteSoilOrganizeResponse(
+    val ok: Boolean = true,
+    val degraded: Boolean = false,
+    val skipped: Boolean = false,
+    val reason: String = "",
+    val soil: RemoteThoughtSoil = RemoteThoughtSoil()
+)
+
+@Serializable
+data class RemoteThoughtSoil(
+    @SerialName("conversation_id") val conversationId: String = "",
+    @SerialName("current_text") val currentText: String = "",
+    @SerialName("hand_seeds") val handSeeds: List<RemoteThoughtSeed> = emptyList(),
+    @SerialName("do_not_repeat") val doNotRepeat: String = "",
+    @SerialName("pocket_candidates") val pocketCandidates: List<RemoteThoughtPocket> = emptyList(),
+    @SerialName("manual_locked") val manualLocked: Boolean = false,
+    @SerialName("auto_refresh_enabled") val autoRefreshEnabled: Boolean = true,
+    val revision: Int = 1,
+    @SerialName("organized_by_model") val organizedByModel: String = "",
+    @SerialName("display_author") val displayAuthor: String = "",
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("organized_at") val organizedAt: String = ""
+)
+
+@Serializable
+data class RemoteThoughtSeed(
+    val name: String = "",
+    @SerialName("life_core") val lifeCore: String = "",
+    @SerialName("usage_hint") val usageHint: String = "",
+    @SerialName("avoid_hint") val avoidHint: String = ""
+)
+
+@Serializable
+data class RemoteThoughtPocket(
+    val title: String = "",
+    @SerialName("life_core") val lifeCore: String = "",
+    val content: String = "",
+    @SerialName("usage_hint") val usageHint: String = "",
+    @SerialName("avoid_hint") val avoidHint: String = "",
+    @SerialName("source_excerpt") val sourceExcerpt: String = ""
+)
