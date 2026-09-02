@@ -15,6 +15,7 @@ internal fun FeatureLandingScreen(
     shellState: CoastShellState,
     services: LocalFeatureServices,
     messages: List<ChatMessage>,
+    onBackToChat: () -> Unit,
     onSelectModel: (String) -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onLocalActionLogged: (String, String, String) -> Unit,
@@ -23,11 +24,13 @@ internal fun FeatureLandingScreen(
     when (feature) {
         FeatureDestination.Daily -> DailyLanding(
             store = services.daily,
+            onBackToChat = onBackToChat,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
         )
         FeatureDestination.Memory -> MemoryLanding(
             store = services.memory,
+            onBackToChat = onBackToChat,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
         )
