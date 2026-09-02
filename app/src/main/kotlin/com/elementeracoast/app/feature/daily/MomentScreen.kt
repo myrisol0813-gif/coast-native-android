@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -208,8 +209,15 @@ private fun MomentCard(
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal)
                 )
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f),
+                    thickness = .5.dp
+                )
+
                 if (moment.comments.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(9.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         moment.comments.takeLast(5).forEach { comment ->
                             Text(
@@ -221,14 +229,15 @@ private fun MomentCard(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontSize = 15.sp,
-                                    lineHeight = 22.sp,
+                                    lineHeight = 21.sp,
                                     fontWeight = FontWeight.Normal
                                 )
                             )
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+
+                Spacer(Modifier.height(if (moment.comments.isEmpty()) 9.dp else 12.dp))
                 MomentActionRows(
                     moment = moment,
                     footer = momentFooter(moment),
