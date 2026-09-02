@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
                         state = state,
                         services = vm.local,
                         daily = vm.daily,
+                        memory = vm.memory,
                         onOpenRoomType = vm::openRoomType,
                         onSelectConversation = vm::selectConversation,
                         onNewConversation = vm::newConversation,
