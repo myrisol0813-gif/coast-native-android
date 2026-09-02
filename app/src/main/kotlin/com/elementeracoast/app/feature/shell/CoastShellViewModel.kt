@@ -4,8 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.elementeracoast.app.core.auth.SessionRestoreResult
 import com.elementeracoast.app.core.local.LocalPersistence
-import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.core.local.SharedPreferencesLocalPersistence
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
@@ -14,43 +14,103 @@ import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
-import com.elementeracoast.app.feature.chat.LocalChatStore
-import com.elementeracoast.app.feature.chat.LocalFurnitureOrchestrator
+import com.elementeracoast.app.core.network.CoastApiErrorKind
+import com.elementeracoast.app.core.network.CoastApiException
+import com.elementeracoast.app.core.remote.RemoteDailyProfile
+import com.elementeracoast.app.core.remote.RemoteHistory
+import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
+import com.elementeracoast.app.core.remote.RemoteProfile
+import com.elementeracoast.app.feature.chat.ChatBranchNavigator
+import com.elementeracoast.app.feature.chat.ChatProgress
+import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CoastShellViewModel(
-    persistence: LocalPersistence = MemoryLocalPersistence(),
-    private val generationDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate
+    private val persistence: LocalPersistence,
+    private val backend: CoastBackendGraph,
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate
 ) : ViewModel() {
-    private val initial = CoastShellState()
-    private val _state = MutableStateFlow(initial)
+    private val _state = MutableStateFlow(CoastShellState())
     val state: StateFlow<CoastShellState> = _state.asStateFlow()
 
     val local = LocalFeatureServices(persistence)
-    private val chat = LocalChatStore(initial.conversations, initial.activeConversationId, initial.messages)
-    private val furniture = LocalFurnitureOrchestrator(local.daily, local.memory, local.actionLog)
     private var generationJob: Job? = null
+    private var historyJob: Job? = null
 
-    init { syncAppearance() }
+    init {
+        syncAppearance()
+        restoreSession()
+    }
 
-    fun setPassword(value: String) { _state.update { it.copy(password = value) } }
-    fun enterLocalShell() {
-        if (_state.value.password.isBlank()) return
-        _state.update { it.copy(authenticated = true, password = "") }
+    fun setPassword(value: String) {
+        _state.update { it.copy(password = value, authMessage = null) }
+    }
+
+    fun enterCoast() {
+        val password = _state.value.password
+        if (password.isBlank() || _state.value.authBusy) return
+        viewModelScope.launch(workDispatcher) {
+            _state.update { it.copy(authBusy = true, authMessage = null) }
+            try {
+                backend.auth.login(password)
+                _state.update {
+                    it.copy(
+                        authenticated = true,
+                        authBusy = false,
+                        authMessage = null,
+                        backendOffline = false,
+                        password = ""
+                    )
+                }
+                bootstrapAuthenticated()
+            } catch (error: CoastApiException) {
+                _state.update {
+                    it.copy(
+                        authenticated = false,
+                        authBusy = false,
+                        authMessage = error.message,
+                        backendOffline = error.kind == CoastApiErrorKind.Network
+                    )
+                }
+            }
+        }
+    }
+
+    fun logout() {
+        stopGeneration()
+        historyJob?.cancel()
+        viewModelScope.launch(workDispatcher) {
+            backend.auth.logout()
+            _state.update {
+                CoastShellState(
+                    authBusy = false,
+                    theme = it.theme,
+                    userBubbleHex = it.userBubbleHex,
+                    accentHex = it.accentHex
+                )
+            }
+        }
     }
 
     fun syncAppearance() {
         val appearance = local.wolf.state.value.appearance
-        _state.update { it.copy(theme = appearance.theme, userBubbleHex = appearance.userBubbleHex, accentHex = appearance.accentHex) }
+        _state.update {
+            it.copy(
+                theme = appearance.theme,
+                userBubbleHex = appearance.userBubbleHex,
+                accentHex = appearance.accentHex
+            )
+        }
     }
 
     fun cycleTheme() {
@@ -60,60 +120,80 @@ class CoastShellViewModel(
 
     fun openRoomType(roomType: RoomType) {
         stopGeneration()
-        if (roomType == RoomType.Main) {
-            val target = chat.conversations().firstOrNull { it.roomType == RoomType.Main }
-                ?: chat.create(RoomType.Main, RoomType.Main.drawerLabel)
-            activateConversation(target)
+        if (roomType != RoomType.Main) {
+            openRoomLanding(roomType)
             return
         }
-        openRoomLanding(roomType)
+        val target = _state.value.conversations.firstOrNull { it.roomType == RoomType.Main }
+        if (target == null) openRoomLanding(RoomType.Main) else selectConversation(target.id)
     }
 
     fun selectConversation(id: String) {
         stopGeneration()
-        chat.conversations().firstOrNull { it.id == id }?.let(::activateConversation)
+        val conversation = _state.value.conversations.firstOrNull { it.id == id } ?: return
+        activateCachedConversation(conversation)
+        loadConversation(conversation)
     }
 
     fun newConversation() {
         stopGeneration()
         val roomType = _state.value.activeRoomType
-        val count = chat.conversations().count { it.roomType == roomType } + 1
-        activateConversation(chat.create(roomType, "新聊天 $count"))
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val created = backend.conversations.create(roomType, "新聊天")
+                val empty = RemoteHistory(conversationId = created.id)
+                backend.chat.cacheHistory(created.id, empty)
+                _state.update {
+                    it.copy(
+                        conversations = listOf(created) + it.conversations.filterNot { row -> row.id == created.id },
+                        backendOffline = false
+                    )
+                }
+                activateCachedConversation(created)
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "新建窗口失败")
+            }
+        }
     }
 
     fun renameConversation(id: String, rawTitle: String) {
-        if (chat.rename(id, rawTitle) == null) return
-        _state.update { it.copy(conversations = chat.conversations()) }
+        val clean = rawTitle.trim()
+        if (clean.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val updated = backend.conversations.rename(id, clean)
+                _state.update { state ->
+                    state.copy(
+                        conversations = state.conversations.map { if (it.id == id) updated else it },
+                        backendOffline = false
+                    )
+                }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "窗口改名失败")
+            }
+        }
     }
 
     fun deleteConversation(id: String) {
-        val current = _state.value
-        val target = chat.conversations().firstOrNull { it.id == id } ?: return
-        if (target.id == current.activeConversationId) stopGeneration()
-        chat.delete(id)
-        val remaining = chat.conversations()
-
-        if (remaining.isEmpty()) {
-            val fallback = chat.create(RoomType.Main, "新聊天 1", empty = true)
-            _state.update {
-                it.copy(
-                    conversations = chat.conversations(), activeRoomType = RoomType.Main,
-                    activeFeature = null, activeConversationId = fallback.id, messages = emptyList(),
-                    showModelPicker = false, isStreaming = false, streamingMessageId = null,
-                    streamingVariantIndex = null,
-                    snackbarMessage = "已清空最后一个窗口"
-                )
+        val target = _state.value.conversations.firstOrNull { it.id == id } ?: return
+        if (target.id == _state.value.activeConversationId) stopGeneration()
+        viewModelScope.launch(workDispatcher) {
+            try {
+                backend.conversations.delete(id)
+                val remaining = _state.value.conversations.filterNot { it.id == id }
+                _state.update { it.copy(conversations = remaining, backendOffline = false) }
+                if (target.id != _state.value.activeConversationId) return@launch
+                val replacement = remaining.firstOrNull { it.roomType == target.roomType }
+                    ?: remaining.firstOrNull { it.roomType == RoomType.Main }
+                    ?: remaining.firstOrNull()
+                if (replacement == null) openRoomLanding(RoomType.Main) else {
+                    activateCachedConversation(replacement)
+                    loadConversation(replacement)
+                }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "删除窗口失败")
             }
-            return
         }
-        if (target.id != current.activeConversationId) {
-            _state.update { it.copy(conversations = remaining) }
-            return
-        }
-        val replacement = remaining.firstOrNull { it.roomType == target.roomType }
-            ?: remaining.firstOrNull { it.roomType == RoomType.Main }
-            ?: remaining.first()
-        activateConversation(replacement)
     }
 
     fun openFeature(destination: FeatureDestination) {
@@ -129,321 +209,447 @@ class CoastShellViewModel(
 
     fun openActionLog(actionIds: Set<String>) {
         stopGeneration()
-        _state.update { it.copy(activeFeature = FeatureDestination.ActionLog, actionLogFocusIds = actionIds, showModelPicker = false) }
+        _state.update {
+            it.copy(
+                activeFeature = FeatureDestination.ActionLog,
+                actionLogFocusIds = actionIds,
+                showModelPicker = false
+            )
+        }
     }
 
-    fun backToChat() { _state.update { it.copy(activeFeature = null, actionLogFocusIds = emptySet()) } }
-    fun openModelPicker() { if (_state.value.activeFeature == null) _state.update { it.copy(showModelPicker = true) } }
-    fun dismissModelPicker() { _state.update { it.copy(showModelPicker = false) } }
+    fun backToChat() {
+        _state.update { it.copy(activeFeature = null, actionLogFocusIds = emptySet()) }
+    }
+
+    fun openModelPicker() {
+        if (_state.value.activeFeature == null) _state.update { it.copy(showModelPicker = true) }
+    }
+
+    fun dismissModelPicker() {
+        _state.update { it.copy(showModelPicker = false) }
+    }
 
     fun selectModel(model: String) {
-        if (model !in _state.value.models) return
-        _state.update { it.copy(currentModel = model, showModelPicker = false, snackbarMessage = "模型已在本地模型箱中切换") }
-        logAction("model.switch", "切换模型", "当前：${model.substringAfterLast('/')}")
+        if (model !in _state.value.models || model == _state.value.currentModel) {
+            _state.update { it.copy(showModelPicker = false) }
+            return
+        }
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val profile = backend.profile.setCurrentChatModel(model)
+                _state.update {
+                    it.copy(
+                        currentModel = profile.currentChatModel.ifBlank { model },
+                        showModelPicker = false,
+                        backendOffline = false,
+                        snackbarMessage = "当前模型已同步到海岸后端"
+                    )
+                }
+                logAction("model.switch", "切换模型", "当前：${model.substringAfterLast('/')}")
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "模型切换失败")
+            }
+        }
     }
 
-    fun importMessages(messages: List<ChatMessage>) {
-        if (messages.isEmpty()) return
-        val current = ensureActiveConversation()
-        val id = current.activeConversationId
-        chat.replaceMessages(id, messages)
-        _state.update { it.copy(conversations = chat.conversations(), messages = messages, snackbarMessage = "已恢复到当前本地窗口") }
+    fun refreshModels() {
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val catalog = backend.profile.refreshModels(force = true)
+                applyModels(catalog)
+                _state.update { it.copy(backendOffline = false, snackbarMessage = "模型目录已从海岸刷新") }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "模型目录刷新失败")
+            }
+        }
+    }
+
+    fun importMessages(@Suppress("UNUSED_PARAMETER") messages: List<ChatMessage>) {
+        showPlaceholder("聊天记录导入尚未接后端，本轮没有写入或替换真实会话。")
     }
 
     fun logLocalAction(actionKey: String, label: String, summary: String) {
         logAction(actionKey, label, summary)
     }
 
-    fun sendFakeMessage(text: String) {
+    fun sendMessage(text: String) {
         val clean = text.trim()
-        var current = _state.value
-        if (clean.isEmpty() || current.isStreaming || generationJob?.isActive == true) return
-        current = ensureActiveConversation()
-        val conversationId = current.activeConversationId
-        val userId = chat.nextMessageId()
-        val assistantId = chat.nextMessageId()
-        val furnitureRuns = furniture.runForPrompt(clean, current.activeRoomType, conversationId, assistantId)
-        val next = chat.mutate(conversationId) { messages ->
-            messages + ChatMessage(userId, MessageRole.User, clean) + ChatMessage(
-                id = assistantId,
-                role = MessageRole.Assistant,
-                text = "",
-                modelId = current.currentModel,
-                generationSource = localGenerationLabel(),
-                furnitureRuns = furnitureRuns
-            )
+        if (clean.isBlank() || generationJob?.isActive == true || _state.value.isStreaming) return
+        if (_state.value.currentModel.isBlank() && _state.value.activeRoomType != RoomType.Lighthouse) {
+            showPlaceholder("当前模型还没有从海岸载入，暂时不能发送。")
+            return
         }
-        _state.update {
-            it.copy(
-                conversations = chat.conversations(),
-                messages = next,
-                isStreaming = true,
-                streamingMessageId = assistantId
-            )
+        generationJob = viewModelScope.launch(workDispatcher) {
+            try {
+                val conversation = ensureRemoteConversation()
+                val conversationId = conversation.id
+                val baseHistory = historyForSend(conversationId)
+                val appended = ChatSyncMapper.appendUser(baseHistory, clean)
+                backend.chat.cacheHistory(conversationId, appended.history)
+                showHistory(conversationId, appended.history)
+
+                val persistedUser = try {
+                    backend.chat.persistHistory(conversationId, appended.history)
+                } catch (error: CoastApiException) {
+                    val failed = backend.chat.failedHistory(
+                        appended.history,
+                        appended.turnId,
+                        _state.value.currentModel,
+                        error
+                    )
+                    backend.chat.cacheHistory(conversationId, failed)
+                    showHistory(conversationId, failed)
+                    handleBackendError(error, "消息发送失败", keepAuthenticatedOnNetworkError = true)
+                    return@launch
+                }
+
+                if (conversation.roomType == RoomType.Lighthouse) {
+                    showHistory(conversationId, persistedUser)
+                    _state.update { it.copy(snackbarMessage = "灯塔来信已写入海岸；这里按房间规则不触发模型回复") }
+                    return@launch
+                }
+                generateTurn(conversationId, persistedUser, appended.turnId, _state.value.currentModel)
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "消息发送失败", keepAuthenticatedOnNetworkError = true)
+            } finally {
+                generationJob = null
+            }
         }
-        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = false, targetVariantIndex = null)
     }
 
     fun handleMessageAction(action: MessageAction) {
         val current = _state.value
         val message = current.messages.firstOrNull { it.id == action.messageId } ?: return
         when (action) {
-            is MessageAction.Copy -> logAction("message.copy", "复制消息", "${message.role.name.lowercase()} · ${message.text.length} 字")
-            is MessageAction.ToggleLike -> {
-                if (message.role != MessageRole.Assistant) return
-                mutateCurrent { list -> list.map { if (it.id == message.id) it.copy(liked = !it.liked) else it } }
-                logAction("message.like", "切换消息点赞", "assistant message ${message.id}")
-            }
-            is MessageAction.ToggleFavorite -> {
-                if (message.role != MessageRole.Assistant) return
-                mutateCurrent { list -> list.map { if (it.id == message.id) it.copy(favorite = !it.favorite) else it } }
-                logAction("message.favorite", "切换消息收藏", "assistant message ${message.id}")
-            }
-            is MessageAction.Delete -> {
-                if (current.isStreaming) { showPlaceholder("生成中请先停止，再删除消息。"); return }
-                if (message.variantCount > 1) {
-                    mutateCurrent { list -> list.map { item -> if (item.id == message.id) removeCurrentVariant(item) else item } }
-                    logAction("message.variant.delete", "删除当前消息版本", "${message.role.name.lowercase()} message ${message.id}")
-                    showPlaceholder("已删除当前版本；其他版本与前后消息保持不变")
-                } else {
-                    mutateCurrent { it.filterNot { item -> item.id == message.id } }
-                    logAction("message.delete", "删除消息", "${message.role.name.lowercase()} message ${message.id}")
-                    showPlaceholder("已从当前本地窗口删除这条消息")
-                }
-            }
-            is MessageAction.Edit -> {
-                if (message.role != MessageRole.User) return
-                val clean = action.text.trim()
-                if (clean.isBlank()) return
-                editUserAndRegenerate(message, clean)
-            }
-            is MessageAction.SelectVariant -> {
-                if (message.variantCount <= 1) return
-                if (current.isStreaming && current.streamingMessageId == message.id) {
-                    showPlaceholder("当前回复还在生成，停止后再切换版本。")
-                    return
-                }
-                mutateCurrent { list -> list.map { item ->
-                    if (item.id != message.id) item else selectVariant(item, action.index)
-                } }
-            }
-            is MessageAction.Regenerate -> regenerate(message)
+            is MessageAction.Copy -> logAction(
+                "message.copy",
+                "复制消息",
+                "${message.role.name.lowercase()} · ${message.text.length} 字"
+            )
+            is MessageAction.Retry -> retryMessage(message)
+            is MessageAction.SelectVariant -> selectVariantForViewing(message, action.index)
+            is MessageAction.ToggleLike,
+            is MessageAction.ToggleFavorite,
+            is MessageAction.Delete,
+            is MessageAction.Edit,
+            is MessageAction.Regenerate -> showPlaceholder("这项消息写回本轮尚未接线，没有修改后端数据。")
         }
     }
 
     fun stopGeneration() {
         generationJob?.cancel()
-        _state.update { it.copy(isStreaming = false, streamingMessageId = null, streamingVariantIndex = null) }
-    }
-    fun showPlaceholder(message: String) { _state.update { it.copy(snackbarMessage = message) } }
-    fun clearSnackbar() { _state.update { it.copy(snackbarMessage = null) } }
-
-    private fun editUserAndRegenerate(message: ChatMessage, text: String) {
-        val current = _state.value
-        if (current.isStreaming || generationJob?.isActive == true) {
-            showPlaceholder("请先停止当前生成，再编辑消息。")
-            return
-        }
-        val conversationId = current.activeConversationId
-        val existing = current.messages
-        val userIndex = existing.indexOfFirst { it.id == message.id }
-        if (userIndex < 0) return
-        val assistantIndex = (userIndex + 1).takeIf { index -> existing.getOrNull(index)?.role == MessageRole.Assistant }
-        val assistantId = assistantIndex?.let { existing[it].id } ?: chat.nextMessageId()
-        val runs = furniture.runForPrompt(text, current.activeRoomType, conversationId, assistantId)
-        val updated = existing.toMutableList()
-        updated[userIndex] = appendUserVariant(message, text)
-        var targetVariantIndex: Int? = null
-
-        if (assistantIndex != null) {
-            val assistant = existing[assistantIndex]
-            val variants = assistant.normalizedVariants() + ""
-            targetVariantIndex = variants.lastIndex
-            updated[assistantIndex] = assistant.copy(
-                text = "",
-                modelId = current.currentModel,
-                generationSource = "local-edit-regenerate · ${localGenerationLabel()}",
-                liked = false,
-                favorite = false,
-                errorDetail = null,
-                variantIndex = variants.lastIndex,
-                variantCount = variants.size,
-                variants = variants,
-                furnitureRuns = runs
-            )
-        } else {
-            updated.add(
-                userIndex + 1,
-                ChatMessage(
-                    id = assistantId,
-                    role = MessageRole.Assistant,
-                    text = "",
-                    modelId = current.currentModel,
-                    generationSource = "local-edit-regenerate · ${localGenerationLabel()}",
-                    furnitureRuns = runs
-                )
-            )
-        }
-
-        chat.replaceMessages(conversationId, updated)
         _state.update {
             it.copy(
-                messages = updated,
-                isStreaming = true,
-                streamingMessageId = assistantId,
-                streamingVariantIndex = targetVariantIndex,
-                snackbarMessage = "已保留旧版本，并为新消息生成新的本地回复"
+                isStreaming = false,
+                streamingMessageId = null,
+                streamingVariantIndex = null
             )
         }
-        logAction("message.edit.regenerate", "编辑消息并生成新回复版本", "user ${message.id} → assistant $assistantId", assistantMessageId = assistantId)
-        startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = true, targetVariantIndex = targetVariantIndex)
     }
 
-    private fun appendUserVariant(message: ChatMessage, text: String): ChatMessage {
-        val variants = message.normalizedVariants() + text
-        return message.copy(
-            text = text,
-            variants = variants,
-            variantIndex = variants.lastIndex,
-            variantCount = variants.size
-        )
+    fun showPlaceholder(message: String) {
+        _state.update { it.copy(snackbarMessage = message) }
     }
 
-    private fun selectVariant(message: ChatMessage, requestedIndex: Int): ChatMessage {
-        val variants = message.normalizedVariants()
-        val index = requestedIndex.coerceIn(0, variants.lastIndex)
-        return message.copy(text = variants[index], variants = variants, variantIndex = index, variantCount = variants.size)
+    fun clearSnackbar() {
+        _state.update { it.copy(snackbarMessage = null) }
     }
 
-    private fun removeCurrentVariant(message: ChatMessage): ChatMessage {
-        val variants = message.normalizedVariants().toMutableList()
-        if (variants.size <= 1) return message
-        val index = message.variantIndex.coerceIn(0, variants.lastIndex)
-        variants.removeAt(index)
-        val nextIndex = index.coerceAtMost(variants.lastIndex)
-        return message.copy(
-            text = variants[nextIndex],
-            variants = variants,
-            variantIndex = nextIndex,
-            variantCount = variants.size
-        )
+    private fun restoreSession() {
+        viewModelScope.launch(workDispatcher) {
+            _state.update { it.copy(authBusy = true, authMessage = null) }
+            when (val restored = backend.auth.restore()) {
+                SessionRestoreResult.Missing -> _state.update {
+                    it.copy(authenticated = false, authBusy = false, backendOffline = false)
+                }
+                is SessionRestoreResult.Invalid -> _state.update {
+                    it.copy(
+                        authenticated = false,
+                        authBusy = false,
+                        authMessage = restored.message,
+                        backendOffline = false
+                    )
+                }
+                is SessionRestoreResult.Restored -> {
+                    _state.update {
+                        it.copy(
+                            authenticated = true,
+                            authBusy = false,
+                            authMessage = null,
+                            backendOffline = false
+                        )
+                    }
+                    bootstrapAuthenticated()
+                }
+                is SessionRestoreResult.Offline -> {
+                    _state.update {
+                        it.copy(
+                            authenticated = true,
+                            authBusy = false,
+                            authMessage = null,
+                            backendOffline = true,
+                            snackbarMessage = "暂时无法验证海岸连接，先使用本机缓存。"
+                        )
+                    }
+                    applyCachedBootstrap()
+                }
+            }
+        }
     }
 
-    private fun regenerate(message: ChatMessage) {
-        val current = _state.value
-        if (message.role != MessageRole.Assistant) return
-        if (current.isStreaming || generationJob?.isActive == true) { showPlaceholder("请先停止当前生成，再重新生成。"); return }
-        val targetVariantIndex = message.variantIndex.takeIf { message.variantCount > 1 }
-        mutateCurrent { list -> list.map {
-            if (it.id != message.id) it else clearCurrentAssistantVariant(it, current.currentModel)
-        } }
-        logAction("chat.regenerate", "重新生成本地回复", "assistant message ${message.id}", assistantMessageId = message.id)
-        _state.update { it.copy(isStreaming = true, streamingMessageId = message.id, streamingVariantIndex = targetVariantIndex) }
-        startFakeStreaming(current.activeConversationId, message.id, current.activeRoomType, regenerated = true, targetVariantIndex = targetVariantIndex)
+    private suspend fun bootstrapAuthenticated() {
+        applyCachedBootstrap()
+        val remoteProfile = remoteOrNull("读取个人资料") { backend.profile.refreshProfile() }
+        val remoteDaily = remoteOrNull("读取头像与封面") { backend.profile.refreshDailyProfile() }
+        val remoteModels = remoteOrNull("读取模型目录") { backend.profile.refreshModels() }
+        val remoteConversations = remoteOrNull("读取聊天窗口") { backend.conversations.refresh() }
+        if (!_state.value.authenticated) return
+
+        applyProfile(remoteProfile ?: backend.profile.cachedProfile(), remoteDaily ?: backend.profile.cachedDailyProfile())
+        applyModels(remoteModels ?: backend.profile.cachedModels())
+        val list = remoteConversations ?: backend.conversations.cached()
+        _state.update { it.copy(conversations = list) }
+        val remembered = persistence.get(KEY_CURRENT_CONVERSATION)
+        val target = list.firstOrNull { it.id == _state.value.activeConversationId }
+            ?: list.firstOrNull { it.id == remembered }
+            ?: list.firstOrNull { it.roomType == RoomType.Main }
+            ?: list.firstOrNull()
+        if (target == null) {
+            openRoomLanding(RoomType.Main)
+        } else {
+            activateCachedConversation(target)
+            loadConversation(target)
+        }
     }
 
-    private fun clearCurrentAssistantVariant(message: ChatMessage, model: String): ChatMessage {
-        if (message.variantCount <= 1) {
-            return message.copy(
-                text = "", modelId = model, generationSource = "local-regenerate · ${localGenerationLabel()}",
-                liked = false, favorite = false, errorDetail = null
+    private fun applyCachedBootstrap() {
+        val conversations = backend.conversations.cached()
+        val profile = backend.profile.cachedProfile()
+        val daily = backend.profile.cachedDailyProfile()
+        val models = backend.profile.cachedModels()
+        val remembered = persistence.get(KEY_CURRENT_CONVERSATION)
+        val target = conversations.firstOrNull { it.id == remembered }
+            ?: conversations.firstOrNull { it.roomType == RoomType.Main }
+            ?: conversations.firstOrNull()
+        val history = target?.let { backend.chat.cachedHistory(it.id) }
+        _state.update {
+            it.copy(
+                conversations = conversations,
+                activeRoomType = target?.roomType ?: RoomType.Main,
+                activeConversationId = target?.id.orEmpty(),
+                messages = history?.let(ChatSyncMapper::toUi).orEmpty()
             )
         }
-        val variants = message.normalizedVariants().toMutableList()
-        val index = message.variantIndex.coerceIn(0, variants.lastIndex)
-        variants[index] = ""
-        return message.copy(
-            text = "",
-            modelId = model,
-            generationSource = "local-regenerate · ${localGenerationLabel()}",
-            liked = false,
-            favorite = false,
-            errorDetail = null,
-            variants = variants
-        )
+        applyProfile(profile, daily)
+        applyModels(models)
     }
 
-    private fun startFakeStreaming(
-        conversationId: String,
-        assistantId: Long,
-        roomType: RoomType,
-        regenerated: Boolean,
-        targetVariantIndex: Int?
-    ) {
-        generationJob = viewModelScope.launch(generationDispatcher) {
+    private fun applyProfile(profile: RemoteProfile?, daily: RemoteDailyProfile?) {
+        if (profile == null && daily == null) return
+        val current = profile?.currentChatModel.orEmpty()
+        val myri = daily?.myriAvatarDataUrl.orEmpty().ifBlank { profile?.assistantAvatarDataUrl.orEmpty() }
+        _state.update {
+            it.copy(
+                currentModel = current.ifBlank { it.currentModel },
+                myriAvatarDataUrl = myri,
+                xiaohanAvatarDataUrl = daily?.xiaohanAvatarDataUrl.orEmpty(),
+                coverDataUrl = daily?.momentCoverDataUrl.orEmpty()
+            )
+        }
+    }
+
+    private fun applyModels(catalog: RemoteModelCatalogResponse?) {
+        if (catalog == null) return
+        val models = buildList {
+            addAll(catalog.groups.openAiChat.map { it.id })
+            addAll(catalog.groups.freeTest.map { it.id })
+            addAll(catalog.groups.openAiImage.map { it.id })
+        }.filter(String::isNotBlank).distinct()
+        val current = _state.value.currentModel
+        _state.update {
+            it.copy(
+                models = if (current.isNotBlank() && current !in models) listOf(current) + models else models,
+                currentModel = current.ifBlank { models.firstOrNull().orEmpty() }
+            )
+        }
+    }
+
+    private fun loadConversation(conversation: ConversationSummary) {
+        historyJob?.cancel()
+        val cached = backend.chat.cachedHistory(conversation.id)
+        if (cached != null) showHistory(conversation.id, cached)
+        historyJob = viewModelScope.launch(workDispatcher) {
+            _state.update { it.copy(historyLoading = true) }
             try {
-                fakeChunks(roomType, regenerated).forEach { chunk ->
-                    delay(240)
-                    appendDelta(conversationId, assistantId, chunk, targetVariantIndex)
-                }
-            } catch (cancelled: CancellationException) {
-                appendDelta(conversationId, assistantId, "\n\n[本地演示已停止]", targetVariantIndex)
-                throw cancelled
+                val history = backend.chat.loadHistory(conversation.id)
+                showHistory(conversation.id, history)
+                _state.update { it.copy(historyLoading = false, backendOffline = false) }
+            } catch (error: CoastApiException) {
+                _state.update { it.copy(historyLoading = false) }
+                handleBackendError(error, "聊天记录载入失败", keepAuthenticatedOnNetworkError = true)
             } finally {
-                if (_state.value.activeConversationId == conversationId && _state.value.streamingMessageId == assistantId) {
-                    _state.update { it.copy(isStreaming = false, streamingMessageId = null, streamingVariantIndex = null) }
+                historyJob = null
+            }
+        }
+    }
+
+    private suspend fun ensureRemoteConversation(): ConversationSummary {
+        val current = _state.value
+        current.conversations.firstOrNull { it.id == current.activeConversationId }?.let { return it }
+        val created = backend.conversations.create(current.activeRoomType, "新聊天")
+        val empty = RemoteHistory(conversationId = created.id)
+        backend.chat.cacheHistory(created.id, empty)
+        persistence.put(KEY_CURRENT_CONVERSATION, created.id)
+        _state.update {
+            it.copy(
+                conversations = listOf(created) + it.conversations.filterNot { row -> row.id == created.id },
+                activeConversationId = created.id,
+                activeRoomType = created.roomType,
+                messages = emptyList(),
+                backendOffline = false
+            )
+        }
+        return created
+    }
+
+    private suspend fun historyForSend(conversationId: String): RemoteHistory {
+        backend.chat.cachedHistory(conversationId)?.let { return it }
+        return backend.chat.loadHistory(conversationId)
+    }
+
+    private suspend fun generateTurn(
+        conversationId: String,
+        history: RemoteHistory,
+        turnId: String,
+        modelId: String
+    ) {
+        var partial = ""
+        val cleared = backend.chat.clearFailure(history, turnId)
+        backend.chat.cacheHistory(conversationId, cleared)
+        val streamingId = ChatSyncMapper.streamingMessageId(turnId)
+        showStreaming(conversationId, cleared, turnId, modelId, partial)
+        _state.update {
+            it.copy(
+                isStreaming = true,
+                streamingMessageId = streamingId,
+                streamingVariantIndex = null
+            )
+        }
+        try {
+            backend.chat.streamReply(conversationId, cleared, turnId, modelId).collect { progress ->
+                when (progress) {
+                    is ChatProgress.Delta -> {
+                        partial += progress.text
+                        showStreaming(conversationId, cleared, turnId, modelId, partial)
+                    }
+                    is ChatProgress.Completed -> {
+                        showHistory(conversationId, progress.history)
+                        _state.update { it.copy(backendOffline = false) }
+                    }
                 }
+            }
+        } catch (cancelled: CancellationException) {
+            val stopped = backend.chat.cancelledHistory(cleared, turnId, modelId, partial)
+            backend.chat.cacheHistory(conversationId, stopped)
+            withContext(NonCancellable) {
+                runCatching { backend.chat.persistHistory(conversationId, stopped) }
+            }
+            showHistory(conversationId, stopped)
+            _state.update { it.copy(snackbarMessage = "已停止生成") }
+            throw cancelled
+        } catch (error: CoastApiException) {
+            val failed = backend.chat.failedHistory(cleared, turnId, modelId, error, partial)
+            backend.chat.cacheHistory(conversationId, failed)
+            withContext(NonCancellable) {
+                runCatching { backend.chat.persistHistory(conversationId, failed) }
+            }
+            showHistory(conversationId, failed)
+            handleBackendError(error, "模型回复失败", keepAuthenticatedOnNetworkError = true)
+        } finally {
+            if (_state.value.streamingMessageId == streamingId) {
+                _state.update {
+                    it.copy(
+                        isStreaming = false,
+                        streamingMessageId = null,
+                        streamingVariantIndex = null
+                    )
+                }
+            }
+        }
+    }
+
+    private fun retryMessage(message: ChatMessage) {
+        val turnId = message.turnId ?: return
+        val conversationId = _state.value.activeConversationId
+        if (message.role != MessageRole.User || conversationId.isBlank() || generationJob?.isActive == true) return
+        val history = backend.chat.cachedHistory(conversationId) ?: run {
+            showPlaceholder("没有可重试的本机历史缓存，请先重新打开这个窗口。")
+            return
+        }
+        val model = _state.value.currentModel
+        if (model.isBlank()) {
+            showPlaceholder("当前模型还没有从海岸载入，暂时不能重试。")
+            return
+        }
+        generationJob = viewModelScope.launch(workDispatcher) {
+            try {
+                val cleared = backend.chat.clearFailure(history, turnId)
+                val persisted = backend.chat.persistHistory(conversationId, cleared)
+                showHistory(conversationId, persisted)
+                generateTurn(conversationId, persisted, turnId, model)
+            } catch (error: CoastApiException) {
+                val failed = backend.chat.failedHistory(history, turnId, model, error)
+                backend.chat.cacheHistory(conversationId, failed)
+                showHistory(conversationId, failed)
+                handleBackendError(error, "重试失败", keepAuthenticatedOnNetworkError = true)
+            } finally {
                 generationJob = null
             }
         }
     }
 
-    private fun fakeChunks(roomType: RoomType, regenerated: Boolean): List<String> {
-        val basic = local.wolf.state.value.basic
-        val instruction = local.memory.state.value.customInstructions.trim().take(70)
-        val opening = if (regenerated) "我把这一轮重新铺开。 " else ""
-        val room = when (roomType) {
-            RoomType.Main -> "主聊天"
-            RoomType.Radio -> "无线电波"
-            RoomType.Lighthouse -> "灯塔来信"
+    private fun selectVariantForViewing(message: ChatMessage, index: Int) {
+        if (_state.value.isStreaming) {
+            showPlaceholder("当前回复仍在生成，完成后再查看其他版本。")
+            return
         }
-        return listOf(
-            "$opening$room 仍与其他 room 共用这一副 ChatWindow。 ",
-            "这次 fake generation 读取的是本地设置：${basic.outputLength} / ${basic.creativity} / max ${basic.maxOutputTokens}。 ",
-            if (instruction.isBlank()) "没有读取真实后端上下文。" else "本地自定义指令预览：$instruction……（仅本地展示）"
-        )
+        val conversationId = _state.value.activeConversationId
+        val turnId = message.turnId ?: return
+        val history = backend.chat.cachedHistory(conversationId) ?: return
+        val selected = ChatBranchNavigator.select(history, turnId, message.role, index)
+        backend.chat.cacheHistory(conversationId, selected)
+        showHistory(conversationId, selected)
+        showPlaceholder("已在本机切换查看版本；本轮没有改写后端的 active 版本。")
     }
 
-    private fun localGenerationLabel(): String {
-        val basic = local.wolf.state.value.basic
-        return "local-mock · ${basic.outputLength} · ${basic.creativity}"
+    private fun showStreaming(
+        conversationId: String,
+        history: RemoteHistory,
+        turnId: String,
+        modelId: String,
+        partial: String
+    ) {
+        if (_state.value.activeConversationId != conversationId) return
+        val messages = ChatSyncMapper.toUi(history) + ChatSyncMapper.streamingAssistant(turnId, modelId, partial)
+        _state.update { it.copy(messages = messages) }
     }
 
-    private fun mutateCurrent(transform: (List<ChatMessage>) -> List<ChatMessage>) {
-        val id = _state.value.activeConversationId
-        if (id.isBlank()) return
-        val updated = chat.mutate(id, transform)
-        _state.update { it.copy(messages = updated) }
+    private fun showHistory(conversationId: String, history: RemoteHistory) {
+        if (_state.value.activeConversationId != conversationId) return
+        _state.update { it.copy(messages = ChatSyncMapper.toUi(history)) }
     }
 
-    private fun appendDelta(conversationId: String, messageId: Long, delta: String, targetVariantIndex: Int?) {
-        val updated = chat.mutate(conversationId) { list ->
-            list.map { message ->
-                if (message.id != messageId) message
-                else if (targetVariantIndex != null && message.variantCount > 1) {
-                    val variants = message.normalizedVariants().toMutableList()
-                    val target = targetVariantIndex.coerceIn(0, variants.lastIndex)
-                    variants[target] = variants[target] + delta
-                    val visibleIndex = message.variantIndex.coerceIn(0, variants.lastIndex)
-                    message.copy(text = variants[visibleIndex], variants = variants)
-                } else {
-                    message.copy(text = message.text + delta)
-                }
-            }
-        }
-        if (_state.value.activeConversationId == conversationId) _state.update { it.copy(messages = updated) }
-    }
-
-    private fun openRoomLanding(roomType: RoomType) {
-        require(roomType != RoomType.Main) { "Main uses a concrete conversation, not a room landing" }
+    private fun activateCachedConversation(conversation: ConversationSummary) {
+        persistence.put(KEY_CURRENT_CONVERSATION, conversation.id)
+        val history = backend.chat.cachedHistory(conversation.id)
         _state.update {
             it.copy(
-                conversations = chat.conversations(),
-                activeRoomType = roomType,
+                activeRoomType = conversation.roomType,
                 activeFeature = null,
                 actionLogFocusIds = emptySet(),
-                activeConversationId = "",
-                messages = emptyList(),
+                activeConversationId = conversation.id,
+                messages = history?.let(ChatSyncMapper::toUi).orEmpty(),
                 showModelPicker = false,
                 isStreaming = false,
                 streamingMessageId = null,
@@ -452,28 +658,69 @@ class CoastShellViewModel(
         }
     }
 
-    private fun ensureActiveConversation(): CoastShellState {
-        val current = _state.value
-        if (current.activeConversationId.isNotBlank()) return current
-        val roomType = current.activeRoomType
-        val count = chat.conversations().count { it.roomType == roomType } + 1
-        val created = chat.create(roomType, "新聊天 $count")
-        activateConversation(created)
-        return _state.value
-    }
-
-    private fun activateConversation(conversation: ConversationSummary) {
+    private fun openRoomLanding(roomType: RoomType) {
+        require(roomType in RoomType.entries)
+        persistence.remove(KEY_CURRENT_CONVERSATION)
         _state.update {
             it.copy(
-                conversations = chat.conversations(), activeRoomType = conversation.roomType, activeFeature = null,
-                actionLogFocusIds = emptySet(), activeConversationId = conversation.id,
-                messages = chat.messages(conversation.id), showModelPicker = false,
-                isStreaming = false, streamingMessageId = null, streamingVariantIndex = null
+                activeRoomType = roomType,
+                activeFeature = null,
+                actionLogFocusIds = emptySet(),
+                activeConversationId = "",
+                messages = emptyList(),
+                showModelPicker = false,
+                historyLoading = false,
+                isStreaming = false,
+                streamingMessageId = null,
+                streamingVariantIndex = null
             )
         }
     }
 
-    private fun logAction(actionKey: String, label: String, output: String, assistantMessageId: Long? = null) {
+    private suspend fun <T> remoteOrNull(label: String, block: suspend () -> T): T? = try {
+        block()
+    } catch (error: CoastApiException) {
+        handleBackendError(error, "$label失败", keepAuthenticatedOnNetworkError = true)
+        null
+    }
+
+    private fun handleBackendError(
+        error: CoastApiException,
+        prefix: String,
+        keepAuthenticatedOnNetworkError: Boolean = false
+    ) {
+        if (error.kind == CoastApiErrorKind.Unauthorized) {
+            backend.auth.clearConfirmedInvalidSession()
+            generationJob?.cancel()
+            historyJob?.cancel()
+            _state.update {
+                it.copy(
+                    authenticated = false,
+                    authBusy = false,
+                    authMessage = "登录状态已失效，请重新输入海岸密码。",
+                    backendOffline = false,
+                    isStreaming = false,
+                    streamingMessageId = null,
+                    streamingVariantIndex = null
+                )
+            }
+            return
+        }
+        _state.update {
+            it.copy(
+                backendOffline = if (error.kind == CoastApiErrorKind.Network) true else it.backendOffline,
+                snackbarMessage = "$prefix：${error.message}",
+                authenticated = if (error.kind == CoastApiErrorKind.Network && keepAuthenticatedOnNetworkError) it.authenticated else it.authenticated
+            )
+        }
+    }
+
+    private fun logAction(
+        actionKey: String,
+        label: String,
+        output: String,
+        assistantMessageId: Long? = null
+    ) {
         val current = _state.value
         if (current.activeConversationId.isBlank()) return
         local.actionLog.record(
@@ -487,10 +734,15 @@ class CoastShellViewModel(
     }
 
     companion object {
+        private const val KEY_CURRENT_CONVERSATION = "remote.current-conversation.v1"
+
         fun factory(context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return CoastShellViewModel(SharedPreferencesLocalPersistence(context.applicationContext)) as T
+                val appContext = context.applicationContext
+                val persistence = SharedPreferencesLocalPersistence(appContext)
+                val backend = CoastBackendGraph.production(appContext, persistence)
+                return CoastShellViewModel(persistence, backend) as T
             }
         }
     }
