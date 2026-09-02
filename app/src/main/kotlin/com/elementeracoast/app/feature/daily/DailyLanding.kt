@@ -3,9 +3,11 @@ package com.elementeracoast.app.feature.daily
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
 
 internal data class DailyLandingItem(val title: String, val subtitle: String)
 internal enum class DailyPage { Moments, Diary, Pet }
@@ -31,11 +34,20 @@ fun DailyLanding(
     onSnackbar: (String) -> Unit
 ) {
     val (page, setPage) = remember { mutableStateOf<DailyPage?>(null) }
-    when (page) {
-        null -> DailyHome { setPage(it) }
-        DailyPage.Moments -> MomentScreen(store, onActionLogged, onSnackbar)
-        DailyPage.Diary -> DiaryScreen(store, onActionLogged, onSnackbar)
-        DailyPage.Pet -> PetScreen(store, onSnackbar)
+    if (page == null) {
+        DailyHome { setPage(it) }
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        FeatureLocalBackBar("海岸日报") { setPage(null) }
+        Box(Modifier.weight(1f)) {
+            when (page) {
+                DailyPage.Moments -> MomentScreen(store, onActionLogged, onSnackbar)
+                DailyPage.Diary -> DiaryScreen(store, onActionLogged, onSnackbar)
+                DailyPage.Pet -> PetScreen(store, onSnackbar)
+                null -> Unit
+            }
+        }
     }
 }
 
