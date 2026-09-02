@@ -18,25 +18,6 @@ import com.elementeracoast.app.feature.memory.LocalMemoryEntry
 import com.elementeracoast.app.feature.wolf.BasicSettings
 
 @Composable
-internal fun SoilSummaryRow(seedCount: Int, onClick: () -> Unit) {
-    Text(
-        text = "思维壤 · $seedCount 粒手持种",
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 7.dp),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.labelMedium
-    )
-    androidx.compose.foundation.layout.Box(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
-            .then(Modifier)
-    ) {
-        androidx.compose.foundation.layout.Box(modifier = Modifier.matchParentSize().androidxComposeClickable(onClick))
-    }
-}
-
-private fun Modifier.androidxComposeClickable(onClick: () -> Unit): Modifier =
-    androidx.compose.foundation.clickable(onClick = onClick)
-
-@Composable
 internal fun SoilBottomSheet(
     recentMessages: List<ChatMessage>,
     settings: BasicSettings,
