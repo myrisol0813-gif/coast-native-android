@@ -27,7 +27,13 @@ class MainActivity : ComponentActivity() {
                 userBubbleHex = wolf.appearance.userBubbleHex
             ) {
                 if (!state.authenticated) {
-                    GateScreen(state.password, vm::setPassword, vm::enterLocalShell)
+                    GateScreen(
+                        password = state.password,
+                        authBusy = state.authBusy,
+                        authMessage = state.authMessage,
+                        onPasswordChange = vm::setPassword,
+                        onEnter = vm::enterCoast
+                    )
                 } else {
                     MainShell(
                         state = state,
@@ -40,7 +46,7 @@ class MainActivity : ComponentActivity() {
                         onCycleTheme = vm::cycleTheme,
                         onOpenFeature = vm::openFeature,
                         onBackToChat = vm::backToChat,
-                        onSend = vm::sendFakeMessage,
+                        onSend = vm::sendMessage,
                         onStop = vm::stopGeneration,
                         onMessageAction = vm::handleMessageAction,
                         onOpenActionLog = vm::openActionLog,
@@ -49,6 +55,7 @@ class MainActivity : ComponentActivity() {
                         onOpenModels = vm::openModelPicker,
                         onDismissModels = vm::dismissModelPicker,
                         onSelectModel = vm::selectModel,
+                        onRefreshModels = vm::refreshModels,
                         onPlaceholder = vm::showPlaceholder,
                         onSnackbarShown = vm::clearSnackbar
                     )
