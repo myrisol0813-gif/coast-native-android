@@ -89,12 +89,15 @@ jobs:
           test -f "$shell/ConversationRepository.kt"
           test -f "$shell/ProfileRepository.kt"
           test -f "$shell/CoastBackendGraph.kt"
+          test -f app/src/main/res/mipmap-nodpi/ic_launcher_coast.webp
 
           grep -q '<uses-permission android:name="android.permission.INTERNET"' app/src/main/AndroidManifest.xml
           grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -q 'android:icon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
+          grep -q 'android:roundIcon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 22' app/build.gradle.kts
-          grep -q 'versionName = "0.1.20-single-source-30"' app/build.gradle.kts
+          grep -q 'versionCode = 23' app/build.gradle.kts
+          grep -q 'versionName = "0.1.21-shared-state-30"' app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -109,6 +112,10 @@ jobs:
           grep -q '/api/daily/profile' "$network/CoastApiClient.kt"
           grep -q 'backend.daily.refreshProfile()' "$shell/CoastShellViewModel.kt"
           grep -q 'backend.daily.cachedProfile()' "$shell/CoastShellViewModel.kt"
+          grep -q 'backend.profile.setAssistantAvatar' "$shell/CoastShellViewModel.kt"
+          grep -q 'assistantAvatarDataUrl' "$shell/CoastShellViewModel.kt"
+          grep -q 'suspend fun setAssistantAvatar' "$shell/ProfileRepository.kt"
+          grep -q 'fun refreshCoast' "$shell/CoastShellViewModel.kt"
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
           grep -q 'MessageAction.Retry' "$shell/CoastShellViewModel.kt"
@@ -127,6 +134,10 @@ jobs:
 
           if grep -Eq 'RemoteDailyProfile|cachedDailyProfile|refreshDailyProfile|getDailyProfile|putDailyProfile' "$shell/ProfileRepository.kt"; then
             echo 'Daily profile ownership returned to ProfileRepository.'
+            exit 1
+          fi
+          if grep -Eq 'daily\.myriAvatarDataUrl\.ifBlank|profile\.myriAvatarDataUrl' "$shell/CoastShellViewModel.kt" "$chat/ChatScreen.kt"; then
+            echo 'Myri avatar ownership drifted back to Daily profile data.'
             exit 1
           fi
           if grep -Eq 'backend\.profile\.(cachedDailyProfile|refreshDailyProfile)' "$shell/CoastShellViewModel.kt"; then
@@ -189,18 +200,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-single-source-30-0.1.20-debug.apk
+          apk=artifact/CoastGPT-native-shared-state-30-0.1.21-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.20-single-source-30\nversionCode=22\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=0.1.21-shared-state-30\nversionCode=23\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-single-source-30-0.1.20-debug
+          name: CoastGPT-native-shared-state-30-0.1.21-debug
           path: |
-            artifact/CoastGPT-native-single-source-30-0.1.20-debug.apk
+            artifact/CoastGPT-native-shared-state-30-0.1.21-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error
