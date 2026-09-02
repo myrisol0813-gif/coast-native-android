@@ -44,7 +44,7 @@ internal fun FeatureLandingScreen(
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
         )
-        FeatureDestination.SerpentDesk -> SerpentDeskScreen(
+        FeatureDestination.ActionLog -> SerpentDeskScreen(
             actionLogStore = services.actionLog,
             conversationId = shellState.activeConversationId,
             focusIds = shellState.actionLogFocusIds
