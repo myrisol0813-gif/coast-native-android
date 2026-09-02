@@ -62,7 +62,7 @@ internal fun SeedLibraryScreen(store: MemoryStore, createRequest: Int, onSnackba
         item {
             Text(
                 "种子库",
-                modifier = Modifier.padding(horizontal = 36.dp, top = 8.dp),
+                modifier = Modifier.padding(start = 36.dp, end = 36.dp, top = 8.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold
