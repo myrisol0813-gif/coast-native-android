@@ -1,11 +1,13 @@
 package com.elementeracoast.app.feature.chat
 
+import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.network.ApiStreamEvent
 import com.elementeracoast.app.core.network.CoastApiClient
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteChatRequest
+import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteHistory
 import java.time.LocalDate
@@ -21,7 +23,12 @@ import kotlinx.serialization.json.jsonPrimitive
 
 sealed interface ChatProgress {
     data class Delta(val text: String) : ChatProgress
-    data class Completed(val history: RemoteHistory, val modelId: String, val finishReason: String) : ChatProgress
+    data class Completed(
+        val history: RemoteHistory,
+        val modelId: String,
+        val finishReason: String,
+        val deskReceipt: TurnDeskReceipt? = null
+    ) : ChatProgress
 }
 
 interface ChatRepository {
@@ -58,6 +65,7 @@ class DefaultChatRepository(
         var actualModel = modelId
         var finishReason = ""
         var furnitureRuns = emptyList<RemoteFurnitureRun>()
+        var deskReceipt: TurnDeskReceipt? = null
         var done = false
         val request = RemoteChatRequest(
             conversationId = conversationId,
@@ -84,13 +92,17 @@ class DefaultChatRepository(
                         json.decodeFromJsonElement(ListSerializer(RemoteFurnitureRun.serializer()), event.data)
                     }.getOrDefault(emptyList())
                 }
+                is ApiStreamEvent.DeskSlip -> {
+                    deskReceipt = runCatching {
+                        TurnDeskMapper.toUi(json.decodeFromJsonElement(RemoteDeskSlip.serializer(), event.data))
+                    }.getOrNull()
+                }
                 is ApiStreamEvent.Done -> {
                     finishReason = event.finishReason
                     done = true
                 }
                 is ApiStreamEvent.Error -> throw event.error
                 is ApiStreamEvent.Tool,
-                is ApiStreamEvent.DeskSlip,
                 is ApiStreamEvent.Usage -> Unit
             }
         }
@@ -108,7 +120,7 @@ class DefaultChatRepository(
             furnitureRuns = furnitureRuns
         )
         val saved = persistHistory(conversationId, completed)
-        emit(ChatProgress.Completed(saved, actualModel, finishReason))
+        emit(ChatProgress.Completed(saved, actualModel, finishReason, deskReceipt))
     }
 
     override fun failedHistory(
