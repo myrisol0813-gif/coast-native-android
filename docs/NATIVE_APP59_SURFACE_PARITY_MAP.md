@@ -11,9 +11,9 @@ This Native pass starts from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a
 | Gate | preserved Native 25 source-faithful Coast mark / password entrance |
 | MainShell | preserved Compose shell |
 | Sidebar | preserved Native 25 layout/status/search/conversation list; footer now Theme / Wolf Den / Serpent Action Log |
-| Main / Radio / Lighthouse | one shared `ChatWindow` and `RoomType` |
+| Main / Radio / Lighthouse | one shared `ChatWindow` and `RoomType`; local threads start empty and do not inject fixture assistant replies |
 | Chat topbar model | no chevron; larger model label with bounded/ellipsis display |
-| Feature page chrome | Memory / Daily / Carbon / Diary / Worldbook / Instructions use a compact 54dp-class local top bar with smaller title/subtitle than the chat shell |
+| Feature page chrome | Memory / Daily / Carbon / Diary / Instructions use a compact 54dp-class local top bar with smaller title/subtitle than the chat shell |
 | Assistant message actions | copy / like / favorite / local regenerate / delete / footprint |
 | User message actions | normal state: edit + copy; edited messages gain real local variants and current-variant delete/navigation |
 | User + assistant variants | editing a user message appends its new variant and opens a paired assistant reply variant; counters use total/current (`2/1`, `2/2`); single variants show no `1/1` |
@@ -29,23 +29,23 @@ This Native pass starts from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a
 | 关于与诊断 | APK version, theme, room, conversation, model, counts, no-INTERNET, backend unwired |
 | Serpent Action Log | persistent redacted local action records with status/type/conversation/action-id focus |
 | Daily home | PWA-like page chrome and large quiet cards for 碳硅圈 / 日记 / 宠物系统; `未来小组件` is a visible snackbar placeholder, not a fourth active destination |
-| 碳硅圈 | changeable cover; Xiaohan/Myri local avatar sources; local publish/edit/delete/like/comment; PWA-like compose surface |
+| 碳硅圈 | changeable full-width non-cropped cover; Xiaohan/Myri local avatar sources; local publish/like/comment/delete; compact icon footer and confirmed delete |
 | Carbon author | manual compose creates Xiaohan posts; chat fake-furniture writes explicit Myri-authored posts and uses the matching avatar/name in feed |
 | Myri avatar | one local source in `DailyStore`; chat assistant avatar and Carbon Circle profile row share it |
-| 日记 | PWA-like empty/list/compose surfaces; local add/edit/delete/date/weather/mood/tags |
+| 日记 | PWA-like empty/list/compose surfaces; local add/edit/delete/date/weather/mood/tags; list actions use compact edit/delete icons and confirmed delete |
 | 宠物系统 | entrance retained; interior intentionally blank until its dedicated UI round; no hidden pet-state model remains active |
 | Memory | PWA-like 2×2 tabs: 记忆库 / 种子库 / 世界书 / 自定义指令 |
-| 记忆检索 | search plus 日期 / 模型 / 窗口 / 标签 dropdown filters; all four dimensions operate on local source metadata |
+| 记忆检索 | search plus 日期 / 模型 / 窗口 / 标签 dropdown filters; all four dimensions operate on local source metadata; the two filter chips use one compact anchored row |
 | Memory create actions | add-memory / add-seed / add-worldbook are one-shot consumed UI events; switching/back navigation clears pending create state so dialogs do not reopen by themselves |
 | 记忆库 | local add/edit/delete/search, Memory v2 content fields plus source model/window/date facets |
 | 种子库 | local add/edit/delete/search/filter, active/dormant plus source/tags facets |
-| 世界书 / 海岸词典 | separate PWA-like page with “试一句” local hit test, add/edit/delete/enable-disable |
+| 世界书 | remains inside the same `轨迹记忆` 2×2 tab surface; local hit test, add/edit/delete/enable-disable; top action stays `新增`, creating opens `新增世界书` |
 | 自定义指令 | PWA-like single active document, local edit/save/clear, explicitly not sent to backend |
 | Theme | sidebar cycle plus Wolf Appearance selector |
 | Typography | Android platform sans; bold compact titles, medium body text, smaller gray subtitles; no bundled/online font dependency |
 | Rounded surface depth | restrained ~2dp shadow on user bubbles and content-bearing rounded cards/chips; assistant body remains plain |
 | Toast/Snackbar | shared shell snackbar for local action results / placeholders |
-| Dialog | edit message, local avatar, Daily/Memory editors |
+| Dialog | edit message, local avatar, Daily/Memory editors, Daily delete confirmation |
 | BottomSheet | thought-soil structure preview |
 
 ## app-59 source files actually read
@@ -72,7 +72,7 @@ feature/chat       LocalChatStore + message UI + LocalFurnitureOrchestrator
 feature/wolf       WolfStore + profile/appearance/records/model/settings/diagnostics
 feature/actionlog  ActionLogStore + ActionLogScreen
 feature/daily      DailyStore + Carbon Circle / Diary / blank Pet surface
-feature/memory     MemoryStore + Memory PWA surface components
+feature/memory     MemoryStore + Memory/Seed/Worldbook/Instructions surfaces
 feature/shell      navigation, drawer, topbar and cross-feature coordination only
 core/local         LocalPersistence + line-safe persistence codec
 core/model         shared stable shell/chat models
@@ -80,7 +80,9 @@ core/model         shared stable shell/chat models
 
 `CoastShellViewModel` coordinates shell/navigation/generation and chat variant mutation. Feature data is owned by feature stores; `MainShell` only routes those owners. Memory and Daily own their own compact feature-page chrome so their PWA-like dynamic titles/actions are not duplicated by the global shell topbar.
 
-## Message variant rule
+## Chat startup and variant rule
+
+Native local threads start empty. Existing Main / Radio / Lighthouse conversation records do not receive fixture assistant messages, and newly created conversations are empty as well. A local assistant reply is created only after the user sends a message or explicitly triggers local regeneration/edit-regeneration.
 
 Native local edit behavior follows the reviewed PWA interaction:
 
@@ -105,7 +107,7 @@ The PWA filter-kind menu is mirrored as:
 
 Canonical PWA tag labels retained in the Native local surface: `关系`, `历史锚点`, `偏好`, `人物档案`, `海岸世界观`, `工程技术`.
 
-Memory and Seed both apply the selected filter to the visible local list. Create intent is held by `MemoryLanding` as a nullable target tab and consumed once by the owning screen; tab changes/back clear it. Existing older local rows are read directly with default source metadata when appended source fields are absent; the active writer only emits the current structure. There is no second legacy writer or compatibility route.
+Memory and Seed both apply the selected filter to the visible local list. Create intent is held by `MemoryLanding` as a nullable target tab and consumed once by the owning screen; tab changes/back clear it. Worldbook is no longer a separate navigation page, so selecting it does not create a second back/create lifecycle. Existing older local rows are read directly with default source metadata when appended source fields are absent; the active writer only emits the current structure. There is no second legacy writer or compatibility route.
 
 ## Daily profile rule
 
@@ -115,7 +117,7 @@ Carbon Circle owns the local Daily profile image sources:
 - `myriAvatarUri` for Myri
 - `coverUri` for the Carbon Circle cover
 
-The chat assistant avatar reads/writes that same `myriAvatarUri`; it does not maintain a hidden second avatar preference. Manual Carbon compose writes `MomentAuthor.Xiaohan`, while local chat furniture writes `MomentAuthor.Myri`; the feed selects the matching name/avatar from that author field. Android `OpenDocument`/persistable URI access is used without storage permission or upload.
+The chat assistant avatar reads/writes that same `myriAvatarUri`; it does not maintain a hidden second avatar preference. Manual Carbon compose writes `MomentAuthor.Xiaohan`, while local chat furniture writes `MomentAuthor.Myri`; the feed selects the matching name/avatar from that author field. Android `OpenDocument`/persistable URI access is used without storage permission or upload. The cover renders by intrinsic aspect ratio with `FillWidth`, rather than using a fixed-height `Crop` that can cut off the source image.
 
 ## Furniture binding
 
@@ -131,7 +133,7 @@ No timestamp-window guessing is used.
 
 ## Local-only actions
 
-Working locally: message copy/like/favorite/edit/delete/regenerate, user/assistant variant switching and current-variant deletion, paired assistant fake-regeneration after user edit, model switch, Wolf settings/profile, JSON/HTML export, JSON import, Carbon Circle cover/avatar/publish/edit/delete/comment/like, Diary CRUD, Memory/Seed/Worldbook CRUD/search/filter, Worldbook hit test, Custom Instructions save/clear, local fake furniture actions and Action Log filters.
+Working locally: message copy/like/favorite/edit/delete/regenerate, user/assistant variant switching and current-variant deletion, paired assistant fake-regeneration after user edit, model switch, Wolf settings/profile, JSON/HTML export, JSON import, Carbon Circle cover/avatar/publish/delete/comment/like, Diary CRUD, Memory/Seed/Worldbook CRUD/search/filter, Worldbook hit test, Custom Instructions save/clear, local fake furniture actions and Action Log filters.
 
 Placeholders remain explicit for real profile sync, real model catalog, real backend history/SSE, attachment/mic/call transport, future widgets, and any future Pet service. The Pet interior is intentionally empty rather than presenting a temporary local behavior as product design.
 
