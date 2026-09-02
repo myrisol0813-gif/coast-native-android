@@ -27,15 +27,16 @@ This Native pass starts from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a
 | 聊天记录 | current-window JSON/HTML export and JSON import |
 | 关于与诊断 | APK version, theme, room, conversation, model, counts, no-INTERNET, backend unwired |
 | Serpent Action Log | persistent redacted local action records with status/type/conversation/action-id focus |
-| Daily home | PWA-like page chrome and large quiet cards for 碳硅圈 / 日记 / 宠物系统 |
+| Daily home | PWA-like page chrome and large quiet cards for 碳硅圈 / 日记 / 宠物系统; `未来小组件` is a visible snackbar placeholder, not a fourth active destination |
 | 碳硅圈 | changeable cover; Xiaohan/Myri local avatar sources; local publish/edit/delete/like/comment; PWA-like compose surface |
+| Carbon author | manual compose creates Xiaohan posts; chat fake-furniture writes explicit Myri-authored posts and uses the matching avatar/name in feed |
 | Myri avatar | one local source in `DailyStore`; chat assistant avatar and Carbon Circle profile row share it |
 | 日记 | PWA-like empty/list/compose surfaces; local add/edit/delete/date/weather/mood/tags |
 | 宠物系统 | entrance retained; interior intentionally blank until its dedicated UI round; no hidden pet-state model remains active |
 | Memory | PWA-like 2×2 tabs: 记忆库 / 种子库 / 世界书 / 自定义指令 |
 | 记忆检索 | search plus 日期 / 模型 / 窗口 / 标签 dropdown filters; all four dimensions operate on local source metadata |
 | 记忆库 | local add/edit/delete/search, Memory v2 content fields plus source model/window/date facets |
-| 种子库 | local add/edit/delete/search, active/dormant plus source/tags facets |
+| 种子库 | local add/edit/delete/search/filter, active/dormant plus source/tags facets |
 | 世界书 / 海岸词典 | separate PWA-like page with “试一句” local hit test, add/edit/delete/enable-disable |
 | 自定义指令 | PWA-like single active document, local edit/save/clear, explicitly not sent to backend |
 | Theme | sidebar cycle plus Wolf Appearance selector |
@@ -100,7 +101,7 @@ The PWA filter-kind menu is mirrored as:
 
 Canonical PWA tag labels retained in the Native local surface: `关系`, `历史锚点`, `偏好`, `人物档案`, `海岸世界观`, `工程技术`.
 
-Existing older local rows are read directly with default source metadata when those appended fields are absent; the active writer only emits the current structure. There is no second legacy writer or compatibility route.
+Memory and Seed both apply the selected filter to the visible local list. Existing older local rows are read directly with default source metadata when those appended fields are absent; the active writer only emits the current structure. There is no second legacy writer or compatibility route.
 
 ## Daily profile rule
 
@@ -110,7 +111,7 @@ Carbon Circle owns the local Daily profile image sources:
 - `myriAvatarUri` for Myri
 - `coverUri` for the Carbon Circle cover
 
-The chat assistant avatar reads/writes that same `myriAvatarUri`; it does not maintain a hidden second avatar preference. Android `OpenDocument`/persistable URI access is used without storage permission or upload.
+The chat assistant avatar reads/writes that same `myriAvatarUri`; it does not maintain a hidden second avatar preference. Manual Carbon compose writes `MomentAuthor.Xiaohan`, while local chat furniture writes `MomentAuthor.Myri`; the feed selects the matching name/avatar from that author field. Android `OpenDocument`/persistable URI access is used without storage permission or upload.
 
 ## Furniture binding
 
@@ -128,7 +129,7 @@ No timestamp-window guessing is used.
 
 Working locally: message copy/like/favorite/edit/delete/regenerate, user variant switching/current-variant deletion, model switch, Wolf settings/profile, JSON/HTML export, JSON import, Carbon Circle cover/avatar/publish/edit/delete/comment/like, Diary CRUD, Memory/Seed/Worldbook CRUD/search/filter, Worldbook hit test, Custom Instructions save/clear, local fake furniture actions and Action Log filters.
 
-Placeholders remain explicit for real profile sync, real model catalog, real backend history/SSE, attachment/mic/call transport, and any future Pet service. The Pet interior is intentionally empty rather than presenting a temporary local behavior as product design.
+Placeholders remain explicit for real profile sync, real model catalog, real backend history/SSE, attachment/mic/call transport, future widgets, and any future Pet service. The Pet interior is intentionally empty rather than presenting a temporary local behavior as product design.
 
 ## Hard-retired / absent
 
