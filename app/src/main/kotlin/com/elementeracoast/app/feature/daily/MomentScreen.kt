@@ -98,9 +98,12 @@ internal fun MomentScreen(
             }
         } else {
             items(state.moments, key = { it.id }) { moment ->
+                val isMyri = moment.author == MomentAuthor.Myri
                 MomentCard(
                     moment = moment,
-                    avatarUri = state.profileAvatarUri,
+                    avatarUri = if (isMyri) state.myriAvatarUri else state.profileAvatarUri,
+                    avatarFallback = if (isMyri) "M" else "寒",
+                    authorLabel = moment.author.label,
                     onLike = { store.toggleMomentLike(moment.id) },
                     onComment = { commenting = moment },
                     onEdit = { editing = moment },
@@ -146,11 +149,11 @@ internal fun MomentComposeScreen(
                 DailyField("正文", body, { body = it }, "今天想留什么？", minLines = 10, maxLines = 18)
                 Spacer(Modifier.height(18.dp))
                 DailyPrimaryButton("发布动态") {
-                    val saved = store.publishMoment(body, date)
+                    val saved = store.publishMoment(body, date, MomentAuthor.Xiaohan)
                     if (saved == null) {
                         onSnackbar("正文还是空的")
                     } else {
-                        onActionLogged("daily.moment.write", "写了一条碳硅圈", "新增 1 条本地动态")
+                        onActionLogged("daily.moment.write", "写了一条碳硅圈", "新增 1 条小寒本地动态")
                         onSnackbar("动态已发布到本地碳硅圈")
                         onDone()
                     }
@@ -164,6 +167,8 @@ internal fun MomentComposeScreen(
 private fun MomentCard(
     moment: LocalMoment,
     avatarUri: String,
+    avatarFallback: String,
+    authorLabel: String,
     onLike: () -> Unit,
     onComment: () -> Unit,
     onEdit: () -> Unit,
@@ -171,10 +176,10 @@ private fun MomentCard(
 ) {
     DailySurfaceCard {
         Row {
-            DailyAvatar(avatarUri, "寒")
+            DailyAvatar(avatarUri, avatarFallback)
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("小寒", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
                 Text(moment.text, style = MaterialTheme.typography.bodyLarge)
                 if (moment.comments.isNotEmpty()) {
