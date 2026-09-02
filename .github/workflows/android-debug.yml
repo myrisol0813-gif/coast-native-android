@@ -25,19 +25,22 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verify Native app-60 local review structure
+      - name: Verify Native reviewed local structure
         shell: bash
         run: |
           set -euo pipefail
           root=app/src/main/kotlin/com/elementeracoast/app
           chat="$root/feature/chat"
+          daily="$root/feature/daily"
           test -f docs/NATIVE_APP60_SURFACE_PARITY_MAP.md
           test -f "$root/core/local/LocalPersistence.kt"
           test -f "$root/feature/wolf/WolfStore.kt"
           test -f "$root/feature/wolf/ModelCatalog.kt"
           test -f "$root/feature/wolf/ModelBoxScreen.kt"
+          test -f "$root/feature/serpentdesk/SerpentDeskScreen.kt"
           test -f "$root/feature/actionlog/ActionLogStore.kt"
-          test -f "$root/feature/daily/DailyStore.kt"
+          test -f "$daily/DailyStore.kt"
+          test -f "$daily/MomentActions.kt"
           test -f "$root/feature/memory/MemoryStore.kt"
           test -f "$root/feature/letters/IslandLetterStore.kt"
           test -f "$root/feature/letters/IslandLetterScreen.kt"
@@ -57,12 +60,23 @@ jobs:
           grep -q 'FeatureDestination.ActionLog' "$root/feature/shell/CoastDrawer.kt"
           grep -q 'Serpent Desk' "$root/feature/shell/CoastDrawer.kt"
           grep -q '小蛇书桌' "$root/feature/shell/CoastDrawer.kt"
+          grep -q 'SerpentDeskScreen' "$root/feature/shell/FeatureLandingScreen.kt"
+          grep -q 'title = "小蛇行动日志"' "$root/feature/serpentdesk/SerpentDeskScreen.kt"
           grep -q 'FeatureDestination.IslandLetter' "$root/feature/shell/MainShell.kt"
           grep -q 'defaultIslandLetter' "$root/feature/letters/IslandLetterContent.kt"
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
           grep -q 'val activeFieldNames' "$root/feature/wolf/WolfModels.kt"
+          grep -q 'openRoomLanding(roomType)' "$root/feature/shell/CoastShellViewModel.kt"
+          grep -q 'ensureActiveConversation()' "$root/feature/shell/CoastShellViewModel.kt"
+          grep -q 'MyriCommentActionLabel = "叫 Myri 来评论"' "$daily/MomentActions.kt"
+          grep -q '真实 Myri 评论将在后端接线后启用' "$daily/MomentActions.kt"
+          grep -q 'MomentActionRows' "$daily/MomentScreen.kt"
 
-          if grep -RIE 'FeatureDestination\.Calendar|FeatureDestination\.Desk|今日一瞥|海岸日历|一日总结|相册|Serpent Action Log|小蛇行动日志|运行水闸' \
+          if grep -qE 'radio-1|lighthouse-1' "$root/core/model/ConversationModels.kt"; then
+            echo 'Prebuilt Radio/Lighthouse conversation returned.'
+            exit 1
+          fi
+          if grep -RIE 'FeatureDestination\.Calendar|FeatureDestination\.Desk|今日一瞥|海岸日历|一日总结|相册|Serpent Action Log|运行水闸' \
             "$root/core/model" "$root/feature/shell" "$root/feature/daily" "$root/feature/wolf"; then
             echo 'Retired Native surface returned.'
             exit 1
@@ -93,14 +107,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app60-review-26-debug.apk
-          sha256sum artifact/CoastGPT-native-app60-review-26-debug.apk > artifact/SHA256SUMS.txt
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app62-room-daily-fix-27-debug.apk
+          sha256sum artifact/CoastGPT-native-app62-room-daily-fix-27-debug.apk > artifact/SHA256SUMS.txt
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-app60-review-26-debug
+          name: CoastGPT-native-app62-room-daily-fix-27-debug
           path: |
-            artifact/CoastGPT-native-app60-review-26-debug.apk
+            artifact/CoastGPT-native-app62-room-daily-fix-27-debug.apk
             artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7

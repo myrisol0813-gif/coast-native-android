@@ -6,13 +6,25 @@ import org.junit.Test
 
 class ConversationContractTest {
     @Test
-    fun emptySearchKeepsAllRoomTypesVisible() {
+    fun initialConversationHistoryContainsMainOnly() {
         val conversations = CoastShellState().conversations
-        val visible = filterConversations(conversations, "")
-        assertEquals(conversations, visible)
-        assertTrue(visible.any { it.roomType == RoomType.Main })
-        assertTrue(visible.any { it.roomType == RoomType.Radio })
-        assertTrue(visible.any { it.roomType == RoomType.Lighthouse })
+        assertTrue(conversations.isNotEmpty())
+        assertTrue(conversations.all { it.roomType == RoomType.Main })
+        assertEquals(conversations, filterConversations(conversations, ""))
+    }
+
+    @Test
+    fun filteringSupportsConcreteHistoryAcrossAllRoomTypes() {
+        val conversations = listOf(
+            ConversationSummary("main-test", "主聊天测试", RoomType.Main),
+            ConversationSummary("radio-test", "【电波】夜航测试", RoomType.Radio),
+            ConversationSummary("lighthouse-test", "【灯塔】来信测试", RoomType.Lighthouse)
+        )
+
+        assertEquals(conversations, filterConversations(conversations, ""))
+        assertEquals(listOf("radio-test"), filterConversations(conversations, "夜航").map { it.id })
+        assertEquals(listOf("lighthouse-test"), filterConversations(conversations, "来信").map { it.id })
+        assertEquals(listOf("main-test", "radio-test", "lighthouse-test"), conversations.map { it.id })
     }
 
     @Test

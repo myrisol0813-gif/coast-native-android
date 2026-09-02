@@ -60,9 +60,13 @@ class CoastShellViewModel(
 
     fun openRoomType(roomType: RoomType) {
         stopGeneration()
-        val target = chat.conversations().firstOrNull { it.roomType == roomType }
-            ?: chat.create(roomType, roomType.drawerLabel)
-        activateConversation(target)
+        if (roomType == RoomType.Main) {
+            val target = chat.conversations().firstOrNull { it.roomType == RoomType.Main }
+                ?: chat.create(RoomType.Main, RoomType.Main.drawerLabel)
+            activateConversation(target)
+            return
+        }
+        openRoomLanding(roomType)
     }
 
     fun selectConversation(id: String) {
@@ -96,6 +100,7 @@ class CoastShellViewModel(
                     conversations = chat.conversations(), activeRoomType = RoomType.Main,
                     activeFeature = null, activeConversationId = fallback.id, messages = emptyList(),
                     showModelPicker = false, isStreaming = false, streamingMessageId = null,
+                    streamingVariantIndex = null,
                     snackbarMessage = "已清空最后一个窗口"
                 )
             }
@@ -139,9 +144,10 @@ class CoastShellViewModel(
 
     fun importMessages(messages: List<ChatMessage>) {
         if (messages.isEmpty()) return
-        val id = _state.value.activeConversationId
+        val current = ensureActiveConversation()
+        val id = current.activeConversationId
         chat.replaceMessages(id, messages)
-        _state.update { it.copy(messages = messages, snackbarMessage = "已恢复到当前本地窗口") }
+        _state.update { it.copy(conversations = chat.conversations(), messages = messages, snackbarMessage = "已恢复到当前本地窗口") }
     }
 
     fun logLocalAction(actionKey: String, label: String, summary: String) {
@@ -150,8 +156,9 @@ class CoastShellViewModel(
 
     fun sendFakeMessage(text: String) {
         val clean = text.trim()
-        val current = _state.value
+        var current = _state.value
         if (clean.isEmpty() || current.isStreaming || generationJob?.isActive == true) return
+        current = ensureActiveConversation()
         val conversationId = current.activeConversationId
         val userId = chat.nextMessageId()
         val assistantId = chat.nextMessageId()
@@ -166,7 +173,14 @@ class CoastShellViewModel(
                 furnitureRuns = furnitureRuns
             )
         }
-        _state.update { it.copy(messages = next, isStreaming = true, streamingMessageId = assistantId) }
+        _state.update {
+            it.copy(
+                conversations = chat.conversations(),
+                messages = next,
+                isStreaming = true,
+                streamingMessageId = assistantId
+            )
+        }
         startFakeStreaming(conversationId, assistantId, current.activeRoomType, regenerated = false, targetVariantIndex = null)
     }
 
@@ -219,7 +233,7 @@ class CoastShellViewModel(
 
     fun stopGeneration() {
         generationJob?.cancel()
-        _state.update { it.copy(isStreaming = false, streamingMessageId = null) }
+        _state.update { it.copy(isStreaming = false, streamingMessageId = null, streamingVariantIndex = null) }
     }
     fun showPlaceholder(message: String) { _state.update { it.copy(snackbarMessage = message) } }
     fun clearSnackbar() { _state.update { it.copy(snackbarMessage = null) } }
@@ -277,6 +291,7 @@ class CoastShellViewModel(
                 messages = updated,
                 isStreaming = true,
                 streamingMessageId = assistantId,
+                streamingVariantIndex = targetVariantIndex,
                 snackbarMessage = "已保留旧版本，并为新消息生成新的本地回复"
             )
         }
@@ -323,7 +338,7 @@ class CoastShellViewModel(
             if (it.id != message.id) it else clearCurrentAssistantVariant(it, current.currentModel)
         } }
         logAction("chat.regenerate", "重新生成本地回复", "assistant message ${message.id}", assistantMessageId = message.id)
-        _state.update { it.copy(isStreaming = true, streamingMessageId = message.id) }
+        _state.update { it.copy(isStreaming = true, streamingMessageId = message.id, streamingVariantIndex = targetVariantIndex) }
         startFakeStreaming(current.activeConversationId, message.id, current.activeRoomType, regenerated = true, targetVariantIndex = targetVariantIndex)
     }
 
@@ -366,7 +381,7 @@ class CoastShellViewModel(
                 throw cancelled
             } finally {
                 if (_state.value.activeConversationId == conversationId && _state.value.streamingMessageId == assistantId) {
-                    _state.update { it.copy(isStreaming = false, streamingMessageId = null) }
+                    _state.update { it.copy(isStreaming = false, streamingMessageId = null, streamingVariantIndex = null) }
                 }
                 generationJob = null
             }
@@ -396,6 +411,7 @@ class CoastShellViewModel(
 
     private fun mutateCurrent(transform: (List<ChatMessage>) -> List<ChatMessage>) {
         val id = _state.value.activeConversationId
+        if (id.isBlank()) return
         val updated = chat.mutate(id, transform)
         _state.update { it.copy(messages = updated) }
     }
@@ -418,19 +434,48 @@ class CoastShellViewModel(
         if (_state.value.activeConversationId == conversationId) _state.update { it.copy(messages = updated) }
     }
 
+    private fun openRoomLanding(roomType: RoomType) {
+        require(roomType != RoomType.Main) { "Main uses a concrete conversation, not a room landing" }
+        _state.update {
+            it.copy(
+                conversations = chat.conversations(),
+                activeRoomType = roomType,
+                activeFeature = null,
+                actionLogFocusIds = emptySet(),
+                activeConversationId = "",
+                messages = emptyList(),
+                showModelPicker = false,
+                isStreaming = false,
+                streamingMessageId = null,
+                streamingVariantIndex = null
+            )
+        }
+    }
+
+    private fun ensureActiveConversation(): CoastShellState {
+        val current = _state.value
+        if (current.activeConversationId.isNotBlank()) return current
+        val roomType = current.activeRoomType
+        val count = chat.conversations().count { it.roomType == roomType } + 1
+        val created = chat.create(roomType, "新聊天 $count")
+        activateConversation(created)
+        return _state.value
+    }
+
     private fun activateConversation(conversation: ConversationSummary) {
         _state.update {
             it.copy(
                 conversations = chat.conversations(), activeRoomType = conversation.roomType, activeFeature = null,
                 actionLogFocusIds = emptySet(), activeConversationId = conversation.id,
                 messages = chat.messages(conversation.id), showModelPicker = false,
-                isStreaming = false, streamingMessageId = null
+                isStreaming = false, streamingMessageId = null, streamingVariantIndex = null
             )
         }
     }
 
     private fun logAction(actionKey: String, label: String, output: String, assistantMessageId: Long? = null) {
         val current = _state.value
+        if (current.activeConversationId.isBlank()) return
         local.actionLog.record(
             actionKey = actionKey,
             label = label,

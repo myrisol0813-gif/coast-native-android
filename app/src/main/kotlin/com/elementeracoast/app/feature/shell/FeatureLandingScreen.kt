@@ -4,10 +4,10 @@ import androidx.compose.runtime.Composable
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
-import com.elementeracoast.app.feature.actionlog.ActionLogScreen
 import com.elementeracoast.app.feature.daily.DailyLanding
 import com.elementeracoast.app.feature.letters.IslandLetterScreen
 import com.elementeracoast.app.feature.memory.MemoryLanding
+import com.elementeracoast.app.feature.serpentdesk.SerpentDeskScreen
 import com.elementeracoast.app.feature.wolf.WolfScreen
 
 @Composable
@@ -44,8 +44,8 @@ internal fun FeatureLandingScreen(
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
         )
-        FeatureDestination.ActionLog -> ActionLogScreen(
-            store = services.actionLog,
+        FeatureDestination.ActionLog -> SerpentDeskScreen(
+            actionLogStore = services.actionLog,
             conversationId = shellState.activeConversationId,
             focusIds = shellState.actionLogFocusIds
         )

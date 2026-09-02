@@ -16,6 +16,7 @@ class CoastShellViewModelTest {
     fun startupAndNewConversationsContainNoFixtureReplies() {
         val vm = CoastShellViewModel()
         assertTrue(vm.state.value.messages.isEmpty())
+        assertTrue(vm.state.value.conversations.all { it.roomType == RoomType.Main })
 
         vm.state.value.conversations.map { it.id }.forEach { id ->
             vm.selectConversation(id)
@@ -27,7 +28,62 @@ class CoastShellViewModelTest {
     }
 
     @Test
-    fun newConversationUsesActiveRoomTypeWithoutRetaggingOthers() {
+    fun radioAndLighthouseEntrancesAreTransientUntilFirstSend() {
+        val vm = CoastShellViewModel()
+
+        listOf(RoomType.Radio, RoomType.Lighthouse).forEach { roomType ->
+            vm.openRoomType(roomType)
+            val state = vm.state.value
+            assertEquals(roomType, state.activeRoomType)
+            assertEquals("", state.activeConversationId)
+            assertTrue(state.messages.isEmpty())
+            assertFalse(state.conversations.any { it.roomType == roomType })
+        }
+    }
+
+    @Test
+    fun firstRadioMessageCreatesPersistentConversationAndKeepsThread() {
+        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
+        vm.openRoomType(RoomType.Radio)
+        vm.sendFakeMessage("电波测试")
+
+        val created = vm.state.value
+        val createdId = created.activeConversationId
+        assertTrue(createdId.isNotBlank())
+        assertEquals(RoomType.Radio, created.activeRoomType)
+        assertTrue(created.conversations.any { it.id == createdId && it.roomType == RoomType.Radio })
+        assertTrue(created.conversations.first { it.id == createdId }.title.startsWith("【电波】"))
+        assertEquals("电波测试", created.messages.first { it.role == MessageRole.User }.text)
+
+        vm.stopGeneration()
+        val mainId = vm.state.value.conversations.first { it.roomType == RoomType.Main }.id
+        vm.selectConversation(mainId)
+        assertTrue(vm.state.value.messages.isEmpty())
+
+        vm.selectConversation(createdId)
+        assertEquals("电波测试", vm.state.value.messages.first { it.role == MessageRole.User }.text)
+    }
+
+    @Test
+    fun openingRoomEntranceAgainStartsFreshLandingInsteadOfStealingOldThread() {
+        val vm = CoastShellViewModel(generationDispatcher = Dispatchers.Unconfined)
+        vm.openRoomType(RoomType.Lighthouse)
+        vm.sendFakeMessage("第一封灯塔信")
+        val firstId = vm.state.value.activeConversationId
+        vm.stopGeneration()
+
+        vm.openRoomType(RoomType.Lighthouse)
+        assertEquals("", vm.state.value.activeConversationId)
+        assertTrue(vm.state.value.messages.isEmpty())
+
+        vm.sendFakeMessage("第二封灯塔信")
+        val secondId = vm.state.value.activeConversationId
+        assertNotEquals(firstId, secondId)
+        assertEquals(2, vm.state.value.conversations.count { it.roomType == RoomType.Lighthouse })
+    }
+
+    @Test
+    fun manualNewConversationUsesActiveRoomType() {
         val vm = CoastShellViewModel()
         vm.openRoomType(RoomType.Radio)
         vm.newConversation()
@@ -37,15 +93,13 @@ class CoastShellViewModelTest {
         assertEquals(RoomType.Radio, state.activeRoomType)
         assertEquals(RoomType.Radio, created.roomType)
         assertTrue(created.title.startsWith("【电波】"))
-        assertTrue(state.conversations.any { it.roomType == RoomType.Main })
-        assertTrue(state.conversations.any { it.roomType == RoomType.Lighthouse })
+        assertTrue(state.messages.isEmpty())
     }
 
     @Test
-    fun renameKeepsRoomPrefixAndDeletePrefersSameRoom() {
+    fun renameKeepsRoomPrefixAndDeleteActiveRadioFallsBackToMain() {
         val vm = CoastShellViewModel()
         vm.openRoomType(RoomType.Radio)
-        val originalRadioId = vm.state.value.activeConversationId
         vm.newConversation()
         val createdId = vm.state.value.activeConversationId
 
@@ -57,24 +111,10 @@ class CoastShellViewModelTest {
 
         vm.deleteConversation(createdId)
         assertFalse(vm.state.value.conversations.any { it.id == createdId })
-        assertEquals(originalRadioId, vm.state.value.activeConversationId)
-        assertEquals(RoomType.Radio, vm.state.value.activeRoomType)
-    }
-
-    @Test
-    fun deleteActiveRadioFallsBackToMainWhenNoOtherRadioExists() {
-        val vm = CoastShellViewModel()
-        vm.openRoomType(RoomType.Radio)
-        val onlyRadio = vm.state.value.activeConversationId
-
-        vm.deleteConversation(onlyRadio)
-
         assertEquals(RoomType.Main, vm.state.value.activeRoomType)
         assertEquals(
             RoomType.Main,
-            vm.state.value.conversations
-                .first { it.id == vm.state.value.activeConversationId }
-                .roomType
+            vm.state.value.conversations.first { it.id == vm.state.value.activeConversationId }.roomType
         )
     }
 

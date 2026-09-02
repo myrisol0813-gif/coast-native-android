@@ -23,7 +23,7 @@ class FeatureParityTest {
         assertEquals("Serpent Desk / 小蛇书桌", FeatureDestination.ActionLog.title)
         assertEquals("登岛信", FeatureDestination.IslandLetter.title)
         val labels = FeatureDestination.entries.joinToString(" ") { "${it.name} ${it.title} ${it.subtitle}" }
-        listOf("Calendar", "今日一瞥", "一日总结", "相册", "Serpent Action Log", "小蛇行动日志").forEach { retired ->
+        listOf("Calendar", "今日一瞥", "一日总结", "相册", "Serpent Action Log").forEach { retired ->
             assertFalse(labels.contains(retired, ignoreCase = true))
         }
     }

@@ -1,96 +1,97 @@
-# Native ↔ PWA app-60 surface parity map
+# Native ↔ PWA surface parity map
 
-Product mother: `myrisol0813-gif/elementera-coast@0b9ca38d50738d0c367637ccd06579a4f5feacfe` (`coast-app-60`).
+Baseline product mother: PWA app-60 (`elementera-coast@0b9ca38d50738d0c367637ccd06579a4f5feacfe`).
 
-This Native review branch still grows from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a4`). The abandoned PR #3 implementation is not reused. PWA source is read-only reference; Web/PWA code and assets are not copied into this repository.
+Reviewed deltas:
+- app-62 `settings.js`: `小蛇书桌 / Myri 的工作台` with `小蛇行动日志` as the current tool shelf item.
+- Native phone review: Radio / Lighthouse room entries are transient landings; a persistent conversation is created only on first send or explicit New.
+- current PWA Daily moments surface: a model-comment action exists beside normal moment actions. Native exposes it as a separate second-row `叫 Myri 来评论` chip, but keeps model comment generation explicitly unwired until backend integration.
+
+PWA source remains read-only reference. Web/PWA code and assets are not copied into this repository.
 
 ## Current surface map
 
-| PWA / reviewed surface | Native local implementation |
+| Surface | Native local implementation |
 | --- | --- |
-| Gate | preserved Native 25 source-faithful Coast mark / password entrance |
-| MainShell / Drawer | preserved tuned Native 25 shell and conversation layout |
-| Main / Radio / Lighthouse | one shared `ChatWindow` / `RoomType`; local threads start empty |
-| Chat model label | bounded / ellipsized, no trailing chevron |
-| Chat More | opens `登岛信` for the current conversation and current model |
-| 登岛信 | `feature/letters`; default first line is `To <current model>：`; local save/reset is scoped by conversation + model; delivery remains unwired |
+| Gate | existing source-faithful Coast mark / password entrance |
+| MainShell / Drawer | tuned Native shell and conversation layout |
+| Main | opens an existing concrete Main conversation |
+| Radio / Lighthouse entry | opens an empty transient room landing with no conversation id |
+| First send in Radio / Lighthouse | creates a fresh persistent conversation, then writes user + assistant messages into that exact thread |
+| Explicit New in Radio / Lighthouse | immediately creates a fresh persistent conversation |
+| Room history | created Radio / Lighthouse conversations remain ordinary sidebar windows and retain their local thread when revisited |
+| ChatWindow | Main / Radio / Lighthouse still share one `ChatWindow` / `RoomType` implementation |
+| Chat More | opens local `登岛信` for current conversation + model |
 | Assistant actions | copy / like / favorite / local regenerate / delete / footprint |
-| User actions / variants | edit + copy; edit creates paired user/assistant variants and fake-regenerates the exact assistant branch |
-| 本轮家具 | explicit local action ids bound to the assistant message; no timestamp guessing |
-| Dogtalk | existing four-field local drawer unchanged |
-| 思维壤 | current-delivery / recent-context / local-settings / memory / furniture preview |
+| User actions / variants | edit + copy; edit branches paired user/assistant local variants |
+| 本轮家具 | explicit action ids bound to assistant message; no timestamp guessing |
+| Dogtalk | existing four-field local drawer |
 | Wolf Den | 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断 |
-| Wolf Profile | nickname, export display name, bubble-color entry; redundant avatar-location reminder removed |
-| 模型箱 | selected current model stands alone; all unselected entries live inside one grouped catalog card and expand for details |
-| Model groups | o 系列 / GPT-4 系列 / GPT-5 系列 / 其他 OpenAI Chat / Free Test / 图片模型 |
-| Model refresh | visible local button; explicitly reports that OpenRouter refresh awaits backend wiring and never fakes network data |
-| Chat archive | local JSON / HTML export + JSON import into current window |
-| Basic Settings | exact 11 active local settings |
-| 小蛇书桌 | visible name restored to `Serpent Desk / 小蛇书桌`; its only current interior is the existing Action Log owner |
-| Action Log | persistent redacted local action records with type/status/conversation/action-id filters |
-| Daily | 碳硅圈 / 日记 / 宠物系统; Pet interior intentionally blank |
-| 碳硅圈 | local cover/avatar/profile, Xiaohan/Myri authors, publish/like/comment/delete; confirmed delete |
-| 日记 | local add/edit/delete/date/weather/mood/tags; compact edit/delete icons |
+| 模型箱当前模型 | one compact solid `surfaceVariant` bubble with thin outline |
+| 模型目录 | unselected models grouped inside one catalog card by o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image |
+| Model refresh | visible offline action; real OpenRouter retrieval still deferred |
+| Serpent Desk | visible desk home (`小蛇书桌 / Myri 的工作台`) with an extensible tool shelf |
+| 小蛇行动日志 | current only desk tool; persistent redacted local records with filters |
+| Furniture → log | opens the Action Log tool inside Serpent Desk using exact action ids |
+| Daily | 碳硅圈 / 日记 / blank Pet surface |
+| 碳硅圈 normal actions | local like / comment / delete remain on the first action row |
+| 碳硅圈 Myri comment | separate second-row `叫 Myri 来评论` chip; records the local request and clearly reports that real model commenting waits for backend wiring; it does not manufacture a fake Myri comment |
 | Memory | 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface |
-| Memory filters | 日期 / 模型 / 窗口 / 标签 with real local filtering; chips use a clear accent-tinted/outlined pair rather than muddy shadow fills |
-| 世界书 | remains in the same Memory surface; `新增` opens `新增世界书`; local hit test / CRUD / enable-disable |
-| Typography / depth | Android platform sans, heavier compact titles, smaller gray subtitles, restrained card depth |
-| Network | no `INTERNET` permission, no base URL, no real OpenRouter/API/SSE call |
+| Network | no `INTERNET` permission, no base URL, no real API/OpenRouter/SSE call |
 
-## app-60 source files read
+## Room-entry rules
 
-- `elementera-mcp/deploy-pages/index.html`
-- `elementera-mcp/deploy-pages/public/features/settings.js`
-- `elementera-mcp/deploy-pages/public/features/models.js`
-- `elementera-mcp/deploy-pages/public/features/models/models-view.js`
-- `elementera-mcp/deploy-pages/public/features/models/models-constants.js`
-- `elementera-mcp/deploy-pages/public/features/letters.js`
-- `elementera-mcp/deploy-pages/public/content/island-letter.js`
-- earlier active chat / daily / memory modules already used by the Native 26 local shell
-- user-supplied phone screenshots used for Native visual review
+1. `initialConversations()` contains Main history only; there are no hidden `radio-1` / `lighthouse-1` fixture windows.
+2. Tapping Radio or Lighthouse does not steal/open an old history thread. It enters a blank room landing (`activeConversationId == ""`).
+3. Leaving that landing without sending creates nothing.
+4. First send calls the chat owner to create `新聊天 n` for the active room type before any furniture/action/message write occurs.
+5. The newly created id becomes active and is immediately present in the sidebar conversation list.
+6. Selecting another window and returning through that history item restores the same local thread.
+7. Tapping the room entry again intentionally starts a new blank landing; the next first send creates another conversation.
+8. The explicit New button still creates a conversation immediately.
 
-The current PWA confirms `Serpent Desk / 小蛇书桌`, the standalone `登岛信`, current model catalog grouping, and model-specific `To ...` island-letter content. Native mirrors those product structures without pretending to share the Web backend.
+## Daily Myri-comment rule
 
-## Feature ownership
+1. Normal user actions stay on the first row; `叫 Myri 来评论` is visually separated onto a small second-row chip.
+2. The chip belongs to `feature/daily/MomentActions.kt`; `MomentScreen.kt` only supplies callbacks.
+3. Native does not alter the current string-only local comment schema merely to predict the PWA backend comment schema while it is still changing.
+4. Until backend wiring exists, tapping the chip records a redacted local action and shows `真实 Myri 评论将在后端接线后启用。`.
+5. No fake Myri-authored comment is inserted into the feed.
+
+## Ownership
 
 ```text
-feature/chat       LocalChatStore + message UI + LocalFurnitureOrchestrator
-feature/wolf       WolfStore + ModelCatalog + ModelBoxScreen + profile/appearance/records/settings/diagnostics
-feature/letters    IslandLetterContent + IslandLetterStore + IslandLetterScreen
-feature/actionlog  ActionLogStore + ActionLogScreen (visible through Serpent Desk)
-feature/daily      DailyStore + Carbon Circle / Diary / blank Pet surface
-feature/memory     MemoryStore + Memory / Seed / Worldbook / Custom Instructions surfaces
-feature/shell      navigation, drawer, topbars and cross-feature coordination only
-core/local         local persistence boundary
-core/model         shared stable shell/chat models
+feature/chat         LocalChatStore + message/furniture UI
+feature/wolf         Wolf settings + ModelCatalog + ModelBoxScreen
+feature/letters      Island Letter local content/store/screen
+feature/serpentdesk  visible desk home + tool-shelf navigation
+feature/actionlog    Action Log data/store/tool screen
+feature/daily        Carbon Circle / MomentActions / Diary / blank Pet
+feature/memory       Memory / Seed / Worldbook / Custom Instructions
+feature/shell        navigation and coordination; transient room landing + materialization orchestration
+core/local           local persistence boundary
+core/model           stable shared shell/chat models
 ```
 
-`CoastShellViewModel` coordinates navigation and local chat generation. It does not own Wolf, Letter, Daily, Memory or Action Log feature data.
+The room landing is not a hidden conversation and has no parallel thread store. On first send the shell asks the existing `LocalChatStore` to create one real conversation, then all messages continue through that same store.
 
-## Model-box rule
+## Model-box rules
 
-1. The current model is rendered alone above the catalog.
+1. Current model stands alone above the catalog as a compact bubble sized to content.
 2. It is excluded from the unselected catalog.
-3. Unselected entries are grouped by model family inside one large catalog surface.
-4. Each model begins as a compact name bubble; tapping expands id, family and source information plus `设为当前`.
-5. Empty groups display `暂无目录项`; Native does not manufacture placeholder models.
-6. Refresh remains an explicit offline placeholder until the real backend can retrieve the OpenRouter directory, after which the same classifier can receive the real list.
+3. Unselected models live inside one large grouped catalog surface.
+4. Each model starts compact and expands in place for id/family/source and `设为当前`.
+5. Empty groups display `暂无目录项`; Native does not manufacture extra placeholder models.
+6. Refresh remains explicitly offline until backend wiring can retrieve the OpenRouter directory.
 
-## Island-letter rule
+## Serpent Desk rules
 
-1. Top-right More in the chat shell opens `登岛信`.
-2. The default body is derived from the current PWA app-60 island-letter source and begins with `To <current model>：`.
-3. Local storage key is scoped by `conversationId + modelName`.
-4. Switching model or conversation therefore opens that pair's own letter/default.
-5. Save and reset are real local actions.
-6. `递出登岛信` saves locally but clearly reports that the Native read/delivery endpoint is not connected; it never pretends a model received the letter.
+1. Sidebar opens `Serpent Desk / 小蛇书桌`.
+2. Desk home shows `小蛇书桌` with subtitle `Myri 的工作台`.
+3. Tool list uses `SerpentDeskItem(tool, title, subtitle)`.
+4. Current only tool: `小蛇行动日志` — `工具调用成功 / 失败 · 房间 · 脱敏摘要`.
+5. Furniture focus ids enter that tool directly inside the desk surface.
 
-## Retired / absent
+## Hard boundaries
 
-There is no active or hidden route for Calendar / 今日一瞥 / 海岸日历, Daily Summary / 一日总结, Album / 相册, `FeatureDestination.Desk`, or the former Serpent Desk pseudo-settings clutter. `Serpent Desk / 小蛇书桌` is now only the visible shell for the active Action Log feature; old desk portrait/bubble/construction-junk UI is not restored.
-
-No `legacy`, `compat`, `bridge`, `temp`, or `misc` source layer is introduced.
-
-## Network boundary
-
-This review pass does not add `android.permission.INTERNET`, real login/API/SSE/OpenRouter retrieval, model calls, Daily/Memory sync, MCP, o3 reply-card, WebView, React Native, TypeScript, base URL, token or provider secret. `CoastGatewayClient` remains an unwired future interface.
+There is no Calendar / Today Coast / Summary / Album restoration, no old desk pseudo-settings, no hidden legacy route, no WebView/React Native/TypeScript, no `legacy` / `compat` / `bridge` / `temp` / `misc` source layer, and no real network wiring.

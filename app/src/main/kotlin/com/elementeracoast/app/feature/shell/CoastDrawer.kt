@@ -156,14 +156,14 @@ internal fun CoastDrawer(
                     DrawerEntry(
                         Icons.Default.Radio,
                         RoomType.Radio.drawerLabel,
-                        state.activeRoomType == RoomType.Radio && state.activeFeature == null
+                        state.activeRoomType == RoomType.Radio && state.activeFeature == null && state.activeConversationId.isBlank()
                     ) { onOpenRoomType(RoomType.Radio) }
                 }
                 item {
                     DrawerEntry(
                         Icons.Default.MailOutline,
                         RoomType.Lighthouse.drawerLabel,
-                        state.activeRoomType == RoomType.Lighthouse && state.activeFeature == null
+                        state.activeRoomType == RoomType.Lighthouse && state.activeFeature == null && state.activeConversationId.isBlank()
                     ) { onOpenRoomType(RoomType.Lighthouse) }
                 }
                 item {

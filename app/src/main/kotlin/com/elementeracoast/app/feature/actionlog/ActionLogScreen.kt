@@ -31,7 +31,8 @@ import androidx.compose.ui.unit.dp
 fun ActionLogScreen(
     store: ActionLogStore,
     conversationId: String,
-    focusIds: Set<String>
+    focusIds: Set<String>,
+    modifier: Modifier = Modifier
 ) {
     val records by store.records.collectAsState()
     var status by remember { mutableStateOf<LocalActionStatus?>(null) }
@@ -48,7 +49,8 @@ fun ActionLogScreen(
     val visible = store.filtered(filter)
 
     LazyColumn(
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
