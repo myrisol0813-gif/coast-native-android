@@ -4,6 +4,9 @@ import com.elementeracoast.app.core.auth.AuthSession
 import com.elementeracoast.app.core.auth.MemoryAuthStore
 import com.elementeracoast.app.core.remote.RemoteChatMessage
 import com.elementeracoast.app.core.remote.RemoteChatRequest
+import com.elementeracoast.app.core.remote.RemoteDailyDiaryCreateRequest
+import com.elementeracoast.app.core.remote.RemoteDailyMomentCreateRequest
+import com.elementeracoast.app.core.remote.RemoteDailyProfilePatch
 import com.elementeracoast.app.core.remote.RemoteHistory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onEach
@@ -25,24 +28,18 @@ class CoastApiClientTest {
 
     @Before
     fun setUp() {
-        server = MockWebServer()
-        server.start()
+        server = MockWebServer(); server.start()
         store = MemoryAuthStore(AuthSession("__Host-coast_session=test-cookie", 4_000_000_000L))
         config = CoastApiConfig(server.url("/").toString().trimEnd('/'))
         api = CoastApiClient(config, CoastHttpClient(config, store).client)
     }
 
-    @After
-    fun tearDown() {
-        server.shutdown()
-    }
+    @After fun tearDown() { server.shutdown() }
 
     @Test
     fun authenticatedWritesInjectCookieAndOriginWithoutLoggingSecrets() = runBlocking {
         server.enqueue(jsonResponse("""{"ok":true,"conversation":{"id":"c1","title":"新聊天","room_type":"main"}}"""))
-
         api.createConversation("新聊天", "main")
-
         val request = server.takeRequest()
         assertEquals("__Host-coast_session=test-cookie", request.getHeader("Cookie"))
         assertEquals(config.origin, request.getHeader("Origin"))
@@ -53,38 +50,10 @@ class CoastApiClientTest {
 
     @Test
     fun profileConversationAndHistoryDecodeCurrentBackendShape() = runBlocking {
-        server.enqueue(jsonResponse("""{
-          "ok":true,
-          "profile":{
-            "assistant_avatar_dataurl":"data:image/png;base64,AA==",
-            "current_chat_model":"openai/gpt-5.6",
-            "current_image_model":"",
-            "model_box":{"chat":["openai/gpt-5.6"],"free":[],"image":[]}
-          }
-        }"""))
-        server.enqueue(jsonResponse("""{
-          "ok":true,
-          "conversations":[{"id":"c1","title":"PWA 窗口","room_type":"radio","updated_at":"2026-09-02T10:00:00Z"}]
-        }"""))
-        server.enqueue(jsonResponse("""{
-          "ok":true,
-          "source":"d1-json-v4",
-          "history":{
-            "version":4,
-            "conversation_id":"c1",
-            "updated_at":"2026-09-02T10:00:00Z",
-            "turns":[{
-              "id":"t1",
-              "user":{"active":0,"variants":[{"id":"u1","content":"hello","created_at":"2026-09-02T10:00:00Z"}]},
-              "assistant":{"activeByUserVariant":{"0":0},"variantsByUserVariant":{"0":[{"id":"a1","content":"hi","created_at":"2026-09-02T10:00:01Z","model_id":"openai/gpt-5.6"}]}}
-            }]
-          }
-        }"""))
-
-        val profile = api.getProfile()
-        val conversations = api.listConversations()
-        val history = api.getHistory("c1")
-
+        server.enqueue(jsonResponse("""{"ok":true,"profile":{"assistant_avatar_dataurl":"data:image/png;base64,AA==","current_chat_model":"openai/gpt-5.6","current_image_model":"","model_box":{"chat":["openai/gpt-5.6"],"free":[],"image":[]}}}"""))
+        server.enqueue(jsonResponse("""{"ok":true,"conversations":[{"id":"c1","title":"PWA 窗口","room_type":"radio","updated_at":"2026-09-02T10:00:00Z"}]}"""))
+        server.enqueue(jsonResponse("""{"ok":true,"source":"d1-json-v4","history":{"version":4,"conversation_id":"c1","updated_at":"2026-09-02T10:00:00Z","turns":[{"id":"t1","user":{"active":0,"variants":[{"id":"u1","content":"hello","created_at":"2026-09-02T10:00:00Z"}]},"assistant":{"activeByUserVariant":{"0":0},"variantsByUserVariant":{"0":[{"id":"a1","content":"hi","created_at":"2026-09-02T10:00:01Z","model_id":"openai/gpt-5.6"}]}}}]}}"""))
+        val profile = api.getProfile(); val conversations = api.listConversations(); val history = api.getHistory("c1")
         assertEquals("openai/gpt-5.6", profile.currentChatModel)
         assertEquals(listOf("openai/gpt-5.6"), profile.modelBox.chat)
         assertEquals("PWA 窗口", conversations.single().title)
@@ -96,9 +65,7 @@ class CoastApiClientTest {
     @Test
     fun historyPutUsesSharedV4EndpointAndOrigin() = runBlocking {
         server.enqueue(jsonResponse("""{"ok":true,"source":"d1-json-v4","history":{"version":4,"conversation_id":"c1","updated_at":"","turns":[]}}"""))
-
         api.putHistory("c1", RemoteHistory(version = 4, conversationId = "c1"))
-
         val request = server.takeRequest()
         assertTrue(request.path!!.startsWith("/api/chat/history?conversation_id=c1"))
         assertEquals("PUT", request.method)
@@ -107,23 +74,56 @@ class CoastApiClientTest {
     }
 
     @Test
-    fun chatSseDecodesDeltaDoneFurnitureAndSendsExplicitStreamContract() = runBlocking {
+    fun dailyCrudUsesCanonicalEndpointsAndPreservesTagsAndProfilePatch() = runBlocking {
+        server.enqueue(jsonResponse("""{"ok":true,"moment":{"id":"m1","date":"2026-09-02","author":"xiaohan","text":"回海","liked":false,"comments":[]}}"""))
+        server.enqueue(jsonResponse("""{"ok":true,"diary":{"id":"d1","date":"2026-09-02","author":"xiaohan","weather":"有风","mood":"开心","tags":["回海","金色"],"text":"今天。"}}"""))
+        server.enqueue(jsonResponse("""{"ok":true,"profile":{"xiaohan_avatar_dataurl":"","myri_avatar_dataurl":"data:image/webp;base64,TVlSSQ==","moment_cover_dataurl":""}}"""))
+
+        api.createDailyMoment(RemoteDailyMomentCreateRequest("2026-09-02", "回海"))
+        api.createDailyDiary(RemoteDailyDiaryCreateRequest("2026-09-02", "有风", "开心", listOf("回海", "金色"), "今天。"))
+        api.putDailyProfile(RemoteDailyProfilePatch(myriAvatarDataUrl = "data:image/webp;base64,TVlSSQ=="))
+
+        val momentRequest = server.takeRequest()
+        assertEquals("/api/daily/moments", momentRequest.path)
+        assertEquals("POST", momentRequest.method)
+        assertEquals(config.origin, momentRequest.getHeader("Origin"))
+        assertTrue(momentRequest.body.readUtf8().contains("\"text\":\"回海\""))
+
+        val diaryRequest = server.takeRequest()
+        assertEquals("/api/daily/diaries", diaryRequest.path)
+        val diaryBody = diaryRequest.body.readUtf8()
+        assertTrue(diaryBody.contains("\"tags\":[\"回海\",\"金色\"]"))
+        assertTrue(diaryBody.contains("\"conflict_mode\":\"append\""))
+
+        val profileRequest = server.takeRequest()
+        assertEquals("PUT", profileRequest.method)
+        assertEquals("/api/daily/profile", profileRequest.path)
+        val profileBody = profileRequest.body.readUtf8()
+        assertTrue(profileBody.contains("\"myri_avatar_dataurl\":\"data:image/webp;base64,TVlSSQ==\""))
+        assertTrue(!profileBody.contains("xiaohan_avatar_dataurl"))
+    }
+
+    @Test
+    fun dailyMyriCommentReadsResultSseWithoutInventingDoneEvent() = runBlocking {
         server.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "text/event-stream")
-                .setBody(
-                    "event: meta\ndata: {\"model\":\"openai/gpt-5.6\"}\n\n" +
-                        "event: delta\ndata: {\"content\":\"海\"}\n\n" +
-                        "event: delta\ndata: {\"content\":\"岸\"}\n\n" +
-                        "event: furniture_runs\ndata: []\n\n" +
-                        "event: done\ndata: {\"finish_reason\":\"stop\"}\n\n"
-                )
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "text/event-stream").setBody(
+                "event: ready\ndata: {\"build\":\"daily-comment-33\"}\n\n" +
+                    "event: result\ndata: {\"ok\":true,\"model\":\"openai/gpt-5.6\",\"moment\":{\"id\":\"m1\",\"date\":\"2026-09-02\",\"author\":\"xiaohan\",\"text\":\"回海\",\"comments\":[{\"id\":\"c1\",\"author\":\"api\",\"text\":\"我看见了。\"}]}}\n\n"
+            )
         )
-        val request = chatRequest()
+        val result = api.requestDailyMyriComment("m1")
+        assertEquals("openai/gpt-5.6", result.model)
+        assertEquals("我看见了。", result.moment.comments.single().text)
+        val recorded = server.takeRequest()
+        assertEquals("/api/daily/moments/m1/myri-comment", recorded.path)
+        assertEquals("text/event-stream", recorded.getHeader("Accept"))
+        assertTrue(recorded.body.readUtf8().contains("\"mode\":\"instant\""))
+    }
 
-        val events = api.streamChat(request).toList()
-
+    @Test
+    fun chatSseDecodesDeltaDoneFurnitureAndSendsExplicitStreamContract() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "text/event-stream").setBody("event: meta\ndata: {\"model\":\"openai/gpt-5.6\"}\n\nevent: delta\ndata: {\"content\":\"海\"}\n\nevent: delta\ndata: {\"content\":\"岸\"}\n\nevent: furniture_runs\ndata: []\n\nevent: done\ndata: {\"finish_reason\":\"stop\"}\n\n"))
+        val events = api.streamChat(chatRequest()).toList()
         assertTrue(events[0] is ApiStreamEvent.Meta)
         assertEquals(listOf("海", "岸"), events.filterIsInstance<ApiStreamEvent.Delta>().map { it.text })
         assertTrue(events.any { it is ApiStreamEvent.FurnitureRuns })
@@ -136,26 +136,9 @@ class CoastApiClientTest {
 
     @Test
     fun chatSseBackpressurePreservesDoneFurnitureAndDeskAfterManyDeltas() = runBlocking {
-        val deltas = (0 until 160).joinToString(separator = "") { index ->
-            "event: delta\ndata: {\"content\":\"$index,\"}\n\n"
-        }
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "text/event-stream")
-                .setBody(
-                    "event: meta\ndata: {\"model\":\"openai/gpt-5.6\"}\n\n" +
-                        deltas +
-                        "event: done\ndata: {\"finish_reason\":\"stop\"}\n\n" +
-                        "event: furniture_runs\ndata: [{\"id\":\"run-1\",\"label\":\"记忆搜索\"}]\n\n" +
-                        "event: desk_slip\ndata: {\"summary\":\"本轮递给模型\",\"comfort\":\"已保持在舒服区间\"}\n\n"
-                )
-        )
-
-        val events = api.streamChat(chatRequest())
-            .onEach { delay(2) }
-            .toList()
-
+        val deltas = (0 until 160).joinToString(separator = "") { index -> "event: delta\ndata: {\"content\":\"$index,\"}\n\n" }
+        server.enqueue(MockResponse().setResponseCode(200).setHeader("Content-Type", "text/event-stream").setBody("event: meta\ndata: {\"model\":\"openai/gpt-5.6\"}\n\n" + deltas + "event: done\ndata: {\"finish_reason\":\"stop\"}\n\nevent: furniture_runs\ndata: [{\"id\":\"run-1\",\"label\":\"记忆搜索\"}]\n\nevent: desk_slip\ndata: {\"summary\":\"本轮递给模型\",\"comfort\":\"已保持在舒服区间\"}\n\n"))
+        val events = api.streamChat(chatRequest()).onEach { delay(2) }.toList()
         val receivedDeltas = events.filterIsInstance<ApiStreamEvent.Delta>()
         assertEquals(160, receivedDeltas.size)
         assertEquals("159,", receivedDeltas.last().text)
@@ -166,15 +149,8 @@ class CoastApiClientTest {
 
     @Test
     fun structuredBackendErrorKeepsTypeStatusAndMessage() = runBlocking {
-        server.enqueue(
-            MockResponse()
-                .setResponseCode(503)
-                .setHeader("Content-Type", "application/json")
-                .setBody("""{"ok":false,"error":{"type":"chat_db_not_configured","message":"主聊天 D1 存储未配置。"}}""")
-        )
-
+        server.enqueue(MockResponse().setResponseCode(503).setHeader("Content-Type", "application/json").setBody("""{"ok":false,"error":{"type":"chat_db_not_configured","message":"主聊天 D1 存储未配置。"}}"""))
         val error = runCatching { api.listConversations() }.exceptionOrNull() as CoastApiException
-
         assertEquals(CoastApiErrorKind.Server, error.kind)
         assertEquals("chat_db_not_configured", error.type)
         assertEquals(503, error.status)
@@ -182,16 +158,9 @@ class CoastApiClientTest {
     }
 
     private fun chatRequest() = RemoteChatRequest(
-        conversationId = "c1",
-        sourceTurnId = "t1",
-        model = "openai/gpt-5.6",
-        messages = listOf(RemoteChatMessage("user", "hello")),
-        localDate = "2026-09-02",
-        localDateTime = "2026-09-02 20:00"
+        conversationId = "c1", sourceTurnId = "t1", model = "openai/gpt-5.6",
+        messages = listOf(RemoteChatMessage("user", "hello")), localDate = "2026-09-02", localDateTime = "2026-09-02 20:00"
     )
 
-    private fun jsonResponse(body: String): MockResponse = MockResponse()
-        .setResponseCode(200)
-        .setHeader("Content-Type", "application/json")
-        .setBody(body)
+    private fun jsonResponse(body: String): MockResponse = MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(body)
 }

@@ -22,6 +22,12 @@ class RemoteCacheStore(
     fun dailyProfile(): RemoteDailyProfile? = decode(KEY_DAILY_PROFILE, RemoteDailyProfile.serializer())
     fun putDailyProfile(value: RemoteDailyProfile) = put(KEY_DAILY_PROFILE, RemoteDailyProfile.serializer(), value)
 
+    fun dailyMoments(): List<RemoteDailyMoment> = decode(KEY_DAILY_MOMENTS, ListSerializer(RemoteDailyMoment.serializer())) ?: emptyList()
+    fun putDailyMoments(value: List<RemoteDailyMoment>) = put(KEY_DAILY_MOMENTS, ListSerializer(RemoteDailyMoment.serializer()), value)
+
+    fun dailyDiaries(): List<RemoteDailyDiary> = decode(KEY_DAILY_DIARIES, ListSerializer(RemoteDailyDiary.serializer())) ?: emptyList()
+    fun putDailyDiaries(value: List<RemoteDailyDiary>) = put(KEY_DAILY_DIARIES, ListSerializer(RemoteDailyDiary.serializer()), value)
+
     fun modelCatalog(): RemoteModelCatalogResponse? = decode(KEY_MODELS, RemoteModelCatalogResponse.serializer())
     fun putModelCatalog(value: RemoteModelCatalogResponse) = put(KEY_MODELS, RemoteModelCatalogResponse.serializer(), value)
 
@@ -41,6 +47,8 @@ class RemoteCacheStore(
         private const val KEY_CONVERSATIONS = "remote.cache.conversations.v1"
         private const val KEY_PROFILE = "remote.cache.profile.v1"
         private const val KEY_DAILY_PROFILE = "remote.cache.daily-profile.v1"
+        private const val KEY_DAILY_MOMENTS = "remote.cache.daily-moments.v1"
+        private const val KEY_DAILY_DIARIES = "remote.cache.daily-diaries.v1"
         private const val KEY_MODELS = "remote.cache.models.v1"
     }
 }
