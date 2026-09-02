@@ -118,29 +118,47 @@ class CoastShellViewModelTest {
     }
 
     @Test
-    fun userEditCreatesVariantSwitchesAndDeletesOnlyCurrentVariant() {
+    fun userEditCreatesPairedAssistantVariantAndCurrentDeleteOnlyRemovesOneVersion() {
         val vm = CoastShellViewModel()
-        val messageId = 500L
-        vm.importMessages(listOf(ChatMessage(messageId, MessageRole.User, "旧消息")))
+        val userId = 500L
+        val assistantId = 501L
+        vm.importMessages(
+            listOf(
+                ChatMessage(userId, MessageRole.User, "旧消息"),
+                ChatMessage(assistantId, MessageRole.Assistant, "旧回复", modelId = "Native local")
+            )
+        )
 
-        vm.handleMessageAction(MessageAction.Edit(messageId, "新消息"))
-        var message = vm.state.value.messages.single()
-        assertEquals(2, message.variantCount)
-        assertEquals(1, message.variantIndex)
-        assertEquals("新消息", message.text)
+        vm.handleMessageAction(MessageAction.Edit(userId, "新消息"))
+        var user = vm.state.value.messages.first { it.id == userId }
+        var assistant = vm.state.value.messages.first { it.id == assistantId }
+        assertEquals(2, user.variantCount)
+        assertEquals(1, user.variantIndex)
+        assertEquals("新消息", user.text)
+        assertEquals(2, assistant.variantCount)
+        assertEquals(1, assistant.variantIndex)
+        assertEquals("", assistant.text)
+        assertEquals(assistantId, vm.state.value.streamingMessageId)
+        assertTrue(vm.state.value.isStreaming)
 
-        vm.handleMessageAction(MessageAction.SelectVariant(messageId, 0))
-        message = vm.state.value.messages.single()
-        assertEquals(0, message.variantIndex)
-        assertEquals("旧消息", message.text)
+        vm.stopGeneration()
+        vm.handleMessageAction(MessageAction.SelectVariant(userId, 0))
+        vm.handleMessageAction(MessageAction.SelectVariant(assistantId, 0))
+        user = vm.state.value.messages.first { it.id == userId }
+        assistant = vm.state.value.messages.first { it.id == assistantId }
+        assertEquals("旧消息", user.text)
+        assertEquals("旧回复", assistant.text)
+        assertEquals(0, user.variantIndex)
+        assertEquals(0, assistant.variantIndex)
 
-        vm.handleMessageAction(MessageAction.SelectVariant(messageId, 1))
-        vm.handleMessageAction(MessageAction.Delete(messageId))
-        message = vm.state.value.messages.single()
-        assertEquals(1, message.variantCount)
-        assertEquals(0, message.variantIndex)
-        assertEquals("旧消息", message.text)
-        assertTrue(message.variants.size == 1)
+        vm.handleMessageAction(MessageAction.SelectVariant(userId, 1))
+        vm.handleMessageAction(MessageAction.Delete(userId))
+        user = vm.state.value.messages.first { it.id == userId }
+        assertEquals(1, user.variantCount)
+        assertEquals(0, user.variantIndex)
+        assertEquals("旧消息", user.text)
+        assertEquals(1, user.variants.size)
+        assertEquals(2, vm.state.value.messages.first { it.id == assistantId }.variantCount)
     }
 
     @Test
