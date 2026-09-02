@@ -2,7 +2,7 @@
 
 Private Android native client for Elementera Coast / CoastGPT.
 
-**Status: Native v1 full local surface shell aligned to PWA app-59. Real backend wiring is intentionally deferred.**
+**Status: Native v1 full local surface shell aligned to PWA app-59 and current phone-review screenshots. Real backend wiring is intentionally deferred.**
 
 Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 
@@ -17,36 +17,42 @@ Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 
 - preserved Native 25 Gate, tuned drawer/topbar, RoomType and one shared ChatWindow
 - Main / Radio / Lighthouse still share timeline, message actions, Dogtalk and composer
-- assistant actions: copy / like / favorite / local regenerate / delete / footprint / 1-1 variant
-- user actions: copy / edit / delete / 1-1 variant
+- chat model label is larger, bounded and ellipsized; the old chevron is removed
+- assistant actions: copy / like / favorite / local regenerate / delete / footprint
+- user normal actions: edit / copy
+- local user edits append true UI variants; variant counter uses total/current (`2/1`, `2/2`) and disappears again at one variant
+- current-variant delete never deletes adjacent messages or another variant
 - local thought-soil / hand-seed sheet
 - per-assistant explicit `FurnitureRun` bubble bound to local action ids
 - Wolf Den: 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断
 - Serpent Action Log: redacted persistent local action transparency
-- Daily: 碳硅圈 / 日记 / 宠物系统 with local stores
-- Memory: 记忆库 / 种子库 / 世界书 / 自定义指令 with local stores
+- Daily home: 碳硅圈 / 日记 / 宠物系统; Carbon Circle and Diary use PWA-like local pages
+- Carbon Circle owns local Xiaohan/Myri avatar sources and cover; chat shares the same Myri avatar source
+- Pet entrance remains, while its interior and temporary pet-state model are intentionally empty for a later dedicated round
+- Memory: PWA-like 记忆库 / 种子库 / 世界书 / 自定义指令, with real local 日期/模型/窗口/标签 filters
 - local JSON / HTML chat export and JSON import into the current window
 - light / dark / gold plus local user-bubble and accent appearance
+- platform sans typography with slightly heavier body weights and softer foreground colors
 
 ## State ownership
 
 Feature state is not dumped into `MainShell` or one all-purpose ViewModel:
 
 ```text
-feature/chat       LocalChatStore + LocalFurnitureOrchestrator
+feature/chat       LocalChatStore + message UI + LocalFurnitureOrchestrator
 feature/wolf       WolfStore
 feature/actionlog  ActionLogStore
-feature/daily      DailyStore
-feature/memory     MemoryStore
-feature/shell      navigation and cross-feature coordination
+feature/daily      DailyStore + Daily surface components
+feature/memory     MemoryStore + Memory surface components
+feature/shell      navigation, drawer, shared and feature page chrome
 core/local         SharedPreferences / in-memory persistence boundary
 ```
 
-The physical-device product remains local-only. SharedPreferences stores Wolf/Daily/Memory/ActionLog state; conversations remain the Native chat owner and can be explicitly imported/exported.
+The physical-device product remains local-only. SharedPreferences stores Wolf/Daily/Memory/ActionLog state; conversations remain the Native chat owner and can be explicitly imported/exported. User-message variants are current local chat state and deliberately remain separate from the future API contract skeleton.
 
 ## App-59 product mother
 
-This pass was rebuilt cleanly from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a4`) using the read-only PWA app-59 source at `elementera-coast@c4dd2ad6260bb9d8065a97ab57ddccfd78c697ef`.
+This pass was rebuilt cleanly from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a4`) using the read-only PWA app-59 source at `elementera-coast@c4dd2ad6260bb9d8065a97ab57ddccfd78c697ef`, then visually reviewed against phone screenshots of the PWA Chat, Memory, Daily, Carbon Circle and Diary surfaces.
 
 The abandoned earlier Native 26 attempt is not a compatibility source and is not bridged into this code.
 
@@ -59,6 +65,7 @@ The abandoned earlier Native 26 attempt is not a compatibility source and is not
 - no o3 reply-card changes
 - no Calendar / Today Coast / Summary / Album
 - no old Serpent Desk pseudo-settings
+- no hidden temporary Pet controls/state
 - no `legacy` / `compat` / `bridge` / `temp` / `misc` source layer
 
 `core/network/CoastGatewayClient.kt` remains an unwired future interface.
