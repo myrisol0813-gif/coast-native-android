@@ -25,6 +25,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -41,9 +42,11 @@ internal fun DailySurfaceCard(
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    val shape = RoundedCornerShape(22.dp)
     val base = modifier
         .fillMaxWidth()
-        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
+        .shadow(elevation = 2.dp, shape = shape, clip = false)
+        .background(MaterialTheme.colorScheme.surfaceVariant, shape)
     Column(
         modifier = (if (onClick == null) base else base.clickable(onClick = onClick))
             .padding(horizontal = 20.dp, vertical = 20.dp)
@@ -52,15 +55,17 @@ internal fun DailySurfaceCard(
 
 @Composable
 internal fun DailyPrimaryButton(label: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(18.dp))
+            .shadow(elevation = 2.dp, shape = shape, clip = false)
+            .background(MaterialTheme.colorScheme.primary, shape)
             .clickable(onClick = onClick)
             .padding(vertical = 15.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(label, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -74,7 +79,7 @@ internal fun DailyField(
     maxLines: Int = 1
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(6.dp))
         BasicTextField(
             value = value,
@@ -111,8 +116,8 @@ internal fun DailyAvatarRow(
             DailyAvatar(uri, fallback)
             Spacer(Modifier.size(14.dp))
             Column {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -126,18 +131,20 @@ internal fun DailyAvatar(uri: String, fallback: String) {
         contentAlignment = Alignment.Center
     ) {
         if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Text(fallback, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        else Text(fallback, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 internal fun DailyCover(uri: String, onClick: () -> Unit) {
     val bitmap = rememberDailyBitmap(uri)
+    val shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+            .shadow(elevation = 2.dp, shape = shape, clip = false)
+            .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
