@@ -18,11 +18,12 @@ data class FurnitureRun(
     val errorType: String = ""
 )
 
-/** Native local UI state only; deliberately separate from the future API contract skeleton. */
+/** Native presentation state mapped from the remote conversation contract. */
 data class ChatMessage(
     val id: Long,
     val role: MessageRole,
     val text: String,
+    val turnId: String? = null,
     val modelId: String? = null,
     val generationSource: String? = null,
     val liked: Boolean = false,
@@ -46,5 +47,6 @@ sealed interface MessageAction {
     data class Regenerate(override val messageId: Long) : MessageAction
     data class Delete(override val messageId: Long) : MessageAction
     data class Edit(override val messageId: Long, val text: String) : MessageAction
+    data class Retry(override val messageId: Long) : MessageAction
     data class SelectVariant(override val messageId: Long, val index: Int) : MessageAction
 }
