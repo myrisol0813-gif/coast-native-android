@@ -2,7 +2,9 @@
 
 Baseline product mother: PWA app-60 (`elementera-coast@0b9ca38d50738d0c367637ccd06579a4f5feacfe`).
 
-Reviewed delta for Native `0.1.13-app62-desk-fix-27`: current PWA app-62 `settings.js`, where `settings:desk` opens `小蛇书桌 / Myri 的工作台` and the current tool shelf contains `小蛇行动日志`.
+Reviewed deltas:
+- app-62 `settings.js`: `小蛇书桌 / Myri 的工作台` with `小蛇行动日志` as the current tool shelf item.
+- Native phone review: Radio / Lighthouse room entries are transient landings; a persistent conversation is created only on first send or explicit New.
 
 PWA source remains read-only reference. Web/PWA code and assets are not copied into this repository.
 
@@ -12,14 +14,19 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 | --- | --- |
 | Gate | existing source-faithful Coast mark / password entrance |
 | MainShell / Drawer | tuned Native shell and conversation layout |
-| Main / Radio / Lighthouse | one shared `ChatWindow` / `RoomType`; local threads start empty |
+| Main | opens an existing concrete Main conversation |
+| Radio / Lighthouse entry | opens an empty transient room landing with no conversation id |
+| First send in Radio / Lighthouse | creates a fresh persistent conversation, then writes user + assistant messages into that exact thread |
+| Explicit New in Radio / Lighthouse | immediately creates a fresh persistent conversation |
+| Room history | created Radio / Lighthouse conversations remain ordinary sidebar windows and retain their local thread when revisited |
+| ChatWindow | Main / Radio / Lighthouse still share one `ChatWindow` / `RoomType` implementation |
 | Chat More | opens local `登岛信` for current conversation + model |
 | Assistant actions | copy / like / favorite / local regenerate / delete / footprint |
 | User actions / variants | edit + copy; edit branches paired user/assistant local variants |
 | 本轮家具 | explicit action ids bound to assistant message; no timestamp guessing |
 | Dogtalk | existing four-field local drawer |
 | Wolf Den | 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断 |
-| 模型箱当前模型 | one compact solid `surfaceVariant` bubble with thin outline; no full-width alpha fill |
+| 模型箱当前模型 | one compact solid `surfaceVariant` bubble with thin outline |
 | 模型目录 | unselected models grouped inside one catalog card by o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image |
 | Model refresh | visible offline action; real OpenRouter retrieval still deferred |
 | Serpent Desk | visible desk home (`小蛇书桌 / Myri 的工作台`) with an extensible tool shelf |
@@ -29,22 +36,33 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 | Memory | 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface |
 | Network | no `INTERNET` permission, no base URL, no real API/OpenRouter/SSE call |
 
+## Room-entry rules
+
+1. `initialConversations()` contains Main history only; there are no hidden `radio-1` / `lighthouse-1` fixture windows.
+2. Tapping Radio or Lighthouse does not steal/open an old history thread. It enters a blank room landing (`activeConversationId == ""`).
+3. Leaving that landing without sending creates nothing.
+4. First send calls the chat owner to create `新聊天 n` for the active room type before any furniture/action/message write occurs.
+5. The newly created id becomes active and is immediately present in the sidebar conversation list.
+6. Selecting another window and returning through that history item restores the same local thread.
+7. Tapping the room entry again intentionally starts a new blank landing; the next first send creates another conversation.
+8. The explicit New button still creates a conversation immediately.
+
 ## Ownership
 
 ```text
-feature/chat         chat thread/message/furniture UI
+feature/chat         LocalChatStore + message/furniture UI
 feature/wolf         Wolf settings + ModelCatalog + ModelBoxScreen
 feature/letters      Island Letter local content/store/screen
 feature/serpentdesk  visible desk home + tool-shelf navigation
 feature/actionlog    Action Log data/store/tool screen
 feature/daily        Carbon Circle / Diary / blank Pet
 feature/memory       Memory / Seed / Worldbook / Custom Instructions
-feature/shell        shell navigation and cross-feature coordination only
+feature/shell        navigation and coordination; transient room landing + materialization orchestration
 core/local           local persistence boundary
 core/model           stable shared shell/chat models
 ```
 
-Serpent Desk and Action Log do not duplicate state: the desk is the container; Action Log is a tool implementation. The existing `actionLogFocusIds` remain action-log-specific navigation data for furniture deep links.
+The room landing is not a hidden conversation and has no parallel thread store. On first send the shell asks the existing `LocalChatStore` to create one real conversation, then all messages continue through that same store.
 
 ## Model-box rules
 
@@ -59,10 +77,9 @@ Serpent Desk and Action Log do not duplicate state: the desk is the container; A
 
 1. Sidebar opens `Serpent Desk / 小蛇书桌`.
 2. Desk home shows `小蛇书桌` with subtitle `Myri 的工作台`.
-3. The tool list is modeled as `SerpentDeskItem(tool, title, subtitle)` so future tools can be added without rewriting Action Log.
+3. Tool list uses `SerpentDeskItem(tool, title, subtitle)`.
 4. Current only tool: `小蛇行动日志` — `工具调用成功 / 失败 · 房间 · 脱敏摘要`.
-5. Opening the tool shows the existing Action Log UI and offers a local back path to the desk home.
-6. Furniture deep links with focus ids enter the Action Log tool directly, still inside the Serpent Desk surface.
+5. Furniture focus ids enter that tool directly inside the desk surface.
 
 ## Hard boundaries
 
