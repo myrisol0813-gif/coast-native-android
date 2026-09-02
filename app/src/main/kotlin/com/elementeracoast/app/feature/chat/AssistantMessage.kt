@@ -76,6 +76,17 @@ internal fun AssistantMessage(
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
                 MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
             }
+            if (message.variantCount > 1) {
+                Spacer(Modifier.height(4.dp))
+                Row(modifier = Modifier.align(Alignment.End)) {
+                    VariantControl(
+                        index = message.variantIndex,
+                        count = message.variantCount,
+                        onPrevious = { onAction(MessageAction.SelectVariant(message.id, message.variantIndex - 1)) },
+                        onNext = { onAction(MessageAction.SelectVariant(message.id, message.variantIndex + 1)) }
+                    )
+                }
+            }
             GenerationFootprint(message, onFootprint, Modifier.align(Alignment.End))
         }
     }
