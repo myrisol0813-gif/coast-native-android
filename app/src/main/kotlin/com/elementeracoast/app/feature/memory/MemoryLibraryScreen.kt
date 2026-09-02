@@ -45,7 +45,7 @@ internal fun MemoryLibraryScreen(store: MemoryStore, onActionLogged: (String, St
                 SmallButton("新增") { creating = true }
             }
         }
-        item { WolfTextField("搜索标题、核心、内容、分类或标签", query) { query = it } }
+        item { WolfTextField("搜索标题、核心、内容、分类或标签", query, { query = it }) }
         if (visible.isEmpty()) {
             item { QuietDailyCard { Text(if (state.memories.isEmpty()) "这里还没有长期记忆。" else "没有匹配的记忆。", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         } else {
@@ -72,11 +72,13 @@ internal fun MemoryLibraryScreen(store: MemoryStore, onActionLogged: (String, St
         onActionLogged("memory.write", "写入本地记忆", "新增 1 条本地记忆")
         creating = false
     }
-    editing?.let { entry -> MemoryEditor(entry, onDismiss = { editing = null }) { draft ->
-        store.saveMemory(draft.copy(id = entry.id))
-        onActionLogged("memory.edit", "编辑本地记忆", "更新 1 条本地记忆")
-        editing = null
-    } }
+    editing?.let { entry ->
+        MemoryEditor(entry, onDismiss = { editing = null }) { draft ->
+            store.saveMemory(draft.copy(id = entry.id))
+            onActionLogged("memory.edit", "编辑本地记忆", "更新 1 条本地记忆")
+            editing = null
+        }
+    }
 }
 
 @Composable
@@ -93,16 +95,25 @@ private fun MemoryEditor(entry: LocalMemoryEntry?, onDismiss: () -> Unit, onSave
         title = { Text(if (entry == null) "新增记忆" else "编辑记忆") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                WolfTextField("标题", title) { title = it }
-                WolfTextField("life_core / 核心", lifeCore) { lifeCore = it }
+                WolfTextField("标题", title, { title = it })
+                WolfTextField("life_core / 核心", lifeCore, { lifeCore = it })
                 WolfTextField("content", content, { content = it }, minLines = 3)
-                WolfTextField("usage_hint", usageHint) { usageHint = it }
-                WolfTextField("avoid_hint", avoidHint) { avoidHint = it }
-                WolfTextField("分类", category) { category = it }
-                WolfTextField("tags · 逗号分隔", tags) { tags = it }
+                WolfTextField("usage_hint", usageHint, { usageHint = it })
+                WolfTextField("avoid_hint", avoidHint, { avoidHint = it })
+                WolfTextField("分类", category, { category = it })
+                WolfTextField("tags · 逗号分隔", tags, { tags = it })
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(LocalMemoryEntry(entry?.id.orEmpty(), title, lifeCore, content, usageHint, avoidHint, tags.split(',').map(String::trim).filter(String::isNotBlank), category)) }) { Text("保存") } },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(
+                    LocalMemoryEntry(
+                        entry?.id.orEmpty(), title, lifeCore, content, usageHint, avoidHint,
+                        tags.split(',').map(String::trim).filter(String::isNotBlank), category
+                    )
+                )
+            }) { Text("保存") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }
