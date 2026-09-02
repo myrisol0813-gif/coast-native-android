@@ -223,9 +223,16 @@ internal fun MomentComposeScreen(
                         saving = true
                         scope.launch {
                             try {
-                                repository.createMoment(date, body)
+                                val created = repository.createMoment(date, body)
                                 onActionLogged("daily.moment.write", "写了一条碳硅圈", "海岸新增 1 条小寒动态")
-                                onSnackbar("动态已发布到海岸碳硅圈")
+                                try {
+                                    repository.requestMyriComment(created.id)
+                                    onActionLogged("daily.moment.myri-comment", "Myri 即时留言", "海岸已生成并保存 1 条真实留言")
+                                    onSnackbar("动态已发布，Myri 也在海岸留下了回复")
+                                } catch (commentError: Throwable) {
+                                    val detail = if (commentError is CoastApiException) commentError.message else commentError.message ?: "未知错误"
+                                    onSnackbar("动态已发布；Myri 即时留言暂未完成：$detail")
+                                }
                                 onDone()
                             } catch (error: Throwable) {
                                 val detail = if (error is CoastApiException) error.message else error.message ?: "未知错误"
