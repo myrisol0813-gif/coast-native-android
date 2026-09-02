@@ -680,7 +680,7 @@ class CoastShellViewModel(
     private suspend fun <T> remoteOrNull(label: String, block: suspend () -> T): T? = try {
         block()
     } catch (error: CoastApiException) {
-        handleBackendError(error, "$label失败", keepAuthenticatedOnNetworkError = true)
+        handleBackendError(error, "${label}失败", keepAuthenticatedOnNetworkError = true)
         null
     }
 
