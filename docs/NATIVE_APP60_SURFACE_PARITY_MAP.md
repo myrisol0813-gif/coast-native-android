@@ -6,6 +6,7 @@ Reviewed deltas:
 - app-62 `settings.js`: `小蛇书桌 / Myri 的工作台` with `小蛇行动日志` as the current tool shelf item.
 - Native phone review: Radio / Lighthouse room entries are transient landings; a persistent conversation is created only on first send or explicit New.
 - current PWA Daily moments surface: a model-comment action exists beside normal moment actions. Native exposes it as a separate second-row `叫 Myri 来评论` chip, but keeps model comment generation explicitly unwired until backend integration.
+- Native phone review 0.1.16: accent selection must parse ordinary `#RRGGBB` as ARGB rather than Compose packed-color data; chat and Carbon Circle content use normal body weight; Carbon Circle uses a compact shared-avatar strip and stronger content/comment hierarchy.
 
 PWA source remains read-only reference. Web/PWA code and assets are not copied into this repository.
 
@@ -21,12 +22,14 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 | Explicit New in Radio / Lighthouse | immediately creates a fresh persistent conversation |
 | Room history | created Radio / Lighthouse conversations remain ordinary sidebar windows and retain their local thread when revisited |
 | ChatWindow | Main / Radio / Lighthouse still share one `ChatWindow` / `RoomType` implementation |
+| Chat body | user and assistant message bodies explicitly render at normal font weight; action labels/titles keep their own hierarchy |
 | Chat More | opens local `登岛信` for current conversation + model |
 | Assistant actions | copy / like / favorite / local regenerate / delete / footprint |
 | User actions / variants | edit + copy; edit branches paired user/assistant local variants |
 | 本轮家具 | explicit action ids bound to assistant message; no timestamp guessing |
 | Dogtalk | existing four-field local drawer |
 | Wolf Den | 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断 |
+| Appearance accent | local `#RRGGBB` presets are decoded as ordinary opaque ARGB colors; no packed-color `ULong` path |
 | 模型箱当前模型 | one compact solid `surfaceVariant` bubble with thin outline |
 | 模型目录 | unselected models grouped inside one catalog card by o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image |
 | Model refresh | visible offline action; real OpenRouter retrieval still deferred |
@@ -34,6 +37,8 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 | 小蛇行动日志 | current only desk tool; persistent redacted local records with filters |
 | Furniture → log | opens the Action Log tool inside Serpent Desk using exact action ids |
 | Daily | 碳硅圈 / 日记 / blank Pet surface |
+| 碳硅圈 avatar strip | one compact strip with small 小寒 / Myri avatar chips; Myri still reads/writes the same `DailyStore.myriAvatarUri` used by homepage chat |
+| 碳硅圈 content | moment body is normal weight; comments use a bold author name plus normal-weight content at content-area size; a light divider separates content from tools; timestamp stays small |
 | 碳硅圈 normal actions | local like / comment / delete remain on the first action row |
 | 碳硅圈 Myri comment | separate second-row `叫 Myri 来评论` chip; records the local request and clearly reports that real model commenting waits for backend wiring; it does not manufacture a fake Myri comment |
 | Memory | 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface |
@@ -50,6 +55,14 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 7. Tapping the room entry again intentionally starts a new blank landing; the next first send creates another conversation.
 8. The explicit New button still creates a conversation immediately.
 
+## Daily presentation rules
+
+1. `MomentScreen.kt` owns page state/dialog orchestration, not the card's typography/layout.
+2. `MomentCard.kt` owns moment body, visible comments, light divider and footer formatting.
+3. `MomentActions.kt` owns first-row actions, small timestamp presentation and the second-row Myri-comment chip.
+4. The top profile selectors are one compact `DailyAvatarStrip`; they do not create a second Myri avatar state.
+5. Homepage chat and Carbon Circle both continue to use `DailyStore.myriAvatarUri` / `setMyriAvatar()`.
+
 ## Daily Myri-comment rule
 
 1. Normal user actions stay on the first row; `叫 Myri 来评论` is visually separated onto a small second-row chip.
@@ -57,6 +70,12 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 3. Native does not alter the current string-only local comment schema merely to predict the PWA backend comment schema while it is still changing.
 4. Until backend wiring exists, tapping the chip records a redacted local action and shows `真实 Myri 评论将在后端接线后启用。`.
 5. No fake Myri-authored comment is inserted into the feed.
+
+## Appearance safety rule
+
+1. `CoastAppearance.parseCoastHex()` accepts only six-digit RGB strings.
+2. It produces an opaque ARGB `Color` from a `Long`; it must not convert the value to `ULong`, because that selects Compose's packed-color representation rather than normal ARGB input.
+3. Unit coverage includes every visible Native accent preset: orange, gold, blue and pink.
 
 ## Ownership
 
@@ -66,10 +85,11 @@ feature/wolf         Wolf settings + ModelCatalog + ModelBoxScreen
 feature/letters      Island Letter local content/store/screen
 feature/serpentdesk  visible desk home + tool-shelf navigation
 feature/actionlog    Action Log data/store/tool screen
-feature/daily        Carbon Circle / MomentActions / Diary / blank Pet
+feature/daily        Carbon Circle / MomentCard / MomentActions / Diary / blank Pet
 feature/memory       Memory / Seed / Worldbook / Custom Instructions
 feature/shell        navigation and coordination; transient room landing + materialization orchestration
 core/local           local persistence boundary
+ui/theme             theme/color parsing and stable visual tokens
 core/model           stable shared shell/chat models
 ```
 
