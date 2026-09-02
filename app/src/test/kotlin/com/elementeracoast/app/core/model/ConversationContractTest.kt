@@ -6,10 +6,9 @@ import org.junit.Test
 
 class ConversationContractTest {
     @Test
-    fun initialConversationHistoryContainsMainOnly() {
+    fun shellBootsWithoutHardCodedBusinessConversations() {
         val conversations = CoastShellState().conversations
-        assertTrue(conversations.isNotEmpty())
-        assertTrue(conversations.all { it.roomType == RoomType.Main })
+        assertTrue(conversations.isEmpty())
         assertEquals(conversations, filterConversations(conversations, ""))
     }
 
