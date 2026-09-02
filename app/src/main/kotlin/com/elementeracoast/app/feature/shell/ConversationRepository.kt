@@ -6,31 +6,39 @@ import com.elementeracoast.app.core.network.CoastApiClient
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteConversation
 
-class ConversationRepository(
+interface ConversationRepository {
+    fun cached(): List<ConversationSummary>
+    suspend fun refresh(): List<ConversationSummary>
+    suspend fun create(roomType: RoomType, title: String = "新聊天"): ConversationSummary
+    suspend fun rename(id: String, title: String): ConversationSummary
+    suspend fun delete(id: String)
+}
+
+class DefaultConversationRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore
-) {
-    fun cached(): List<ConversationSummary> = cache.conversations().map(::toSummary)
+) : ConversationRepository {
+    override fun cached(): List<ConversationSummary> = cache.conversations().map(::toSummary)
 
-    suspend fun refresh(): List<ConversationSummary> {
+    override suspend fun refresh(): List<ConversationSummary> {
         val remote = api.listConversations()
         cache.putConversations(remote)
         return remote.map(::toSummary)
     }
 
-    suspend fun create(roomType: RoomType, title: String = "新聊天"): ConversationSummary {
+    override suspend fun create(roomType: RoomType, title: String): ConversationSummary {
         val created = api.createConversation(title, roomType.wireValue)
         replaceCached(created)
         return toSummary(created)
     }
 
-    suspend fun rename(id: String, title: String): ConversationSummary {
+    override suspend fun rename(id: String, title: String): ConversationSummary {
         val updated = api.renameConversation(id, title.trim().ifBlank { "新聊天" })
         replaceCached(updated)
         return toSummary(updated)
     }
 
-    suspend fun delete(id: String) {
+    override suspend fun delete(id: String) {
         api.deleteConversation(id)
         cache.putConversations(cache.conversations().filterNot { it.id == id })
         cache.removeHistory(id)
