@@ -79,19 +79,22 @@ fun MainShell(
             )
         }
     ) {
+        val ownsPageChrome = state.activeFeature == FeatureDestination.Memory || state.activeFeature == FeatureDestination.Daily
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                CoastTopBar(
-                    state = state,
-                    onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                    onBack = onBackToChat,
-                    onOpenModels = onOpenModels,
-                    onNewConversation = onNewConversation,
-                    onMore = { onPlaceholder("登岛信与予爱机书尚未接回 Native；本轮不做无反应按钮。") }
-                )
+                if (!ownsPageChrome) {
+                    CoastTopBar(
+                        state = state,
+                        onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                        onBack = onBackToChat,
+                        onOpenModels = onOpenModels,
+                        onNewConversation = onNewConversation,
+                        onMore = { onPlaceholder("登岛信与予爱机书尚未接回 Native；本轮不做无反应按钮。") }
+                    )
+                }
             }
         ) { innerPadding ->
             Box(Modifier.fillMaxSize().padding(innerPadding)) {
@@ -112,6 +115,7 @@ fun MainShell(
                         shellState = state,
                         services = services,
                         messages = state.messages,
+                        onBackToChat = onBackToChat,
                         onSelectModel = onSelectModel,
                         onImportMessages = onImportMessages,
                         onLocalActionLogged = onLocalActionLogged,
