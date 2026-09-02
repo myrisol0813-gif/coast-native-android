@@ -1,98 +1,109 @@
 # coast-native-android
 
-Private Android native client for Elementera Coast / CoastGPT.
+Private native Android client for Elementera Coast / CoastGPT.
 
-**Status: Native v1 local review shell aligned through the app-60 body plus reviewed app-62 deltas. Real backend wiring is intentionally deferred.**
+## Current status
 
-Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md`.
+Native 30 is under Draft validation. The Android body is no longer a local prototype shell: authentication, conversations, history, chat streaming, chat profile, Daily data and thought soil use the real Coast backend.
+
+The architectural rule is:
+
+```text
+PWA ─┐
+     ├── Coast canonical backend
+Native ┘
+```
+
+Shared Coast content has one canonical server owner. Native caches may retain the latest successful snapshot for continuity, but they are not a second authoritative database and there is no local↔remote merge engine.
 
 ## Product identity
 
-- App: `CoastGPT` / `com.elementeracoast.app`
-- Gate: `Elementera Coast` · `沿海岸保存回声`
-- Kotlin / Jetpack Compose only
-- no WebView, React Native, TypeScript or committed Web/PWA assets
+- App: `CoastGPT`
+- application id: `com.elementeracoast.app`
+- Kotlin + Jetpack Compose
+- JDK 17 / Android SDK 34 / Gradle 8.9
+- production Coast origin is centralized in `BuildConfig.COAST_API_BASE_URL`
+- no WebView, React Native, TypeScript or embedded PWA source
 
-## Native body
+## Real backend wiring
 
-- tuned drawer/topbar, `RoomType` and one shared `ChatWindow`
-- Main history is concrete; Radio / Lighthouse sidebar entries are transient empty room landings
-- there are no prebuilt `radio-1` / `lighthouse-1` fixture conversations
-- first send in Radio / Lighthouse creates a fresh persistent conversation before writing messages; explicit New still creates immediately
-- created Radio / Lighthouse conversations appear in sidebar history and keep their local thread when revisited
-- chat top-right More opens local `登岛信`
-- island letter uses current-model `To ...` text and is stored independently per conversation + model; delivery remains unwired
-- assistant actions: copy / like / favorite / local regenerate / delete / footprint
-- user edit creates paired local user + assistant variants; fake generation targets the exact assistant variant
-- local thought-soil / furniture transparency remains explicit
-- Wolf Den: 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断
-- Model Box renders the current model as one compact solid bubble; all unselected models stay inside one grouped expandable catalog
-- catalog groups: o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image
-- Refresh is visible but explicitly offline until backend OpenRouter catalog wiring exists; no fake network result
-- sidebar identity is `Serpent Desk / 小蛇书桌`; opening it lands on the desk home, whose current tool shelf contains `小蛇行动日志`
-- furniture deep links open the Action Log tool inside Serpent Desk
-- Daily: 碳硅圈 / 日记 / blank Pet interior
-- Carbon Circle keeps like/comment/delete on the first action row and a separate small second-row `叫 Myri 来评论` chip
-- the Myri-comment chip is intentionally local-only for now: it logs the request and states that real model commenting waits for backend wiring; it never fabricates a Myri comment
-- Memory: 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface with real local filters
-- local JSON / HTML chat export and JSON import
-- light / dark / gold plus local bubble/accent appearance
+Current canonical paths include:
 
-## State ownership
+- Coast password/session restore through the real backend cookie contract
+- conversation list/create/rename/delete
+- shared PWA ↔ Native chat history
+- real `/api/chat` SSE generation
+- canonical chat profile and model catalog
+- per-conversation thought soil
+- Daily moments, likes, comments and real Myri instant comments
+- Daily diaries including date/tags edits
+- Xiaohan Daily avatar and moment cover
+- Myri avatar through the canonical chat-profile `assistant_avatar_dataurl`
+
+The current shared-state acceptance pass also carries support for the canonical assistant-variant `desk_slip` history field. Once the matching Coast/PWA backend change is promoted, the current window's `本轮桌面` can survive switching away and back in both clients.
+
+## Native state ownership
+
+Server-owned feature repositories currently include:
 
 ```text
-feature/chat         LocalChatStore + message UI + LocalFurnitureOrchestrator
-feature/wolf         WolfStore + ModelCatalog + ModelBoxScreen
-feature/letters      IslandLetterContent + IslandLetterStore + IslandLetterScreen
-feature/serpentdesk  SerpentDeskScreen + visible tool shelf/navigation
-feature/actionlog    ActionLogStore + ActionLogScreen tool implementation
-feature/daily        DailyStore + MomentActions + Daily surfaces
-feature/memory       MemoryStore + Memory surfaces
-feature/shell        navigation + transient room landing/materialization coordination
-core/local           SharedPreferences / in-memory persistence boundary
-core/model           shared stable shell/chat models
+core/auth                  session owner
+core/network               one Coast HTTP/SSE transport
+core/remote                wire DTOs + remote snapshot cache
+feature/shell              conversations + chat profile composition
+feature/chat               canonical history/generation mapping + UI
+feature/daily              canonical Daily repository + UI
+feature/memory             canonical thought-soil repository
 ```
 
-A Radio/Lighthouse landing is not a hidden conversation or second thread store. The first real send creates one normal `LocalChatStore` conversation and all subsequent message operations use that exact thread.
+Device-local state remains appropriate for this body's own appearance/preferences, such as Native theme/accent/bubble presentation.
 
-## PWA reference
+Some older feature surfaces are still local prototypes and are scheduled for later single-source checkpoints rather than being silently treated as synchronized data. In particular, do not assume every Memory/Worldbook/Custom Instructions, Action Log or Island Letter management surface has completed canonical migration until its owning repository is explicitly converted.
 
-The main Native body was reviewed against PWA app-60. Later read-only app-62 review confirms the Serpent Desk home/tool-shelf structure and the current Daily model-comment action. Web/PWA source remains reference-only and is never copied into this repository.
+## Current Native 30 acceptance behavior
 
-## Hard boundaries
+- Myri avatar is owned by the chat profile, not a duplicate Daily profile field.
+- Xiaohan avatar and Carbon Circle cover remain Daily profile fields.
+- posting a Xiaohan moment triggers the real instant Myri-comment flow after the moment is saved; manual retry remains available if that second step fails.
+- furniture/tool result bubble is a timeline attachment above thought soil and the assistant reply.
+- in-app Refresh re-reads canonical Coast state through existing repositories instead of restarting the Activity.
+- launcher uses the Coast navy/gold horned GPT mark.
 
-- no `android.permission.INTERNET`
-- no real login/API/SSE/OpenRouter request/model call
-- no base URL/token/password/provider secret
-- no real Daily/Memory/MCP sync
-- no fake Myri-authored Daily comment while model-comment backend wiring is absent
-- no o3 reply-card changes
-- no Calendar / Today Coast / Summary / Album
-- no restored old desk pseudo-settings
-- no hidden temporary Pet controls/state
-- no `legacy` / `compat` / `bridge` / `temp` / `misc` source layer
+## Stable signing
 
-`core/network/CoastGatewayClient.kt` remains an unwired future interface.
+Gradle and GitHub Actions already support a persistent signing key. No keystore or password belongs in source control.
 
-## Dogtalk invariant
+When all four repository secrets exist, CI decodes the keystore only inside the runner and signs both debug acceptance builds and release builds with the stable key:
 
 ```text
-body
-true_core
-weather
-read_mode
+COAST_ANDROID_KEYSTORE_B64
+COAST_ANDROID_KEYSTORE_PASSWORD
+COAST_ANDROID_KEY_ALIAS
+COAST_ANDROID_KEY_PASSWORD
 ```
+
+Until those secrets are configured, CI intentionally reports `stable_signing=false` and falls back to the runner debug key. Different runner keys may prevent overwrite-install even when `versionCode` increases.
 
 ## Build
-
-Requires JDK 17, Android SDK 34, Gradle 8.9.
 
 ```bash
 gradle :app:testDebugUnitTest --no-daemon --stacktrace
 gradle :app:assembleDebug --no-daemon --stacktrace
 ```
 
-GitHub Actions runs both and stages the debug APK artifact.
+GitHub Actions additionally enforces structural/single-source guards, verifies the package identity, records signing mode, stages the APK and publishes SHA-256 metadata.
+
+## Hard boundaries
+
+- no provider/API/session secrets committed to the APK repository
+- no logging of Cookie or Authorization values
+- no second Daily HTTP client
+- no local authoritative clone of canonical Daily data
+- no local↔remote sync/merge engine
+- no fake Myri reply or fake tool run to make an unwired feature look complete
+- no `legacy` / `compat` / `bridge` / `temp` / `misc` source layer
+- no theme/wardrobe work mixed into backend wiring checkpoints
+- no merge of Draft Native checkpoints without explicit device acceptance / approval
 
 ## Attribution
 
