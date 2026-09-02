@@ -38,6 +38,8 @@ fun MainShell(
     onCycleTheme: () -> Unit,
     onOpenFeature: (FeatureDestination) -> Unit,
     onBackToChat: () -> Unit,
+    onRefresh: () -> Unit,
+    onUpdateMyriAvatar: (String) -> Unit,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
@@ -96,6 +98,7 @@ fun MainShell(
                         onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
                         onBack = onBackToChat,
                         onOpenModels = onOpenModels,
+                        onRefresh = onRefresh,
                         onNewConversation = onNewConversation,
                         onMore = { onOpenFeature(FeatureDestination.IslandLetter) }
                     )
@@ -107,7 +110,6 @@ fun MainShell(
                 if (feature == null) {
                     ChatWindow(
                         state = state,
-                        daily = daily,
                         onSend = onSend,
                         onStop = onStop,
                         onMessageAction = onMessageAction,
@@ -122,6 +124,8 @@ fun MainShell(
                         daily = daily,
                         messages = state.messages,
                         onBackToChat = onBackToChat,
+                        onRefresh = onRefresh,
+                        onUpdateMyriAvatar = onUpdateMyriAvatar,
                         onSelectModel = onSelectModel,
                         onRefreshModels = onRefreshModels,
                         onImportMessages = onImportMessages,
