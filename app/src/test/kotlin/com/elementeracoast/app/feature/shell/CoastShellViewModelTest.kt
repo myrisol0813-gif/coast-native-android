@@ -7,17 +7,21 @@ import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
+import com.elementeracoast.app.core.model.ThoughtSeedSnapshot
+import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
+import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.core.remote.RemoteDailyProfile
 import com.elementeracoast.app.core.remote.RemoteHistory
+import com.elementeracoast.app.core.remote.RemoteModelCatalogItem
 import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
 import com.elementeracoast.app.core.remote.RemoteModelGroups
-import com.elementeracoast.app.core.remote.RemoteModelCatalogItem
 import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatRepository
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
+import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -118,6 +122,19 @@ class CoastShellViewModelTest {
     }
 
     @Test
+    fun completedReplyExposesDeskReceiptAndOrganizesThoughtSoil() {
+        val fixture = Fixture()
+        fixture.conversations.seed(RoomType.Main, "主聊天")
+        val vm = fixture.vm()
+
+        vm.sendMessage("把本轮上下文收好")
+
+        assertEquals("本轮递给模型", vm.state.value.turnDeskReceipt?.summary)
+        assertEquals(1, fixture.thoughtSoil.organizeCalls)
+        assertEquals(listOf("新芽"), vm.state.value.thoughtSoil?.handSeeds?.map { it.name })
+    }
+
+    @Test
     fun backendConversationDeleteNeverCreatesLocalFallbackConversation() {
         val fixture = Fixture()
         val only = fixture.conversations.seed(RoomType.Main, "唯一窗口")
@@ -154,11 +171,12 @@ class CoastShellViewModelTest {
         val conversations = FakeConversationRepository()
         val profile = FakeProfileRepository()
         val chat = FakeChatRepository()
+        val thoughtSoil = FakeThoughtSoilRepository()
         val persistence = MemoryLocalPersistence()
 
         fun vm(): CoastShellViewModel = CoastShellViewModel(
             persistence = persistence,
-            backend = CoastBackendGraph(auth, conversations, profile, chat),
+            backend = CoastBackendGraph(auth, conversations, profile, chat, thoughtSoil),
             workDispatcher = Dispatchers.Unconfined
         )
     }
@@ -215,6 +233,32 @@ class CoastShellViewModelTest {
         override suspend fun setCurrentChatModel(modelId: String) = current.copy(currentChatModel = modelId)
     }
 
+    private class FakeThoughtSoilRepository : ThoughtSoilRepository {
+        var organizeCalls = 0
+
+        override suspend fun load(conversationId: String): ThoughtSoilSnapshot = soil(conversationId, emptyList())
+
+        override suspend fun organizeAfterReply(conversationId: String, modelId: String): ThoughtSoilSnapshot {
+            organizeCalls += 1
+            return soil(
+                conversationId,
+                listOf(ThoughtSeedSnapshot("新芽", "本轮新承接", "下一轮继续", "不要机械复读"))
+            )
+        }
+
+        private fun soil(conversationId: String, seeds: List<ThoughtSeedSnapshot>) = ThoughtSoilSnapshot(
+            conversationId = conversationId,
+            currentText = "当前窗口继续承接本轮。",
+            handSeeds = seeds,
+            doNotRepeat = "",
+            pocketCandidates = emptyList(),
+            manualLocked = false,
+            revision = 1,
+            organizer = "GPT-5.6",
+            updatedAt = ""
+        )
+    }
+
     private class FakeChatRepository : ChatRepository {
         val histories = linkedMapOf<String, RemoteHistory>()
         var streamCalls = 0
@@ -255,7 +299,14 @@ class CoastShellViewModelTest {
                 "stop"
             ).copy(conversationId = conversationId)
             histories[conversationId] = completed
-            emit(ChatProgress.Completed(completed, modelId, "stop"))
+            emit(
+                ChatProgress.Completed(
+                    completed,
+                    modelId,
+                    "stop",
+                    TurnDeskReceipt("本轮递给模型", "上下文已在舒服区间", emptyList())
+                )
+            )
         }
 
         override fun failedHistory(
