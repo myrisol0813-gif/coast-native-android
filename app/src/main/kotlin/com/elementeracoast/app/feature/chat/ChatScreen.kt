@@ -90,7 +90,6 @@ fun ChatWindow(
             },
             onEdit = { message -> editingMessage = message },
             onAction = onMessageAction,
-            onVariantPlaceholder = { onPlaceholder("当前本地消息只有 1/1；真实变体留到后端接线。") },
             onFootprint = { message ->
                 val model = message.modelId ?: "Native local"
                 val source = message.generationSource ?: "local"
