@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -124,7 +125,7 @@ internal fun DailyAvatar(uri: String, fallback: String) {
         modifier = Modifier.size(54.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
         contentAlignment = Alignment.Center
     ) {
-        if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text(fallback, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -141,7 +142,7 @@ internal fun DailyCover(uri: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (bitmap != null) Image(bitmap, contentDescription = "碳硅圈封面", modifier = Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        if (bitmap != null) Image(bitmap, contentDescription = "碳硅圈封面", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text("轻触设置封面", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
