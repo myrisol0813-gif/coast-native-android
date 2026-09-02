@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.feature.daily.DailySurfaceCard
 import com.elementeracoast.app.feature.wolf.WolfTextField
+import java.time.LocalDate
 
 @Composable
 internal fun MemoryLibraryScreen(
@@ -48,12 +49,16 @@ internal fun MemoryLibraryScreen(
     val filterValues = when (filterKind) {
         MemoryFilterKind.Tag -> (canonicalMemoryTags + state.memories.flatMap { it.tags } + state.memories.map { it.category })
             .filter(String::isNotBlank).distinct()
-        else -> emptyList()
+        MemoryFilterKind.Date -> state.memories.map { it.sourceDate }.filter(String::isNotBlank).distinct().sortedDescending()
+        MemoryFilterKind.Model -> state.memories.map { it.sourceModel }.filter(String::isNotBlank).distinct().sorted()
+        MemoryFilterKind.Window -> state.memories.map { it.sourceWindow }.filter(String::isNotBlank).distinct().sorted()
     }
     val visible = store.searchMemories(query).filter { entry ->
         filterValue.isBlank() || when (filterKind) {
             MemoryFilterKind.Tag -> filterValue in entry.tags || filterValue == entry.category
-            else -> true
+            MemoryFilterKind.Date -> entry.sourceDate == filterValue
+            MemoryFilterKind.Model -> entry.sourceModel == filterValue
+            MemoryFilterKind.Window -> entry.sourceWindow == filterValue
         }
     }
 
@@ -72,9 +77,7 @@ internal fun MemoryLibraryScreen(
                 onFilterValueChange = { filterValue = it }
             )
         }
-        item {
-            MemoryPendingCard(0) { onSnackbar("本地待确认袋目前还是空的") }
-        }
+        item { MemoryPendingCard(0) { onSnackbar("本地待确认袋目前还是空的") } }
         item {
             Text(
                 "记忆库",
@@ -112,6 +115,11 @@ internal fun MemoryLibraryScreen(
                             if (entry.content.isNotBlank()) Text(entry.content, style = MaterialTheme.typography.bodyMedium)
                             if (entry.usageHint.isNotBlank()) Text("使用时机：${entry.usageHint}", style = MaterialTheme.typography.bodySmall)
                             if (entry.avoidHint.isNotBlank()) Text("勿误用：${entry.avoidHint}", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "索引：${entry.sourceModel} / ${entry.sourceWindow} / ${entry.sourceDate}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                             Spacer(Modifier.height(10.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                                 Text("编辑", modifier = Modifier.clickable { editing = entry }, color = MaterialTheme.colorScheme.primary)
@@ -150,6 +158,9 @@ private fun MemoryEditor(entry: LocalMemoryEntry?, onDismiss: () -> Unit, onSave
     var avoidHint by remember(entry?.id) { mutableStateOf(entry?.avoidHint ?: "") }
     var tags by remember(entry?.id) { mutableStateOf(entry?.tags?.joinToString(", ") ?: "") }
     var category by remember(entry?.id) { mutableStateOf(entry?.category ?: "") }
+    var sourceModel by remember(entry?.id) { mutableStateOf(entry?.sourceModel ?: "手动整理") }
+    var sourceWindow by remember(entry?.id) { mutableStateOf(entry?.sourceWindow ?: "本地") }
+    var sourceDate by remember(entry?.id) { mutableStateOf(entry?.sourceDate ?: LocalDate.now().toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (entry == null) "新增记忆" else "编辑记忆") },
@@ -162,14 +173,26 @@ private fun MemoryEditor(entry: LocalMemoryEntry?, onDismiss: () -> Unit, onSave
                 WolfTextField("勿误用", avoidHint, { avoidHint = it })
                 WolfTextField("标签", tags, { tags = it })
                 WolfTextField("分类", category, { category = it })
+                WolfTextField("模型", sourceModel, { sourceModel = it })
+                WolfTextField("窗口", sourceWindow, { sourceWindow = it })
+                WolfTextField("日期", sourceDate, { sourceDate = it })
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 onSave(
                     LocalMemoryEntry(
-                        entry?.id.orEmpty(), title, lifeCore, content, usageHint, avoidHint,
-                        tags.split(',').map(String::trim).filter(String::isNotBlank), category
+                        id = entry?.id.orEmpty(),
+                        title = title,
+                        lifeCore = lifeCore,
+                        content = content,
+                        usageHint = usageHint,
+                        avoidHint = avoidHint,
+                        tags = tags.split(',').map(String::trim).filter(String::isNotBlank),
+                        category = category,
+                        sourceModel = sourceModel,
+                        sourceWindow = sourceWindow,
+                        sourceDate = sourceDate
                     )
                 )
             }) { Text("保存") }
