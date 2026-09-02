@@ -2,10 +2,8 @@ package com.elementeracoast.app.feature.gate
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -135,18 +133,8 @@ fun GateScreen(
                 }
 
                 Spacer(Modifier.height(GateVisualTokens.PasswordToMailbox))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    GateSmallEntry("更新", gateEnabled) {
-                        scope.launch {
-                            snackbarHostState.showSnackbar("更新入口已经归位；固定签名与 APK 更新源接通后会在这里直接覆盖更新。")
-                        }
-                    }
-                    GateSmallEntry("海岸信箱", gateEnabled) {
-                        mailboxState = mailboxState.open()
-                    }
+                GateSmallEntry("海岸信箱", gateEnabled) {
+                    mailboxState = mailboxState.open()
                 }
             }
         }

@@ -133,6 +133,7 @@ data class RemoteFurnitureItem(val title: String = "", val kind: String = "")
 @Serializable
 data class RemoteChatMessage(val role: String, val content: String)
 
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
 data class RemoteChatRequest(
     @SerialName("conversation_id") val conversationId: String,
@@ -142,6 +143,7 @@ data class RemoteChatRequest(
     @SerialName("local_date") val localDate: String,
     @SerialName("local_datetime") val localDateTime: String,
     val settings: Map<String, String> = emptyMap(),
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val stream: Boolean = true,
     @SerialName("client_info") val clientInfo: String = "native_android"
 )

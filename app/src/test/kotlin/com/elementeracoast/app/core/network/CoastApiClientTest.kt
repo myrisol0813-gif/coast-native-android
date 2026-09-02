@@ -107,7 +107,7 @@ class CoastApiClientTest {
     }
 
     @Test
-    fun chatSseDecodesDeltaDoneFurnitureAndErrorEvents() = runBlocking {
+    fun chatSseDecodesDeltaDoneFurnitureAndSendsExplicitStreamContract() = runBlocking {
         server.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -131,6 +131,7 @@ class CoastApiClientTest {
         val recorded = server.takeRequest()
         assertEquals("text/event-stream", recorded.getHeader("Accept"))
         assertEquals(config.origin, recorded.getHeader("Origin"))
+        assertTrue(recorded.body.readUtf8().contains("\"stream\":true"))
     }
 
     @Test

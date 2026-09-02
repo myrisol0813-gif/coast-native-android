@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.elementeracoast.app.BuildConfig
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
@@ -47,7 +48,14 @@ fun WolfScreen(
     val current = page
 
     if (current == null) {
-        WolfHome(state, shellState.currentModel) { page = it }
+        WolfHome(
+            state = state,
+            model = shellState.currentModel,
+            onOpen = { page = it },
+            onUpdate = {
+                onSnackbar("当前版本 ${BuildConfig.VERSION_NAME}。固定签名与 APK 更新源接通前，请继续使用测试安装包更新。")
+            }
+        )
         return
     }
 
@@ -78,7 +86,12 @@ fun WolfScreen(
 }
 
 @Composable
-private fun WolfHome(state: WolfState, model: String, onOpen: (WolfDestination) -> Unit) {
+private fun WolfHome(
+    state: WolfState,
+    model: String,
+    onOpen: (WolfDestination) -> Unit,
+    onUpdate: () -> Unit
+) {
     LazyColumn(
         contentPadding = PaddingValues(horizontal = 26.dp, vertical = 28.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -95,6 +108,13 @@ private fun WolfHome(state: WolfState, model: String, onOpen: (WolfDestination) 
                 else -> destination.subtitle
             }
             WolfRow(destination.title, subtitle) { onOpen(destination) }
+        }
+        item {
+            WolfRow(
+                title = "版本与更新",
+                subtitle = "当前版本：${BuildConfig.VERSION_NAME}",
+                onClick = onUpdate
+            )
         }
     }
 }
