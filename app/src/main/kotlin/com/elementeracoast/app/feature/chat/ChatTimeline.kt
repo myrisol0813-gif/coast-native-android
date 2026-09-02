@@ -34,7 +34,6 @@ internal fun ChatTimeline(
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
     onAction: (MessageAction) -> Unit,
-    onVariantPlaceholder: (ChatMessage) -> Unit,
     onFootprint: (ChatMessage) -> Unit,
     onOpenActionLog: (Set<String>) -> Unit,
     modifier: Modifier = Modifier
@@ -73,7 +72,6 @@ internal fun ChatTimeline(
                     onCopy = onCopy,
                     onEdit = onEdit,
                     onAction = onAction,
-                    onVariantPlaceholder = onVariantPlaceholder,
                     onFootprint = onFootprint,
                     onOpenActionLog = onOpenActionLog
                 )
