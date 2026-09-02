@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
+import com.elementeracoast.app.ui.theme.LocalCoastAppearance
 
 @Composable
 internal fun UserMessage(
@@ -33,25 +34,21 @@ internal fun UserMessage(
     onAction: (MessageAction) -> Unit,
     onVariantPlaceholder: () -> Unit
 ) {
+    val customBubble = LocalCoastAppearance.current.userBubbleColor
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val maxBubble = maxWidth * CoastChatTokens.UserBubbleWidth
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(Modifier.weight(1f))
-            Column(
-                modifier = Modifier.widthIn(max = maxBubble),
-                horizontalAlignment = Alignment.End
-            ) {
+            Column(modifier = Modifier.widthIn(max = maxBubble), horizontalAlignment = Alignment.End) {
                 Text(
                     text = message.text,
-                    modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
-                        )
-                        .padding(
-                            horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
-                            vertical = CoastChatTokens.UserBubbleVerticalPadding
-                        ),
+                    modifier = Modifier.background(
+                        customBubble ?: MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
+                    ).padding(
+                        horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
+                        vertical = CoastChatTokens.UserBubbleVerticalPadding
+                    ),
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = CoastChatTokens.ChatBodySize,
@@ -60,27 +57,11 @@ internal fun UserMessage(
                 )
                 Spacer(Modifier.height(CoastChatTokens.UserActionTopGap))
                 MessageActionRow {
-                    MessageActionButton(
-                        icon = Icons.Default.ContentCopy,
-                        label = "复制",
-                        onClick = onCopy
-                    )
-                    MessageActionButton(
-                        icon = Icons.Default.Edit,
-                        label = "编辑",
-                        onClick = onEdit
-                    )
-                    MessageActionButton(
-                        icon = Icons.Default.DeleteOutline,
-                        label = "删除",
-                        onClick = { onAction(MessageAction.Delete(message.id)) }
-                    )
+                    MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
+                    MessageActionButton(Icons.Default.Edit, "编辑", onClick = onEdit)
+                    MessageActionButton(Icons.Default.DeleteOutline, "删除", onClick = { onAction(MessageAction.Delete(message.id)) })
                     Spacer(Modifier.width(3.dp))
-                    VariantControl(
-                        index = message.variantIndex,
-                        count = message.variantCount,
-                        onPlaceholder = onVariantPlaceholder
-                    )
+                    VariantControl(message.variantIndex, message.variantCount, onVariantPlaceholder)
                 }
             }
         }
