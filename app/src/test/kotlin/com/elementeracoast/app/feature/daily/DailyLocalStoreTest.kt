@@ -37,6 +37,15 @@ class DailyLocalStoreTest {
         assertEquals(MomentAuthor.Xiaohan, reloaded[1].author)
     }
 
+    @Test fun myriCommentSurfaceDoesNotInventLocalCommentData() {
+        val store = DailyStore(MemoryLocalPersistence())
+        val moment = store.publishMoment("等 Myri 真正来评论", author = MomentAuthor.Xiaohan)!!
+
+        assertTrue(store.state.value.moments.single { it.id == moment.id }.comments.isEmpty())
+        assertEquals("叫 Myri 来评论", MyriCommentActionLabel)
+        assertTrue(MyriCommentOfflineMessage.contains("后端接线后启用"))
+    }
+
     @Test fun diaryAndDailyProfileFieldsPersistWithoutHiddenPetState() {
         val persistence = MemoryLocalPersistence()
         val store = DailyStore(persistence)
