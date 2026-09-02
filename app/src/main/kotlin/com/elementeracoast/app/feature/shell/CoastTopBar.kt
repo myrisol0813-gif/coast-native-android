@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,6 +39,7 @@ internal fun CoastTopBar(
     onOpenDrawer: () -> Unit,
     onBack: () -> Unit,
     onOpenModels: () -> Unit,
+    onRefresh: () -> Unit,
     onNewConversation: () -> Unit,
     onMore: () -> Unit
 ) {
@@ -117,6 +119,13 @@ internal fun CoastTopBar(
                             maxLines = 1
                         )
                     }
+                }
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "刷新海岸状态",
+                        modifier = Modifier.size(CoastChatTokens.TopBarActionGlyph)
+                    )
                 }
                 IconButton(onClick = onNewConversation) {
                     Icon(
