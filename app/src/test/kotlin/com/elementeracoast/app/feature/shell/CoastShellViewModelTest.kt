@@ -34,7 +34,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -61,9 +60,22 @@ class CoastShellViewModelTest {
         assertEquals("openai/gpt-5.6", state.currentModel)
         assertEquals(listOf("PWA 留下的问题", "PWA 已有回复"), state.messages.map { it.text })
         assertTrue(state.models.contains("openai/gpt-5.6"))
-        assertEquals("daily://myri", state.myriAvatarDataUrl)
+        assertEquals("chat://myri", state.myriAvatarDataUrl)
         assertEquals("daily://xiaohan", state.xiaohanAvatarDataUrl)
         assertEquals("daily://cover", state.coverDataUrl)
+    }
+
+    @Test
+    fun MyriAvatarWritesBackThroughChatProfileOwner() {
+        val fixture = Fixture()
+        fixture.conversations.seed(RoomType.Main, "主聊天")
+        val vm = fixture.vm()
+
+        vm.updateMyriAvatar("data:image/webp;base64,MYRI")
+
+        assertEquals("data:image/webp;base64,MYRI", fixture.profile.current.assistantAvatarDataUrl)
+        assertEquals("data:image/webp;base64,MYRI", vm.state.value.myriAvatarDataUrl)
+        assertEquals("daily://myri", fixture.daily.cachedProfile().myriAvatarDataUrl)
     }
 
     @Test
@@ -231,7 +243,8 @@ class CoastShellViewModelTest {
     }
 
     private class FakeProfileRepository : ProfileRepository {
-        private val current = RemoteProfile(
+        var current = RemoteProfile(
+            assistantAvatarDataUrl = "chat://myri",
             currentChatModel = "openai/gpt-5.6",
             modelBox = com.elementeracoast.app.core.remote.RemoteModelBox(chat = listOf("openai/gpt-5.6"))
         )
@@ -246,7 +259,14 @@ class CoastShellViewModelTest {
         override fun cachedModels() = catalog
         override suspend fun refreshProfile() = current
         override suspend fun refreshModels(force: Boolean) = catalog
-        override suspend fun setCurrentChatModel(modelId: String) = current.copy(currentChatModel = modelId)
+        override suspend fun setCurrentChatModel(modelId: String): RemoteProfile {
+            current = current.copy(currentChatModel = modelId)
+            return current
+        }
+        override suspend fun setAssistantAvatar(dataUrl: String): RemoteProfile {
+            current = current.copy(assistantAvatarDataUrl = dataUrl)
+            return current
+        }
     }
 
     private class FakeDailyRepository : DailyRepository {
