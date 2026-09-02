@@ -65,7 +65,7 @@ class DefaultChatRepository(
         var actualModel = modelId
         var finishReason = ""
         var furnitureRuns = emptyList<RemoteFurnitureRun>()
-        var deskReceipt: TurnDeskReceipt? = null
+        var deskSlip: RemoteDeskSlip? = null
         var done = false
         val request = RemoteChatRequest(
             conversationId = conversationId,
@@ -93,8 +93,8 @@ class DefaultChatRepository(
                     }.getOrDefault(emptyList())
                 }
                 is ApiStreamEvent.DeskSlip -> {
-                    deskReceipt = runCatching {
-                        TurnDeskMapper.toUi(json.decodeFromJsonElement(RemoteDeskSlip.serializer(), event.data))
+                    deskSlip = runCatching {
+                        json.decodeFromJsonElement(RemoteDeskSlip.serializer(), event.data)
                     }.getOrNull()
                 }
                 is ApiStreamEvent.Done -> {
@@ -117,10 +117,11 @@ class DefaultChatRepository(
             content = content,
             modelId = actualModel,
             finishReason = finishReason,
-            furnitureRuns = furnitureRuns
+            furnitureRuns = furnitureRuns,
+            deskSlip = deskSlip
         )
         val saved = persistHistory(conversationId, completed)
-        emit(ChatProgress.Completed(saved, actualModel, finishReason, deskReceipt))
+        emit(ChatProgress.Completed(saved, actualModel, finishReason, deskSlip?.let(TurnDeskMapper::toUi)))
     }
 
     override fun failedHistory(
