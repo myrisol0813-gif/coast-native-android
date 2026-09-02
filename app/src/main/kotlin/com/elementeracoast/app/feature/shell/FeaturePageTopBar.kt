@@ -32,7 +32,9 @@ fun FeaturePageTopBar(
     subtitle: String,
     onBack: () -> Unit,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    secondaryActionLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         Row(
@@ -60,19 +62,27 @@ fun FeaturePageTopBar(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (!actionLabel.isNullOrBlank() && onAction != null) {
-                Text(
-                    actionLabel,
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
-                        .clickable(onClick = onAction)
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            PageAction(actionLabel, onAction)
+            if (!secondaryActionLabel.isNullOrBlank() && onSecondaryAction != null) {
+                Spacer(Modifier.width(6.dp))
+                PageAction(secondaryActionLabel, onSecondaryAction)
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .82f))
     }
+}
+
+@Composable
+private fun PageAction(label: String?, onClick: (() -> Unit)?) {
+    if (label.isNullOrBlank() || onClick == null) return
+    Text(
+        label,
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
 }
