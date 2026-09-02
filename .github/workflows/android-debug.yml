@@ -66,6 +66,8 @@ jobs:
           remote="$root/core/remote"
           chat="$root/feature/chat"
           shell="$root/feature/shell"
+          gate="$root/feature/gate"
+          wolf="$root/feature/wolf"
 
           test -f "$auth/AuthSession.kt"
           test -f "$auth/AuthStore.kt"
@@ -86,8 +88,8 @@ jobs:
           grep -q '<uses-permission android:name="android.permission.INTERNET"' app/src/main/AndroidManifest.xml
           grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 20' app/build.gradle.kts
-          grep -q 'versionName = "0.1.18-backend-wiring-29"' app/build.gradle.kts
+          grep -q 'versionCode = 21' app/build.gradle.kts
+          grep -q 'versionName = "0.1.19-backend-wiring-29"' app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -100,7 +102,9 @@ jobs:
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
           grep -q 'MessageAction.Retry' "$shell/CoastShellViewModel.kt"
-          grep -q 'GateSmallEntry("更新"' "$root/feature/gate/GateScreen.kt"
+          ! grep -q 'GateSmallEntry("更新"' "$gate/GateScreen.kt"
+          grep -q 'title = "版本与更新"' "$wolf/WolfScreen.kt"
+          grep -q 'BuildConfig.VERSION_NAME' "$wolf/WolfScreen.kt"
 
           test ! -e "$chat/LocalChatStore.kt"
           test ! -e "$chat/LocalFurnitureOrchestrator.kt"
@@ -158,18 +162,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-backend-wiring-29-0.1.18-debug.apk
+          apk=artifact/CoastGPT-native-backend-wiring-29-0.1.19-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.18-backend-wiring-29\nversionCode=20\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=0.1.19-backend-wiring-29\nversionCode=21\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-backend-wiring-29-0.1.18-debug
+          name: CoastGPT-native-backend-wiring-29-0.1.19-debug
           path: |
-            artifact/CoastGPT-native-backend-wiring-29-0.1.18-debug.apk
+            artifact/CoastGPT-native-backend-wiring-29-0.1.19-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error
