@@ -139,18 +139,32 @@ internal fun DailyAvatar(uri: String, fallback: String) {
 internal fun DailyCover(uri: String, onClick: () -> Unit) {
     val bitmap = rememberDailyBitmap(uri)
     val shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-            .shadow(elevation = 2.dp, shape = shape, clip = false)
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        if (bitmap != null) Image(bitmap, contentDescription = "碳硅圈封面", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Text("轻触设置封面", color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = "碳硅圈封面",
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(elevation = 2.dp, shape = shape, clip = false)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(onClick = onClick),
+            contentScale = ContentScale.FillWidth
+        )
+    } else {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .shadow(elevation = 2.dp, shape = shape, clip = false)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("轻触设置封面", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
