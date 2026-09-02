@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.feature.shell.FeaturePageTopBar
+import kotlinx.coroutines.launch
 
 internal data class DailyLandingItem(val title: String, val subtitle: String)
 internal enum class DailyPage { Home, Moments, MomentCompose, Diary, DiaryCompose, Pet }
@@ -43,11 +45,25 @@ internal enum class DailyPage { Home, Moments, MomentCompose, Diary, DiaryCompos
 @Composable
 fun DailyLanding(
     repository: DailyRepository,
+    myriAvatarDataUrl: String,
+    onUpdateMyriAvatar: (String) -> Unit,
+    onRefreshCoast: () -> Unit,
     onBackToChat: () -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
 ) {
     var page by remember { mutableStateOf(DailyPage.Home) }
+    val scope = rememberCoroutineScope()
+
+    suspend fun refreshDaily() {
+        try {
+            repository.refresh()
+            onRefreshCoast()
+            onSnackbar("海岸状态已刷新")
+        } catch (error: CoastApiException) {
+            onSnackbar("海岸日报刷新失败：${error.message}")
+        }
+    }
 
     LaunchedEffect(repository) {
         try {
@@ -57,12 +73,36 @@ fun DailyLanding(
         }
     }
 
+    val refreshAction = { scope.launch { refreshDaily() } }
+
     Column(Modifier.fillMaxSize()) {
         when (page) {
-            DailyPage.Home -> FeaturePageTopBar("海岸日报", "朋友圈与日记", onBackToChat)
-            DailyPage.Moments -> FeaturePageTopBar("碳硅圈", "海岸内部朋友圈", { page = DailyPage.Home }, "+ 动态") { page = DailyPage.MomentCompose }
+            DailyPage.Home -> FeaturePageTopBar(
+                title = "海岸日报",
+                subtitle = "朋友圈与日记",
+                onBack = onBackToChat,
+                actionLabel = "刷新",
+                onAction = refreshAction
+            )
+            DailyPage.Moments -> FeaturePageTopBar(
+                title = "碳硅圈",
+                subtitle = "海岸内部朋友圈",
+                onBack = { page = DailyPage.Home },
+                actionLabel = "+ 动态",
+                onAction = { page = DailyPage.MomentCompose },
+                secondaryActionLabel = "刷新",
+                onSecondaryAction = refreshAction
+            )
             DailyPage.MomentCompose -> FeaturePageTopBar("写碳硅圈", "直接写入海岸正式条目", { page = DailyPage.Moments })
-            DailyPage.Diary -> FeaturePageTopBar("日记", "海岸里的正式纸页", { page = DailyPage.Home }, "+ 日记") { page = DailyPage.DiaryCompose }
+            DailyPage.Diary -> FeaturePageTopBar(
+                title = "日记",
+                subtitle = "海岸里的正式纸页",
+                onBack = { page = DailyPage.Home },
+                actionLabel = "+ 日记",
+                onAction = { page = DailyPage.DiaryCompose },
+                secondaryActionLabel = "刷新",
+                onSecondaryAction = refreshAction
+            )
             DailyPage.DiaryCompose -> FeaturePageTopBar("写日记", "直接写入海岸正式日记", { page = DailyPage.Diary })
             DailyPage.Pet -> FeaturePageTopBar("宠物系统", "休憩箱尚未展开", { page = DailyPage.Home })
         }
@@ -72,7 +112,14 @@ fun DailyLanding(
                 DailyPage.Home -> DailyHome(onOpen = { page = it }, onFutureWidgets = {
                     onSnackbar("未来小组件还没有长出来；这里只保留 PWA 母版入口。")
                 })
-                DailyPage.Moments -> MomentScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.MomentCompose }
+                DailyPage.Moments -> MomentScreen(
+                    repository = repository,
+                    myriAvatarDataUrl = myriAvatarDataUrl,
+                    onUpdateMyriAvatar = onUpdateMyriAvatar,
+                    onActionLogged = onActionLogged,
+                    onSnackbar = onSnackbar,
+                    onCompose = { page = DailyPage.MomentCompose }
+                )
                 DailyPage.MomentCompose -> MomentComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Moments }
                 DailyPage.Diary -> DiaryScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.DiaryCompose }
                 DailyPage.DiaryCompose -> DiaryComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Diary }
