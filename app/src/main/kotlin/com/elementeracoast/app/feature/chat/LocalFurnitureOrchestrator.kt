@@ -68,23 +68,24 @@ class LocalFurnitureOrchestrator(
                 .replace("记忆", "")
                 .replace("搜索", "")
                 .trim()
-            val hits = memory.searchMemories(keyword).take(5)
+            val allHits = memory.searchMemories(keyword)
+            val hits = allHits.take(5)
             val record = actionLog.record(
                 actionKey = "memory.search",
                 label = "搜索了记忆",
                 roomType = roomType,
                 conversationId = conversationId,
                 inputSummary = "本地记忆检索${if (keyword.isBlank()) "" else " · ${keyword.take(60)}"}",
-                outputSummary = "命中 ${hits.size} 条",
+                outputSummary = "命中 ${allHits.size} 条",
                 assistantMessageId = assistantMessageId
             )
             runs += FurnitureRun(
                 actionId = record.actionId,
                 actionKey = record.actionKey,
                 label = record.label,
-                count = hits.size.coerceAtLeast(1),
+                count = allHits.size,
                 items = hits.map { FurnitureItem(it.title, it.category) },
-                extraCount = (memory.searchMemories(keyword).size - hits.size).coerceAtLeast(0)
+                extraCount = (allHits.size - hits.size).coerceAtLeast(0)
             )
         }
 
