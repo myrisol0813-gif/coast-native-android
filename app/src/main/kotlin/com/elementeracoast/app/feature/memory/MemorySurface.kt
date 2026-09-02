@@ -1,6 +1,7 @@
 package com.elementeracoast.app.feature.memory
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -189,15 +190,14 @@ private fun FilterChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(19.dp)
+    val tint = if (emphasized) MaterialTheme.colorScheme.primary.copy(alpha = .10f) else MaterialTheme.colorScheme.surface
+    val stroke = if (emphasized) MaterialTheme.colorScheme.primary.copy(alpha = .18f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f)
     Row(
         modifier = modifier
             .heightIn(min = 50.dp)
-            .shadow(1.dp, shape, clip = false)
-            .background(
-                if (emphasized) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .42f) else MaterialTheme.colorScheme.surface,
-                shape
-            )
+            .background(tint, shape)
+            .border(1.dp, stroke, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 15.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -205,6 +205,7 @@ private fun FilterChip(
         Text(
             text = label,
             modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
