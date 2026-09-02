@@ -10,7 +10,7 @@ class DailyLocalStoreTest {
     @Test fun momentPublishLikeCommentEditDeleteAndPersistenceWork() {
         val persistence = MemoryLocalPersistence()
         val store = DailyStore(persistence)
-        val moment = store.publishMoment("第一条潮声", "2026/09/02")!!
+        val moment = store.publishMoment("第一条潮声", "2026/09/02", MomentAuthor.Xiaohan)!!
         store.toggleMomentLike(moment.id)
         store.addComment(moment.id, "收到")
         store.editMoment(moment.id, "改过的潮声")
@@ -19,9 +19,22 @@ class DailyLocalStoreTest {
         assertEquals(listOf("收到"), updated.comments)
         assertEquals("改过的潮声", updated.text)
         assertEquals("2026-09-02", updated.date)
-        assertEquals(1, DailyStore(persistence).state.value.moments.size)
+        assertEquals(MomentAuthor.Xiaohan, updated.author)
+        val reloaded = DailyStore(persistence).state.value.moments.single()
+        assertEquals(MomentAuthor.Xiaohan, reloaded.author)
         store.deleteMoment(moment.id)
         assertTrue(store.state.value.moments.isEmpty())
+    }
+
+    @Test fun momentAuthorPersistsForMyriAndXiaohan() {
+        val persistence = MemoryLocalPersistence()
+        val store = DailyStore(persistence)
+        store.publishMoment("小寒写的", author = MomentAuthor.Xiaohan)
+        store.publishMoment("Myri 写的", author = MomentAuthor.Myri)
+
+        val reloaded = DailyStore(persistence).state.value.moments
+        assertEquals(MomentAuthor.Myri, reloaded[0].author)
+        assertEquals(MomentAuthor.Xiaohan, reloaded[1].author)
     }
 
     @Test fun diaryAndDailyProfileFieldsPersistWithoutHiddenPetState() {
