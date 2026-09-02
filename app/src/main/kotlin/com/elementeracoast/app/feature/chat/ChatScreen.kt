@@ -10,12 +10,11 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -26,7 +25,6 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
-import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +33,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ChatWindow(
     state: CoastShellState,
-    daily: DailyRepository,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
@@ -47,10 +44,9 @@ fun ChatWindow(
     var editingMessage by androidx.compose.runtime.remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
     var deskOpen by rememberSaveable { mutableStateOf(false) }
-    val dailySnapshot by daily.snapshot.collectAsState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
-    val avatarSource = dailySnapshot.profile.myriAvatarDataUrl.ifBlank { state.myriAvatarDataUrl }
+    val avatarSource = state.myriAvatarDataUrl
     val persistedDeskReceipt = state.messages.lastOrNull()
         ?.takeIf { it.role == MessageRole.Assistant }
         ?.deskReceipt
