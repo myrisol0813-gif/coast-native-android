@@ -32,4 +32,15 @@ class FurnitureLocalParityTest {
         assertTrue(log.records.value.all { it.assistantMessageId == 88L })
         assertTrue(log.records.value.all { it.inputSummary.length <= 360 && it.outputSummary.length <= 360 })
     }
+
+    @Test fun memoryFurnitureReportsZeroWhenNothingMatches() {
+        val p = MemoryLocalPersistence()
+        val log = ActionLogStore(p)
+        val runs = LocalFurnitureOrchestrator(DailyStore(p), MemoryStore(p), log)
+            .runForPrompt("搜索记忆 完全不存在的纸条", RoomType.Main, "main-1", 99L)
+        val search = runs.single { it.actionKey == "memory.search" }
+        assertEquals(0, search.count)
+        assertTrue(search.items.isEmpty())
+        assertEquals("命中 0 条", log.records.value.single().outputSummary)
+    }
 }
