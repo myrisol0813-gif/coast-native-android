@@ -164,10 +164,10 @@ class CoastApiClient(
                     val parser = SseParser(json)
                     while (!source.exhausted()) {
                         val event = parser.acceptLine(source.readUtf8Line()) ?: continue
-                        val mapped = mapStreamEvent(event)
-                        trySend(mapped)
+                        send(mapStreamEvent(event))
                     }
-                    parser.acceptLine(null)?.let { trySend(mapStreamEvent(it)) }
+                    val finalEvent = parser.acceptLine(null)
+                    if (finalEvent != null) send(mapStreamEvent(finalEvent))
                 }
                 close()
             } catch (error: Throwable) {
