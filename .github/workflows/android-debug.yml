@@ -107,6 +107,8 @@ jobs:
           grep -q '/api/daily/moments' "$network/CoastApiClient.kt"
           grep -q '/api/daily/diaries' "$network/CoastApiClient.kt"
           grep -q '/api/daily/profile' "$network/CoastApiClient.kt"
+          grep -q 'backend.daily.refreshProfile()' "$shell/CoastShellViewModel.kt"
+          grep -q 'backend.daily.cachedProfile()' "$shell/CoastShellViewModel.kt"
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
           grep -q 'MessageAction.Retry' "$shell/CoastShellViewModel.kt"
@@ -123,6 +125,14 @@ jobs:
           ! grep -q 'feature.daily.DailyStore' "$shell/LocalFeatureServices.kt"
           ! grep -q 'val daily' "$shell/LocalFeatureServices.kt"
 
+          if grep -Eq 'RemoteDailyProfile|cachedDailyProfile|refreshDailyProfile|getDailyProfile|putDailyProfile' "$shell/ProfileRepository.kt"; then
+            echo 'Daily profile ownership returned to ProfileRepository.'
+            exit 1
+          fi
+          if grep -Eq 'backend\.profile\.(cachedDailyProfile|refreshDailyProfile)' "$shell/CoastShellViewModel.kt"; then
+            echo 'Shell bypassed DailyRepository for Daily profile data.'
+            exit 1
+          fi
           if grep -RIE 'daily\.moments|daily\.diaries|daily\.profile\.avatar|daily\.profile\.myri-avatar|daily\.cover' "$daily" "$shell/LocalFeatureServices.kt"; then
             echo 'Formal Daily data returned to a Native local owner.'
             exit 1

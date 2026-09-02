@@ -16,13 +16,13 @@ import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
-import com.elementeracoast.app.core.remote.RemoteDailyProfile
 import com.elementeracoast.app.core.remote.RemoteHistory
 import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
 import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.feature.chat.ChatBranchNavigator
 import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
+import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -409,12 +409,12 @@ class CoastShellViewModel(
     private suspend fun bootstrapAuthenticated() {
         applyCachedBootstrap()
         val remoteProfile = remoteOrNull("读取个人资料") { backend.profile.refreshProfile() }
-        val remoteDaily = remoteOrNull("读取头像与封面") { backend.profile.refreshDailyProfile() }
+        val remoteDaily = remoteOrNull("读取头像与封面") { backend.daily.refreshProfile() }
         val remoteModels = remoteOrNull("读取模型目录") { backend.profile.refreshModels() }
         val remoteConversations = remoteOrNull("读取聊天窗口") { backend.conversations.refresh() }
         if (!_state.value.authenticated) return
 
-        applyProfile(remoteProfile ?: backend.profile.cachedProfile(), remoteDaily ?: backend.profile.cachedDailyProfile())
+        applyProfile(remoteProfile ?: backend.profile.cachedProfile(), remoteDaily ?: backend.daily.cachedProfile())
         applyModels(remoteModels ?: backend.profile.cachedModels())
         val list = remoteConversations ?: backend.conversations.cached()
         _state.update { it.copy(conversations = list) }
@@ -434,7 +434,7 @@ class CoastShellViewModel(
     private fun applyCachedBootstrap() {
         val conversations = backend.conversations.cached()
         val profile = backend.profile.cachedProfile()
-        val dailyProfile = backend.profile.cachedDailyProfile()
+        val dailyProfile = backend.daily.cachedProfile()
         val models = backend.profile.cachedModels()
         val remembered = persistence.get(KEY_CURRENT_CONVERSATION)
         val target = conversations.firstOrNull { it.id == remembered }
@@ -455,16 +455,15 @@ class CoastShellViewModel(
         applyModels(models)
     }
 
-    private fun applyProfile(profile: RemoteProfile?, daily: RemoteDailyProfile?) {
-        if (profile == null && daily == null) return
+    private fun applyProfile(profile: RemoteProfile?, daily: DailyProfile) {
         val current = profile?.currentChatModel.orEmpty()
-        val myri = daily?.myriAvatarDataUrl.orEmpty().ifBlank { profile?.assistantAvatarDataUrl.orEmpty() }
+        val myri = daily.myriAvatarDataUrl.ifBlank { profile?.assistantAvatarDataUrl.orEmpty() }
         _state.update {
             it.copy(
                 currentModel = current.ifBlank { it.currentModel },
                 myriAvatarDataUrl = myri,
-                xiaohanAvatarDataUrl = daily?.xiaohanAvatarDataUrl.orEmpty(),
-                coverDataUrl = daily?.momentCoverDataUrl.orEmpty()
+                xiaohanAvatarDataUrl = daily.xiaohanAvatarDataUrl,
+                coverDataUrl = daily.momentCoverDataUrl
             )
         }
     }

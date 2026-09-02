@@ -12,7 +12,6 @@ import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
-import com.elementeracoast.app.core.remote.RemoteDailyProfile
 import com.elementeracoast.app.core.remote.RemoteHistory
 import com.elementeracoast.app.core.remote.RemoteModelCatalogItem
 import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
@@ -62,6 +61,9 @@ class CoastShellViewModelTest {
         assertEquals("openai/gpt-5.6", state.currentModel)
         assertEquals(listOf("PWA 留下的问题", "PWA 已有回复"), state.messages.map { it.text })
         assertTrue(state.models.contains("openai/gpt-5.6"))
+        assertEquals("daily://myri", state.myriAvatarDataUrl)
+        assertEquals("daily://xiaohan", state.xiaohanAvatarDataUrl)
+        assertEquals("daily://cover", state.coverDataUrl)
     }
 
     @Test
@@ -241,16 +243,22 @@ class CoastShellViewModelTest {
         )
 
         override fun cachedProfile() = current
-        override fun cachedDailyProfile() = RemoteDailyProfile()
         override fun cachedModels() = catalog
         override suspend fun refreshProfile() = current
-        override suspend fun refreshDailyProfile() = RemoteDailyProfile()
         override suspend fun refreshModels(force: Boolean) = catalog
         override suspend fun setCurrentChatModel(modelId: String) = current.copy(currentChatModel = modelId)
     }
 
     private class FakeDailyRepository : DailyRepository {
-        private val state = MutableStateFlow(DailySnapshot())
+        private val state = MutableStateFlow(
+            DailySnapshot(
+                profile = DailyProfile(
+                    xiaohanAvatarDataUrl = "daily://xiaohan",
+                    myriAvatarDataUrl = "daily://myri",
+                    momentCoverDataUrl = "daily://cover"
+                )
+            )
+        )
         override val snapshot: StateFlow<DailySnapshot> = state
         override fun cachedProfile(): DailyProfile = state.value.profile
         override suspend fun refresh(): DailySnapshot = state.value
