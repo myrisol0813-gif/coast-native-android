@@ -12,5 +12,5 @@ val LocalCoastAppearance = staticCompositionLocalOf { CoastAppearance() }
 fun parseCoastHex(value: String): Color? {
     val clean = value.trim().removePrefix("#")
     if (!Regex("^[0-9a-fA-F]{6}$").matches(clean)) return null
-    return runCatching { Color((0xFF000000L or clean.toLong(16)).toULong()) }.getOrNull()
+    return runCatching { Color(0xFF000000L or clean.toLong(16)) }.getOrNull()
 }
