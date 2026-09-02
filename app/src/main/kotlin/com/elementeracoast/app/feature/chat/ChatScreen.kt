@@ -25,6 +25,7 @@ import androidx.compose.ui.text.AnnotatedString
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
@@ -50,6 +51,10 @@ fun ChatWindow(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val avatarSource = dailySnapshot.profile.myriAvatarDataUrl.ifBlank { state.myriAvatarDataUrl }
+    val persistedDeskReceipt = state.messages.lastOrNull()
+        ?.takeIf { it.role == MessageRole.Assistant }
+        ?.deskReceipt
+    val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
         value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
@@ -81,7 +86,7 @@ fun ChatWindow(
             modifier = Modifier.weight(1f)
         )
 
-        state.turnDeskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
+        deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
         DogtalkCard(
             scope = DogtalkScope.from(state.activeRoomType),
             onSaved = { onPlaceholder("狗话仍属于本轮未接的本地小抽屉，没有写入后端。") }
@@ -101,7 +106,6 @@ fun ChatWindow(
     val soil = state.thoughtSoil
     if (soilOpen && soil != null) SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
 
-    val deskReceipt = state.turnDeskReceipt
     if (deskOpen && deskReceipt != null) TurnDeskBottomSheet(receipt = deskReceipt, onDismiss = { deskOpen = false })
 
     if (avatarDialogOpen) {
