@@ -5,6 +5,7 @@ import com.elementeracoast.app.core.model.FurnitureRun
 import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.actionlog.ActionLogStore
 import com.elementeracoast.app.feature.daily.DailyStore
+import com.elementeracoast.app.feature.daily.MomentAuthor
 import com.elementeracoast.app.feature.memory.LocalSeed
 import com.elementeracoast.app.feature.memory.MemoryStore
 import com.elementeracoast.app.feature.memory.SeedStatus
@@ -26,7 +27,10 @@ class LocalFurnitureOrchestrator(
         val text = prompt.trim()
 
         if (text.contains("碳硅圈") || text.contains("动态")) {
-            val moment = daily.publishMoment("来自本地聊天演示：${text.take(120)}")
+            val moment = daily.publishMoment(
+                text = "来自本地聊天演示：${text.take(120)}",
+                author = MomentAuthor.Myri
+            )
             if (moment != null) {
                 val record = actionLog.record(
                     actionKey = "daily.moment.write",
@@ -34,7 +38,7 @@ class LocalFurnitureOrchestrator(
                     roomType = roomType,
                     conversationId = conversationId,
                     inputSummary = "本地聊天触发动态写入",
-                    outputSummary = "新增 1 条本地动态",
+                    outputSummary = "新增 1 条 Myri 本地动态",
                     assistantMessageId = assistantMessageId
                 )
                 runs += FurnitureRun(record.actionId, record.actionKey, record.label)
