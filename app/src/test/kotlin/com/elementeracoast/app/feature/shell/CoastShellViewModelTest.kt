@@ -1,6 +1,8 @@
 package com.elementeracoast.app.feature.shell
 
+import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -113,6 +115,32 @@ class CoastShellViewModelTest {
         val reset = vm.state.value.messages.single()
         assertFalse(reset.liked)
         assertFalse(reset.favorite)
+    }
+
+    @Test
+    fun userEditCreatesVariantSwitchesAndDeletesOnlyCurrentVariant() {
+        val vm = CoastShellViewModel()
+        val messageId = 500L
+        vm.importMessages(listOf(ChatMessage(messageId, MessageRole.User, "旧消息")))
+
+        vm.handleMessageAction(MessageAction.Edit(messageId, "新消息"))
+        var message = vm.state.value.messages.single()
+        assertEquals(2, message.variantCount)
+        assertEquals(1, message.variantIndex)
+        assertEquals("新消息", message.text)
+
+        vm.handleMessageAction(MessageAction.SelectVariant(messageId, 0))
+        message = vm.state.value.messages.single()
+        assertEquals(0, message.variantIndex)
+        assertEquals("旧消息", message.text)
+
+        vm.handleMessageAction(MessageAction.SelectVariant(messageId, 1))
+        vm.handleMessageAction(MessageAction.Delete(messageId))
+        message = vm.state.value.messages.single()
+        assertEquals(1, message.variantCount)
+        assertEquals(0, message.variantIndex)
+        assertEquals("旧消息", message.text)
+        assertTrue(message.variants.size == 1)
     }
 
     @Test
