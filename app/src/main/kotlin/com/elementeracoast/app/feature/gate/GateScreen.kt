@@ -2,9 +2,10 @@ package com.elementeracoast.app.feature.gate
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,14 +38,11 @@ import com.elementeracoast.app.ui.brand.CoastMuted
 import com.elementeracoast.app.ui.brand.rememberCoastGateMotion
 import kotlinx.coroutines.launch
 
-/**
- * Native Gate composition. The entrance animation is the Boot phase: unlike the
- * previous implementation, no separate static logo/spinner screen interrupts
- * the source PWA timing before the interactive Gate appears.
- */
 @Composable
 fun GateScreen(
     password: String,
+    authBusy: Boolean,
+    authMessage: String?,
     onPasswordChange: (String) -> Unit,
     onEnter: () -> Unit
 ) {
@@ -65,6 +63,7 @@ fun GateScreen(
         val passwordGap = if (compact) GateVisualTokens.CompactTaglineToPassword else GateVisualTokens.TaglineToPassword
         val textOffsetPx = with(density) { 6.dp.toPx() }
         val formOffsetPx = with(density) { 10.dp.toPx() }
+        val gateEnabled = motion.form >= .98f && !authBusy
 
         Column(
             modifier = Modifier
@@ -109,35 +108,47 @@ fun GateScreen(
             )
 
             Spacer(Modifier.height(passwordGap))
-            Box(
+            Column(
                 modifier = Modifier.graphicsLayer {
                     alpha = motion.form.coerceIn(0f, 1f)
                     translationY = formOffsetPx * (1f - motion.form.coerceIn(0f, 1f))
-                }
+                },
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 GatePasswordField(
                     password = password,
                     onPasswordChange = onPasswordChange,
                     onSubmit = onEnter,
-                    enabled = motion.form >= .98f,
+                    enabled = gateEnabled,
                     modifier = Modifier.width(GateVisualTokens.PasswordWidth)
                 )
-            }
 
-            Spacer(Modifier.height(GateVisualTokens.PasswordToMailbox))
-            Text(
-                text = "海岸信箱",
-                modifier = Modifier
-                    .graphicsLayer { alpha = motion.form.coerceIn(0f, 1f) }
-                    .clip(RoundedCornerShape(999.dp))
-                    .clickable(enabled = motion.form >= .98f) {
+                if (authBusy || !authMessage.isNullOrBlank()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = if (authBusy) "正在连接海岸…" else authMessage.orEmpty(),
+                        modifier = Modifier.width(GateVisualTokens.PasswordWidth),
+                        color = if (authBusy) CoastMuted else MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(Modifier.height(GateVisualTokens.PasswordToMailbox))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    GateSmallEntry("更新", gateEnabled) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("更新入口已经归位；固定签名与 APK 更新源接通后会在这里直接覆盖更新。")
+                        }
+                    }
+                    GateSmallEntry("海岸信箱", gateEnabled) {
                         mailboxState = mailboxState.open()
                     }
-                    .padding(horizontal = 13.dp, vertical = 7.dp),
-                color = CoastMuted,
-                fontSize = GateVisualTokens.MailboxEntrySize,
-                letterSpacing = GateVisualTokens.MailboxEntryLetterSpacing
-            )
+                }
+            }
         }
 
         SnackbarHost(
@@ -157,5 +168,19 @@ fun GateScreen(
                 snackbarHostState.showSnackbar("海岸信箱后续接入；本轮不会发送或保存暗号。")
             }
         }
+    )
+}
+
+@Composable
+private fun GateSmallEntry(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 13.dp, vertical = 7.dp),
+        color = CoastMuted.copy(alpha = if (enabled) 1f else .45f),
+        fontSize = GateVisualTokens.MailboxEntrySize,
+        letterSpacing = GateVisualTokens.MailboxEntryLetterSpacing
     )
 }
