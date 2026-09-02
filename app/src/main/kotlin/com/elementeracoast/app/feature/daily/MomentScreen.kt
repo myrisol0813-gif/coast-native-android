@@ -19,7 +19,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -48,8 +56,8 @@ internal fun MomentScreen(
 ) {
     val state by store.state.collectAsState()
     val context = LocalContext.current
-    var editing by remember { mutableStateOf<LocalMoment?>(null) }
     var commenting by remember { mutableStateOf<LocalMoment?>(null) }
+    var deleting by remember { mutableStateOf<LocalMoment?>(null) }
 
     fun keepUri(uri: Uri?, save: (String) -> Unit, message: String) {
         if (uri == null) return
@@ -90,7 +98,7 @@ internal fun MomentScreen(
             item {
                 Spacer(Modifier.height(18.dp))
                 DailySurfaceCard {
-                    Text("还没有动态。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("还没有动态。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("想写的时候留一点潮声。", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     Text("＋ 写一条", modifier = Modifier.clickable(onClick = onCompose), color = MaterialTheme.colorScheme.primary)
@@ -106,28 +114,30 @@ internal fun MomentScreen(
                     authorLabel = moment.author.label,
                     onLike = { store.toggleMomentLike(moment.id) },
                     onComment = { commenting = moment },
-                    onEdit = { editing = moment },
-                    onDelete = {
-                        store.deleteMoment(moment.id)
-                        onActionLogged("daily.moment.delete", "删除了一条碳硅圈", "删除 1 条本地动态")
-                    }
+                    onDelete = { deleting = moment }
                 )
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
     }
 
-    editing?.let { moment ->
-        TextEditDialog("编辑动态", moment.text, onDismiss = { editing = null }) { text ->
-            store.editMoment(moment.id, text)
-            editing = null
-        }
-    }
     commenting?.let { moment ->
         TextEditDialog("评论", "", onDismiss = { commenting = null }) { text ->
             store.addComment(moment.id, text)
             commenting = null
         }
+    }
+    deleting?.let { moment ->
+        DailyDeleteConfirmDialog(
+            title = "删除这条动态？",
+            body = "删除后只会从本地碳硅圈移除这一条。",
+            onDismiss = { deleting = null },
+            onConfirm = {
+                store.deleteMoment(moment.id)
+                onActionLogged("daily.moment.delete", "删除了一条碳硅圈", "删除 1 条本地动态")
+                deleting = null
+            }
+        )
     }
 }
 
@@ -171,7 +181,6 @@ private fun MomentCard(
     authorLabel: String,
     onLike: () -> Unit,
     onComment: () -> Unit,
-    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     DailySurfaceCard {
@@ -179,7 +188,7 @@ private fun MomentCard(
             DailyAvatar(avatarUri, avatarFallback)
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
                 Text(moment.text, style = MaterialTheme.typography.bodyLarge)
                 if (moment.comments.isNotEmpty()) {
@@ -188,13 +197,41 @@ private fun MomentCard(
                         Text("小寒：$comment", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(momentFooter(moment), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    ActionText(if (moment.liked) "♡ 1" else "♡ 0", onLike)
-                    ActionText("评论", onComment)
-                    ActionText("编辑", onEdit)
-                    ActionText("删除", onDelete)
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        momentFooter(moment),
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    IconButton(onClick = onLike, modifier = Modifier.size(34.dp)) {
+                        Icon(
+                            imageVector = if (moment.liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = if (moment.liked) "取消点赞" else "点赞",
+                            tint = if (moment.liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onComment, modifier = Modifier.size(34.dp)) {
+                        Icon(
+                            Icons.Outlined.ChatBubbleOutline,
+                            contentDescription = "评论",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
+                        Icon(
+                            Icons.Outlined.DeleteOutline,
+                            contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
@@ -238,11 +275,6 @@ internal fun SmallButton(label: String, onClick: () -> Unit) {
         modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 11.dp, vertical = 8.dp),
         style = MaterialTheme.typography.labelLarge
     )
-}
-
-@Composable
-private fun ActionText(label: String, onClick: () -> Unit) {
-    Text(label, modifier = Modifier.clickable(onClick = onClick), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
 }
 
 @Composable
