@@ -21,26 +21,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun VariantControl(index: Int, count: Int, onPlaceholder: () -> Unit) {
+internal fun VariantControl(
+    index: Int,
+    count: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    if (count <= 1) return
     val safeCount = count.coerceAtLeast(1)
     val safeIndex = index.coerceIn(0, safeCount - 1)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        VariantArrow(true, safeCount > 1 && safeIndex > 0, onPlaceholder)
+        VariantArrow(previous = true, enabled = safeIndex > 0, onClick = onPrevious)
         Spacer(Modifier.width(5.dp))
         Text(
             text = "${safeIndex + 1}/$safeCount",
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .62f),
-            fontSize = 11.sp
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
+            fontSize = 12.sp
         )
         Spacer(Modifier.width(5.dp))
-        VariantArrow(false, safeCount > 1 && safeIndex < safeCount - 1, onPlaceholder)
+        VariantArrow(previous = false, enabled = safeIndex < safeCount - 1, onClick = onNext)
     }
 }
 
 @Composable
 private fun VariantArrow(previous: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val tint = if (enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = .78f)
-    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .28f)
+    val tint = if (enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = .72f)
+    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .24f)
     Box(
         modifier = Modifier
             .size(28.dp)
