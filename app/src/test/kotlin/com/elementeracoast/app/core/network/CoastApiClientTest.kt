@@ -5,6 +5,8 @@ import com.elementeracoast.app.core.auth.MemoryAuthStore
 import com.elementeracoast.app.core.remote.RemoteChatMessage
 import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteHistory
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
@@ -118,14 +120,7 @@ class CoastApiClientTest {
                         "event: done\ndata: {\"finish_reason\":\"stop\"}\n\n"
                 )
         )
-        val request = RemoteChatRequest(
-            conversationId = "c1",
-            sourceTurnId = "t1",
-            model = "openai/gpt-5.6",
-            messages = listOf(RemoteChatMessage("user", "hello")),
-            localDate = "2026-09-02",
-            localDateTime = "2026-09-02 20:00"
-        )
+        val request = chatRequest()
 
         val events = api.streamChat(request).toList()
 
@@ -136,6 +131,36 @@ class CoastApiClientTest {
         val recorded = server.takeRequest()
         assertEquals("text/event-stream", recorded.getHeader("Accept"))
         assertEquals(config.origin, recorded.getHeader("Origin"))
+    }
+
+    @Test
+    fun chatSseBackpressurePreservesDoneFurnitureAndDeskAfterManyDeltas() = runBlocking {
+        val deltas = (0 until 160).joinToString(separator = "") { index ->
+            "event: delta\ndata: {\"content\":\"$index,\"}\n\n"
+        }
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(
+                    "event: meta\ndata: {\"model\":\"openai/gpt-5.6\"}\n\n" +
+                        deltas +
+                        "event: done\ndata: {\"finish_reason\":\"stop\"}\n\n" +
+                        "event: furniture_runs\ndata: [{\"id\":\"run-1\",\"label\":\"记忆搜索\"}]\n\n" +
+                        "event: desk_slip\ndata: {\"summary\":\"本轮递给模型\",\"comfort\":\"已保持在舒服区间\"}\n\n"
+                )
+        )
+
+        val events = api.streamChat(chatRequest())
+            .onEach { delay(2) }
+            .toList()
+
+        val receivedDeltas = events.filterIsInstance<ApiStreamEvent.Delta>()
+        assertEquals(160, receivedDeltas.size)
+        assertEquals("159,", receivedDeltas.last().text)
+        assertEquals("stop", events.filterIsInstance<ApiStreamEvent.Done>().single().finishReason)
+        assertEquals(1, events.filterIsInstance<ApiStreamEvent.FurnitureRuns>().size)
+        assertEquals(1, events.filterIsInstance<ApiStreamEvent.DeskSlip>().size)
     }
 
     @Test
@@ -154,6 +179,15 @@ class CoastApiClientTest {
         assertEquals(503, error.status)
         assertEquals("主聊天 D1 存储未配置。", error.message)
     }
+
+    private fun chatRequest() = RemoteChatRequest(
+        conversationId = "c1",
+        sourceTurnId = "t1",
+        model = "openai/gpt-5.6",
+        messages = listOf(RemoteChatMessage("user", "hello")),
+        localDate = "2026-09-02",
+        localDateTime = "2026-09-02 20:00"
+    )
 
     private fun jsonResponse(body: String): MockResponse = MockResponse()
         .setResponseCode(200)
