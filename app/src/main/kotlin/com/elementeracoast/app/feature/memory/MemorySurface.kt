@@ -3,12 +3,15 @@ package com.elementeracoast.app.feature.memory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -28,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 enum class MemoryTab(val title: String) {
@@ -127,9 +131,18 @@ fun MemoryRetrievalCard(
             }
         )
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(modifier = Modifier.weight(.34f)) {
-                FilterChip(filterKind.label, emphasized = true) { kindMenu = true }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(.34f)) {
+                FilterChip(
+                    label = filterKind.label,
+                    emphasized = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { kindMenu = true }
+                )
                 DropdownMenu(expanded = kindMenu, onDismissRequest = { kindMenu = false }) {
                     MemoryFilterKind.entries.forEach { kind ->
                         DropdownMenuItem(
@@ -143,12 +156,21 @@ fun MemoryRetrievalCard(
                     }
                 }
             }
-            Column(modifier = Modifier.weight(.66f)) {
-                FilterChip(filterValue.ifBlank { filterKind.allLabel }, emphasized = false) { valueMenu = true }
+            Box(modifier = Modifier.weight(.66f)) {
+                FilterChip(
+                    label = filterValue.ifBlank { filterKind.allLabel },
+                    emphasized = false,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { valueMenu = true }
+                )
                 DropdownMenu(expanded = valueMenu, onDismissRequest = { valueMenu = false }) {
                     DropdownMenuItem(text = { Text(filterKind.allLabel) }, onClick = { valueMenu = false; onFilterValueChange("") })
                     if (values.isEmpty()) {
-                        DropdownMenuItem(text = { Text(filterKind.emptyLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) }, onClick = {}, enabled = false)
+                        DropdownMenuItem(
+                            text = { Text(filterKind.emptyLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            onClick = {},
+                            enabled = false
+                        )
                     } else {
                         values.forEach { value ->
                             DropdownMenuItem(text = { Text(value) }, onClick = { valueMenu = false; onFilterValueChange(value) })
@@ -161,22 +183,39 @@ fun MemoryRetrievalCard(
 }
 
 @Composable
-private fun FilterChip(label: String, emphasized: Boolean, onClick: () -> Unit) {
+private fun FilterChip(
+    label: String,
+    emphasized: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     val shape = RoundedCornerShape(20.dp)
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(2.dp, shape, clip = false)
+        modifier = modifier
+            .heightIn(min = 50.dp)
+            .shadow(1.dp, shape, clip = false)
             .background(
-                if (emphasized) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f) else MaterialTheme.colorScheme.surface,
+                if (emphasized) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .42f) else MaterialTheme.colorScheme.surface,
                 shape
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
+            .padding(horizontal = 15.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Icon(
+            Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
