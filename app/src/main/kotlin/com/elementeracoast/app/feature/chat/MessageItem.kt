@@ -16,7 +16,8 @@ internal fun MessageItem(
     onEdit: (ChatMessage) -> Unit,
     onAction: (MessageAction) -> Unit,
     onVariantPlaceholder: (ChatMessage) -> Unit,
-    onFootprint: (ChatMessage) -> Unit
+    onFootprint: (ChatMessage) -> Unit,
+    onOpenActionLog: (Set<String>) -> Unit
 ) {
     when (message.role) {
         MessageRole.User -> UserMessage(
@@ -26,7 +27,6 @@ internal fun MessageItem(
             onAction = onAction,
             onVariantPlaceholder = { onVariantPlaceholder(message) }
         )
-
         MessageRole.Assistant -> AssistantMessage(
             message = message,
             isStreamingTail = isStreamingTail,
@@ -35,7 +35,8 @@ internal fun MessageItem(
             onCopy = { onCopy(message) },
             onAction = onAction,
             onVariantPlaceholder = { onVariantPlaceholder(message) },
-            onFootprint = { onFootprint(message) }
+            onFootprint = { onFootprint(message) },
+            onOpenActionLog = onOpenActionLog
         )
     }
 }
