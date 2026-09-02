@@ -2,11 +2,9 @@ name: Android debug native v1
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,89 +15,81 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Verify Native app-57 UI structure
+      - name: Verify Native app-59 local surface structure
         shell: bash
         run: |
           set -euo pipefail
           root=app/src/main/kotlin/com/elementeracoast/app
           chat="$root/feature/chat"
-
-          test -f "$root/core/model/RoomType.kt"
-          test -f "$root/core/contract/CoastContracts.kt"
+          test -f docs/NATIVE_APP59_SURFACE_PARITY_MAP.md
+          test -f "$root/core/local/LocalPersistence.kt"
+          test -f "$root/feature/wolf/WolfStore.kt"
+          test -f "$root/feature/actionlog/ActionLogStore.kt"
+          test -f "$root/feature/daily/DailyStore.kt"
+          test -f "$root/feature/memory/MemoryStore.kt"
+          test -f "$chat/LocalChatStore.kt"
+          test -f "$chat/LocalFurnitureOrchestrator.kt"
+          test -f "$chat/FurnitureBubble.kt"
+          test -f "$chat/SoilSheet.kt"
           test -f "$root/feature/gate/GateScreen.kt"
           test -f "$root/ui/brand/CoastBrandMark.kt"
+          test -f "$root/feature/shell/CoastDrawer.kt"
           test -f "$root/feature/shell/MainShell.kt"
-          test -f "$chat/ChatScreen.kt"
-          test -f "$chat/ChatTimeline.kt"
-          test -f "$chat/MessageItem.kt"
-          test -f "$chat/AssistantMessage.kt"
-          test -f "$chat/UserMessage.kt"
-          test -f "$chat/MessageActions.kt"
-          test -f "$chat/VariantControl.kt"
-          test -f "$chat/GenerationFootprint.kt"
-          test -f "$chat/AvatarPickerDialog.kt"
-          test -f "$root/feature/daily/DailyLanding.kt"
-          test -f "$root/feature/memory/MemoryLanding.kt"
-          test ! -f "$root/core/model/Models.kt"
 
           grep -q 'fun ChatWindow(' "$chat/ChatScreen.kt"
-          grep -q 'ChatTimeline(' "$chat/ChatScreen.kt"
           grep -q 'DogtalkScope.from(state.activeRoomType)' "$chat/ChatScreen.kt"
-          grep -q 'ToggleLike' "$chat/AssistantMessage.kt"
-          grep -q 'ToggleFavorite' "$chat/AssistantMessage.kt"
-          grep -q 'Regenerate' "$chat/AssistantMessage.kt"
-          grep -q 'MessageAction.Delete' "$chat/UserMessage.kt"
-          grep -q 'ActivityResultContracts.PickVisualMedia' "$chat/ChatScreen.kt"
+          grep -q 'FurnitureBubble' "$chat/AssistantMessage.kt"
+          grep -q '小蛇摆弄了' "$chat/FurnitureBubble.kt"
+          grep -q 'FeatureDestination.ActionLog' "$root/feature/shell/CoastDrawer.kt"
+          grep -q 'Serpent Action Log' "$root/feature/shell/CoastDrawer.kt"
           grep -q 'listOf("body", "true_core", "weather", "read_mode")' "$root/feature/dogtalk/DogtalkUiState.kt"
+          grep -q 'val activeFieldNames' "$root/feature/wolf/WolfModels.kt"
 
-          if grep -RIE 'FeatureDestination\.Calendar|今日一瞥|海岸日历|一日总结|相册' \
-            "$root/core/model" "$root/feature/shell" "$root/feature/daily"; then
-            echo 'Retired Calendar/Summary/Album surface returned.'
+          if grep -RIE 'FeatureDestination\.Calendar|FeatureDestination\.Desk|今日一瞥|海岸日历|一日总结|相册|Serpent Desk|小蛇书桌|运行水闸' \
+            "$root/core/model" "$root/feature/shell" "$root/feature/daily" "$root/feature/wolf"; then
+            echo 'Retired Native surface returned.'
             exit 1
           fi
-
           if grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml; then
-            echo 'UI parity pass must stay local-only: INTERNET permission found.'
+            echo 'Local parity pass must stay offline: INTERNET permission found.'
             exit 1
           fi
-
           if find app/src -type f \( -name '*.ts' -o -name '*.tsx' -o -name 'package.json' \) | grep -q .; then
-            echo 'TypeScript/React-style material found in Native source.'
+            echo 'TypeScript/React material found in Native source.'
+            exit 1
+          fi
+          if find app/src/main/kotlin -type d | grep -Ei '/(legacy|compat|temp|misc)(/|$)'; then
+            echo 'Forbidden legacy/compat/temp/misc source directory found.'
             exit 1
           fi
 
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
-
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
-
       - name: Stage debug APK
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifact
-          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-ui-parity-25-debug.apk
-          sha256sum artifact/CoastGPT-native-ui-parity-25-debug.apk > artifact/SHA256SUMS.txt
-
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-native-app59-local-parity-26-debug.apk
+          sha256sum artifact/CoastGPT-native-app59-local-parity-26-debug.apk > artifact/SHA256SUMS.txt
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-ui-parity-25-debug
+          name: CoastGPT-native-app59-local-parity-26-debug
           path: |
-            artifact/CoastGPT-native-ui-parity-25-debug.apk
+            artifact/CoastGPT-native-app59-local-parity-26-debug.apk
             artifact/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
