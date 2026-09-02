@@ -33,7 +33,8 @@ data class ChatMessage(
     val variantCount: Int = 1,
     val variants: List<String> = emptyList(),
     val createdAtLabel: String? = null,
-    val furnitureRuns: List<FurnitureRun> = emptyList()
+    val furnitureRuns: List<FurnitureRun> = emptyList(),
+    val deskReceipt: TurnDeskReceipt? = null
 ) {
     fun normalizedVariants(): List<String> = variants.ifEmpty { listOf(text) }
 }
