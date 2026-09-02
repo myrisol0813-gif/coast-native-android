@@ -18,9 +18,11 @@ Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 - preserved Native 25 Gate, tuned drawer/topbar, RoomType and one shared ChatWindow
 - Main / Radio / Lighthouse still share timeline, message actions, Dogtalk and composer
 - chat model label is larger, bounded and ellipsized; the old chevron is removed
+- feature-page chrome is compressed separately from the main chat topbar
 - assistant actions: copy / like / favorite / local regenerate / delete / footprint
 - user normal actions: edit / copy
-- local user edits append true UI variants; variant counter uses total/current (`2/1`, `2/2`) and disappears again at one variant
+- editing a user message appends a user variant and regenerates the directly paired assistant reply as a new assistant variant
+- both sides use total/current counters (`2/1`, `2/2`); counters disappear again at one variant
 - current-variant delete never deletes adjacent messages or another variant
 - local thought-soil / hand-seed sheet
 - per-assistant explicit `FurnitureRun` bubble bound to local action ids
@@ -32,9 +34,11 @@ Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 - manual Carbon posts are Xiaohan-authored; chat fake-furniture posts are explicitly Myri-authored and render with the matching local avatar/name
 - Pet entrance remains, while its interior and temporary pet-state model are intentionally empty for a later dedicated round
 - Memory: PWA-like 记忆库 / 种子库 / 世界书 / 自定义指令, with real local 日期/模型/窗口/标签 filters for Memory and Seeds
+- Memory add actions are one-shot consumed events; switching/back cannot reopen stale add dialogs
 - local JSON / HTML chat export and JSON import into the current window
 - light / dark / gold plus local user-bubble and accent appearance
-- platform sans typography with slightly heavier body weights and softer foreground colors
+- Android platform sans typography: bold compact titles, medium body text, smaller gray subtitles
+- restrained 2dp-style depth on content cards/chips and user bubbles; assistant body stays plain
 
 ## State ownership
 
@@ -50,7 +54,7 @@ feature/shell      navigation, drawer, shared and feature page chrome
 core/local         SharedPreferences / in-memory persistence boundary
 ```
 
-The physical-device product remains local-only. SharedPreferences stores Wolf/Daily/Memory/ActionLog state; conversations remain the Native chat owner and can be explicitly imported/exported. User-message variants are current local chat state and deliberately remain separate from the future API contract skeleton.
+The physical-device product remains local-only. SharedPreferences stores Wolf/Daily/Memory/ActionLog state; conversations remain the Native chat owner and can be explicitly imported/exported. Message variants are current local chat state and deliberately remain separate from the future API contract skeleton.
 
 ## App-59 product mother
 
