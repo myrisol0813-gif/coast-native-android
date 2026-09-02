@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
@@ -92,7 +91,13 @@ internal fun DiaryScreen(
     }
 }
 
-private data class DiaryDraft(val date: String, val weather: String, val mood: String, val tags: List<String>, val text: String)
+private data class DiaryDraft(
+    val date: String,
+    val weather: String,
+    val mood: String,
+    val tags: List<String>,
+    val text: String
+)
 
 @Composable
 private fun DiaryEditor(entry: LocalDiary?, onDismiss: () -> Unit, onSave: (DiaryDraft) -> Unit) {
@@ -107,14 +112,18 @@ private fun DiaryEditor(entry: LocalDiary?, onDismiss: () -> Unit, onSave: (Diar
         title = { Text(if (entry == null) "新日记" else "编辑日记") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                WolfTextField("日期", date) { date = it }
-                WolfTextField("天气", weather) { weather = it }
-                WolfTextField("心情", mood) { mood = it }
-                WolfTextField("标签 · 逗号分隔", tags) { tags = it }
+                WolfTextField("日期", date, { date = it })
+                WolfTextField("天气", weather, { weather = it })
+                WolfTextField("心情", mood, { mood = it })
+                WolfTextField("标签 · 逗号分隔", tags, { tags = it })
                 WolfTextField("正文", text, { text = it }, minLines = 4)
             }
         },
-        confirmButton = { androidx.compose.material3.TextButton(onClick = { onSave(DiaryDraft(date, weather, mood, tags.split(',').map(String::trim).filter(String::isNotBlank), text)) }) { Text("保存") } },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                onSave(DiaryDraft(date, weather, mood, tags.split(',').map(String::trim).filter(String::isNotBlank), text))
+            }) { Text("保存") }
+        },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }
