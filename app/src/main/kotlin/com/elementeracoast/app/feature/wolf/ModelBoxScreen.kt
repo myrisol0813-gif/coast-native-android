@@ -1,5 +1,6 @@
 package com.elementeracoast.app.feature.wolf
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,12 +11,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -97,16 +100,26 @@ internal fun ModelBoxScreen(
 
 @Composable
 private fun CurrentModelCard(model: String) {
-    val shape = RoundedCornerShape(22.dp)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(2.dp, shape, clip = false)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = .10f), shape)
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+    val shape = RoundedCornerShape(18.dp)
+    Surface(
+        modifier = Modifier.widthIn(min = 190.dp, max = 320.dp),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = 1.dp
     ) {
-        Text(model.substringAfterLast('/'), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("正在使用", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(
+                model.substringAfterLast('/'),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "正在使用",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 
@@ -163,14 +176,23 @@ private fun ModelCatalogBubble(
             .padding(horizontal = 15.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(item.displayName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                item.displayName,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
             Text(if (expanded) "⌃" else "⌄", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (expanded) {
             Spacer(Modifier.height(8.dp))
             Text(item.id, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Text(item.series.title, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            Text("目录来源：本地缓存；接线后由 OpenRouter 刷新", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(
+                "目录来源：本地缓存；接线后由 OpenRouter 刷新",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
             Spacer(Modifier.height(9.dp))
             Text(
                 "设为当前",
