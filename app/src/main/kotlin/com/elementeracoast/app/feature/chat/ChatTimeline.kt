@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,12 +22,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.core.model.MessageRole
+import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 
 @Composable
 internal fun ChatTimeline(
     conversationId: String,
     messages: List<ChatMessage>,
+    thoughtSoil: ThoughtSoilSnapshot?,
     isStreaming: Boolean,
     streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
@@ -37,12 +40,14 @@ internal fun ChatTimeline(
     onAction: (MessageAction) -> Unit,
     onFootprint: (ChatMessage) -> Unit,
     onOpenActionLog: (Set<String>) -> Unit,
+    onOpenThoughtSoil: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     val streamingIndex = messages.indexOfFirst { it.id == streamingMessageId }
     val streamingLength = messages.getOrNull(streamingIndex)?.text?.length ?: 0
-    LaunchedEffect(conversationId, messages.size, streamingMessageId, streamingLength) {
+    val latestAssistantIndex = messages.indexOfLast { it.role == MessageRole.Assistant }
+    LaunchedEffect(conversationId, messages.size, streamingMessageId, streamingLength, thoughtSoil?.revision) {
         val target = if (streamingIndex >= 0) streamingIndex else messages.lastIndex
         if (target >= 0) listState.scrollToItem(target)
     }
@@ -66,18 +71,27 @@ internal fun ChatTimeline(
             ),
             verticalArrangement = Arrangement.spacedBy(CoastChatTokens.MessageGap)
         ) {
-            items(messages, key = { it.id }) { message ->
-                MessageItem(
-                    message = message,
-                    isStreamingTail = isStreaming && message.id == streamingMessageId,
-                    avatarBitmap = avatarBitmap,
-                    onAvatarClick = onAvatarClick,
-                    onCopy = onCopy,
-                    onEdit = onEdit,
-                    onAction = onAction,
-                    onFootprint = onFootprint,
-                    onOpenActionLog = onOpenActionLog
-                )
+            itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
+                Column {
+                    if (index == latestAssistantIndex && thoughtSoil != null) {
+                        ThoughtSoilEntry(
+                            soil = thoughtSoil,
+                            onClick = onOpenThoughtSoil,
+                            modifier = Modifier.padding(bottom = 5.dp)
+                        )
+                    }
+                    MessageItem(
+                        message = message,
+                        isStreamingTail = isStreaming && message.id == streamingMessageId,
+                        avatarBitmap = avatarBitmap,
+                        onAvatarClick = onAvatarClick,
+                        onCopy = onCopy,
+                        onEdit = onEdit,
+                        onAction = onAction,
+                        onFootprint = onFootprint,
+                        onOpenActionLog = onOpenActionLog
+                    )
+                }
             }
         }
     }
