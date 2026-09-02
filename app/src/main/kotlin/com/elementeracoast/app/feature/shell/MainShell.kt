@@ -79,7 +79,9 @@ fun MainShell(
             )
         }
     ) {
-        val ownsPageChrome = state.activeFeature == FeatureDestination.Memory || state.activeFeature == FeatureDestination.Daily
+        val ownsPageChrome = state.activeFeature == FeatureDestination.Memory ||
+            state.activeFeature == FeatureDestination.Daily ||
+            state.activeFeature == FeatureDestination.IslandLetter
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
@@ -92,7 +94,7 @@ fun MainShell(
                         onBack = onBackToChat,
                         onOpenModels = onOpenModels,
                         onNewConversation = onNewConversation,
-                        onMore = { onPlaceholder("登岛信与予爱机书尚未接回 Native；本轮不做无反应按钮。") }
+                        onMore = { onOpenFeature(FeatureDestination.IslandLetter) }
                     )
                 }
             }
