@@ -19,6 +19,8 @@ internal fun FeatureLandingScreen(
     services: LocalFeatureServices,
     daily: DailyRepository,
     memory: MemoryRepository,
+    openMemoryPending: Boolean,
+    onMemoryPendingConsumed: () -> Unit,
     messages: List<ChatMessage>,
     onBackToChat: () -> Unit,
     onRefresh: () -> Unit,
@@ -42,6 +44,8 @@ internal fun FeatureLandingScreen(
         FeatureDestination.Memory -> MemoryLanding(
             repository = memory,
             conversationId = shellState.activeConversationId,
+            openPendingInitially = openMemoryPending,
+            onPendingOpenConsumed = onMemoryPendingConsumed,
             onBackToChat = onBackToChat,
             onActionLogged = onLocalActionLogged,
             onSnackbar = onPlaceholder
