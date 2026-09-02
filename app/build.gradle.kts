@@ -12,8 +12,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.1.10-app59-review-26"
+        versionCode = 13
+        versionName = "0.1.11-app59-review-26"
     }
 
     buildTypes {
