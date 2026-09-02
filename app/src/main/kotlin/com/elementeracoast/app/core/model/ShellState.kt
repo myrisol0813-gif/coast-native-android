@@ -23,6 +23,7 @@ data class CoastShellState(
     val currentModel: String = "Free: North Mini",
     val models: List<String> = listOf("Free: North Mini", "GPT-5.6 Sol", "GPT-5.5 Thinking", "o3"),
     val isStreaming: Boolean = false,
+    val streamingMessageId: Long? = null,
     val showModelPicker: Boolean = false,
     val snackbarMessage: String? = null
 )
