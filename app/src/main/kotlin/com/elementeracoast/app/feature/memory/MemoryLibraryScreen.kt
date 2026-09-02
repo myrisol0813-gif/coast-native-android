@@ -32,7 +32,8 @@ import java.time.LocalDate
 @Composable
 internal fun MemoryLibraryScreen(
     store: MemoryStore,
-    createRequest: Int,
+    createRequested: Boolean,
+    onCreateConsumed: () -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
 ) {
@@ -44,7 +45,12 @@ internal fun MemoryLibraryScreen(
     var creating by remember { mutableStateOf(false) }
     var expandedId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(createRequest) { if (createRequest > 0) creating = true }
+    LaunchedEffect(createRequested) {
+        if (createRequested) {
+            creating = true
+            onCreateConsumed()
+        }
+    }
 
     val filterValues = when (filterKind) {
         MemoryFilterKind.Tag -> (canonicalMemoryTags + state.memories.flatMap { it.tags } + state.memories.map { it.category })
@@ -83,8 +89,8 @@ internal fun MemoryLibraryScreen(
                 "记忆库",
                 modifier = Modifier.padding(start = 36.dp, end = 36.dp, top = 8.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
         }
         if (visible.isEmpty()) {
@@ -103,7 +109,7 @@ internal fun MemoryLibraryScreen(
             items(visible, key = { it.id }) { entry ->
                 Column(Modifier.padding(horizontal = 28.dp)) {
                     DailySurfaceCard(onClick = { expandedId = if (expandedId == entry.id) null else entry.id }) {
-                        Text(entry.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(entry.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         if (entry.lifeCore.isNotBlank()) {
                             Spacer(Modifier.height(3.dp))
                             Text(entry.lifeCore, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
