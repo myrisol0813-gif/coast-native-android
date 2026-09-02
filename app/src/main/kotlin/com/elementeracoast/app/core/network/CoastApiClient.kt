@@ -136,7 +136,7 @@ class CoastApiClient(
 
     suspend fun setDailyMomentLike(id: String, liked: Boolean): RemoteDailyMoment {
         val builder = Request.Builder().url(config.url("/api/daily/moments/${encodePath(id)}/like"))
-        val request = if (liked) builder.put(jsonBody("{}")) else builder.delete().build()
+        val request = if (liked) builder.put(jsonBody("{}")).build() else builder.delete().build()
         return jsonRequest(request, RemoteDailyMomentResponse.serializer()).moment
     }
 
