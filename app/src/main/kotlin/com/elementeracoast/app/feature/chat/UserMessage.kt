@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,8 +59,23 @@ internal fun UserMessage(
                         fontWeight = FontWeight.Normal
                     )
                 )
+                if (!message.errorDetail.isNullOrBlank()) {
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        "发送未完成 · ${message.errorDetail.substringAfter(':').trim().take(90)}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Spacer(Modifier.height(CoastChatTokens.UserActionTopGap))
                 MessageActionRow {
+                    if (!message.errorDetail.isNullOrBlank()) {
+                        MessageActionButton(
+                            Icons.Default.Refresh,
+                            "重试",
+                            onClick = { onAction(MessageAction.Retry(message.id)) }
+                        )
+                    }
                     MessageActionButton(Icons.Default.Edit, "编辑", onClick = onEdit)
                     MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
                     if (message.variantCount > 1) {
