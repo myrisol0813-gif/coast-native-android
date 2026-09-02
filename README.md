@@ -2,9 +2,9 @@
 
 Private Android native client for Elementera Coast / CoastGPT.
 
-**Status: Native v1 local review shell aligned through current PWA app-60 surfaces and phone-review feedback. Real backend wiring is intentionally deferred.**
+**Status: Native v1 local review shell aligned through the app-60 body plus the reviewed app-62 Serpent Desk delta. Real backend wiring is intentionally deferred.**
 
-Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md`.
+Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md` (app-60 baseline with later reviewed deltas recorded in-place).
 
 ## Product identity
 
@@ -15,7 +15,7 @@ Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md`.
 
 ## Native body
 
-- preserved Native 25 Gate, tuned drawer/topbar, `RoomType` and one shared `ChatWindow`
+- preserved tuned drawer/topbar, `RoomType` and one shared `ChatWindow`
 - Main / Radio / Lighthouse threads start empty; no fixture assistant message appears before user input
 - chat top-right More opens the local `登岛信`
 - island letter uses current-model `To ...` text and is stored independently per conversation + model; delivery remains unwired
@@ -23,38 +23,38 @@ Current source of truth: `docs/NATIVE_APP60_SURFACE_PARITY_MAP.md`.
 - user edit creates paired local user + assistant variants; fake generation targets the exact assistant variant
 - local thought-soil / furniture transparency remains explicit
 - Wolf Den: 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断
-- redundant Profile avatar-location reminder removed
-- Model Box shows the current model separately and puts all unselected models inside one grouped expandable catalog
-- catalog groups mirror current PWA structure: o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image
+- Model Box renders the current model as one compact solid bubble; all unselected models stay inside one grouped expandable catalog
+- catalog groups: o / GPT-4 / GPT-5 / other OpenAI Chat / Free Test / image
 - Refresh is visible but explicitly offline until backend OpenRouter catalog wiring exists; no fake network result
-- sidebar visible identity is again `Serpent Desk / 小蛇书桌`; its only current interior is the existing Action Log
+- sidebar identity is `Serpent Desk / 小蛇书桌`; opening it now lands on the desk home, whose current tool shelf contains `小蛇行动日志`
+- furniture deep links still open the Action Log tool inside Serpent Desk, rather than bypassing the desk product structure
 - Daily: 碳硅圈 / 日记 / blank Pet interior
 - Memory: 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface with real local filters
-- Memory filter chips use a restrained accent tint / outline instead of muddy shadow-filled controls
 - local JSON / HTML chat export and JSON import
 - light / dark / gold plus local bubble/accent appearance
 
 ## State ownership
 
 ```text
-feature/chat       LocalChatStore + message UI + LocalFurnitureOrchestrator
-feature/wolf       WolfStore + ModelCatalog + ModelBoxScreen
-feature/letters    IslandLetterContent + IslandLetterStore + IslandLetterScreen
-feature/actionlog  ActionLogStore + ActionLogScreen
-feature/daily      DailyStore + Daily surfaces
-feature/memory     MemoryStore + Memory surfaces
-feature/shell      navigation, drawer, topbars and cross-feature coordination
-core/local         SharedPreferences / in-memory persistence boundary
-core/model         shared stable shell/chat models
+feature/chat         LocalChatStore + message UI + LocalFurnitureOrchestrator
+feature/wolf         WolfStore + ModelCatalog + ModelBoxScreen
+feature/letters      IslandLetterContent + IslandLetterStore + IslandLetterScreen
+feature/serpentdesk  SerpentDeskScreen + visible tool shelf/navigation
+feature/actionlog    ActionLogStore + ActionLogScreen tool implementation
+feature/daily        DailyStore + Daily surfaces
+feature/memory       MemoryStore + Memory surfaces
+feature/shell        navigation, drawer, topbars and cross-feature coordination
+core/local           SharedPreferences / in-memory persistence boundary
+core/model           shared stable shell/chat models
 ```
 
-The physical-device product remains local-only. `CoastShellViewModel` coordinates shell/navigation/local generation; feature data remains owned by feature stores.
+`Serpent Desk` is the visible container; `Action Log` is a tool inside it. They do not duplicate state or UI. `CoastShellViewModel` still owns shell coordination and the focus ids used when furniture links directly into the log tool.
 
-## Current PWA product mother
+## PWA reference
 
-This review branch was rebuilt cleanly from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a4`). Current read-only PWA reference: `elementera-coast@0b9ca38d50738d0c367637ccd06579a4f5feacfe` (`coast-app-60`).
+The main Native body was reviewed against PWA app-60. The Serpent Desk home/tool-shelf behavior in version `0.1.13-app62-desk-fix-27` additionally follows the read-only current app-62 `settings.js`, where `settings:desk` opens `小蛇书桌 / Myri 的工作台` and currently exposes `小蛇行动日志` as one row.
 
-The abandoned earlier Native 26 attempt is not a compatibility source and is not bridged into this code.
+Web/PWA source remains reference-only and is never copied into this repository.
 
 ## Hard boundaries
 
@@ -64,7 +64,6 @@ The abandoned earlier Native 26 attempt is not a compatibility source and is not
 - no real Daily/Memory/MCP sync
 - no o3 reply-card changes
 - no Calendar / Today Coast / Summary / Album
-- no `FeatureDestination.Desk`; visible Serpent Desk is only the active Action Log shell
 - no restored old desk pseudo-settings
 - no hidden temporary Pet controls/state
 - no `legacy` / `compat` / `bridge` / `temp` / `misc` source layer
