@@ -3,10 +3,12 @@ package com.elementeracoast.app.feature.wolf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -27,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
+import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
 
 @Composable
 fun WolfScreen(
@@ -40,25 +43,35 @@ fun WolfScreen(
 ) {
     val state by store.state.collectAsState()
     var page by remember { mutableStateOf<WolfDestination?>(null) }
+    val current = page
 
-    when (val current = page) {
-        null -> WolfHome(state, shellState.currentModel) { page = it }
-        WolfDestination.Profile -> ProfileScreen(state, store, onAppearance = { page = WolfDestination.Appearance }, onSnackbar = onSnackbar)
-        WolfDestination.Appearance -> AppearanceScreen(state, store, onSnackbar)
-        WolfDestination.ChatRecords -> ChatRecordsScreen(
-            profile = state.profile,
-            messages = messages,
-            onImportMessages = onImportMessages,
-            onActionLogged = onActionLogged,
-            onSnackbar = onSnackbar
-        )
-        WolfDestination.ModelBox -> ModelBoxScreen(
-            models = shellState.models,
-            current = shellState.currentModel,
-            onSelect = onSelectModel
-        )
-        WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store)
-        WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
+    if (current == null) {
+        WolfHome(state, shellState.currentModel) { page = it }
+        return
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        FeatureLocalBackBar("小狼窝") { page = null }
+        Box(Modifier.weight(1f)) {
+            when (current) {
+                WolfDestination.Profile -> ProfileScreen(state, store, onAppearance = { page = WolfDestination.Appearance }, onSnackbar = onSnackbar)
+                WolfDestination.Appearance -> AppearanceScreen(state, store, onSnackbar)
+                WolfDestination.ChatRecords -> ChatRecordsScreen(
+                    profile = state.profile,
+                    messages = messages,
+                    onImportMessages = onImportMessages,
+                    onActionLogged = onActionLogged,
+                    onSnackbar = onSnackbar
+                )
+                WolfDestination.ModelBox -> ModelBoxScreen(
+                    models = shellState.models,
+                    current = shellState.currentModel,
+                    onSelect = onSelectModel
+                )
+                WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store)
+                WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
+            }
+        }
     }
 }
 
