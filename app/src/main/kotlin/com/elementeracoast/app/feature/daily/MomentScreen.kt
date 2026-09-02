@@ -9,12 +9,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,10 +32,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 @Composable
 internal fun MomentScreen(
@@ -62,7 +57,7 @@ internal fun MomentScreen(
         keepUri(uri, store::setProfileAvatar, "小寒头像已保存在本机")
     }
     val myriPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        keepUri(uri, store::setMyriAvatar, "Myri 头像已保存在本机")
+        keepUri(uri, store::setMyriAvatar, "Myri 头像已保存在本机；主页聊天同步使用")
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         keepUri(uri, store::setCover, "碳硅圈封面已保存在本机")
@@ -74,21 +69,17 @@ internal fun MomentScreen(
     ) {
         item {
             DailyCover(state.coverUri) { coverPicker.launch(arrayOf("image/*")) }
-            Spacer(Modifier.height(14.dp))
-        }
-        item {
-            DailyAvatarRow("小寒头像", "保存在海岸", state.profileAvatarUri, "寒") {
-                avatarPicker.launch(arrayOf("image/*"))
-            }
-        }
-        item {
-            DailyAvatarRow("Myri 头像", "保存在海岸", state.myriAvatarUri, "M") {
-                myriPicker.launch(arrayOf("image/*"))
-            }
+            Spacer(Modifier.height(12.dp))
+            DailyAvatarStrip(
+                profileUri = state.profileAvatarUri,
+                myriUri = state.myriAvatarUri,
+                onProfileClick = { avatarPicker.launch(arrayOf("image/*")) },
+                onMyriClick = { myriPicker.launch(arrayOf("image/*")) }
+            )
         }
         if (state.moments.isEmpty()) {
             item {
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(8.dp))
                 DailySurfaceCard {
                     Text("还没有动态。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("想写的时候留一点潮声。", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -171,53 +162,6 @@ internal fun MomentComposeScreen(
             }
         }
     }
-}
-
-@Composable
-private fun MomentCard(
-    moment: LocalMoment,
-    avatarUri: String,
-    avatarFallback: String,
-    authorLabel: String,
-    onLike: () -> Unit,
-    onComment: () -> Unit,
-    onDelete: () -> Unit,
-    onMyriComment: () -> Unit
-) {
-    DailySurfaceCard {
-        Row {
-            DailyAvatar(avatarUri, avatarFallback)
-            Spacer(Modifier.size(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                Text(moment.text, style = MaterialTheme.typography.bodyLarge)
-                if (moment.comments.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    moment.comments.takeLast(5).forEach { comment ->
-                        Text("小寒：$comment", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                MomentActionRows(
-                    moment = moment,
-                    footer = momentFooter(moment),
-                    onLike = onLike,
-                    onComment = onComment,
-                    onDelete = onDelete,
-                    onMyriComment = onMyriComment
-                )
-            }
-        }
-    }
-}
-
-private fun momentFooter(moment: LocalMoment): String {
-    val clock = runCatching {
-        DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.parse(moment.createdAt))
-    }.getOrDefault("")
-    val date = runCatching { LocalDate.parse(moment.date).format(DateTimeFormatter.ofPattern("MM月dd日")) }.getOrDefault(moment.date)
-    return if (clock.isBlank()) date else "$date · $clock"
 }
 
 @Composable
