@@ -17,6 +17,7 @@ Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 
 - preserved Native 25 Gate, tuned drawer/topbar, RoomType and one shared ChatWindow
 - Main / Radio / Lighthouse still share timeline, message actions, Dogtalk and composer
+- all local conversations now start empty; no fixture assistant reply appears before the user sends a message
 - chat model label is larger, bounded and ellipsized; the old chevron is removed
 - feature-page chrome is compressed separately from the main chat topbar
 - assistant actions: copy / like / favorite / local regenerate / delete / footprint
@@ -29,11 +30,13 @@ Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 - Wolf Den: 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断
 - Serpent Action Log: redacted persistent local action transparency
 - Daily home: 碳硅圈 / 日记 / 宠物系统 plus a visible `未来小组件` snackbar placeholder matching the PWA review surface
-- Carbon Circle and Diary use PWA-like local pages
+- Carbon Circle keeps the full-width cover without crop, and post footer actions are compact like/comment/delete icons with delete confirmation
+- Diary entry edit/delete actions are compact icons; delete is confirmed before local removal
 - Carbon Circle owns local Xiaohan/Myri avatar sources and cover; chat shares the same Myri avatar source
 - manual Carbon posts are Xiaohan-authored; chat fake-furniture posts are explicitly Myri-authored and render with the matching local avatar/name
 - Pet entrance remains, while its interior and temporary pet-state model are intentionally empty for a later dedicated round
 - Memory: PWA-like 记忆库 / 种子库 / 世界书 / 自定义指令, with real local 日期/模型/窗口/标签 filters for Memory and Seeds
+- Worldbook now stays inside the same Memory 2×2 tab surface instead of opening a separate page; its top action remains `新增`
 - Memory add actions are one-shot consumed events; switching/back cannot reopen stale add dialogs
 - local JSON / HTML chat export and JSON import into the current window
 - light / dark / gold plus local user-bubble and accent appearance
