@@ -21,7 +21,7 @@ android {
         targetSdk = 34
         versionCode = 20
         versionName = "0.1.18-backend-wiring-29"
-        buildConfigField("String", "COAST_API_BASE_URL", "\"https://enteracoast.com\"")
+        buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
     signingConfigs {
