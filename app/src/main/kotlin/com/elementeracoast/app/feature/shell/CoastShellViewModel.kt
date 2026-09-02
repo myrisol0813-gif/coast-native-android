@@ -168,7 +168,6 @@ class CoastShellViewModel(
 
     fun handleMessageAction(action: MessageAction) {
         val current = _state.value
-        val conversationId = current.activeConversationId
         val message = current.messages.firstOrNull { it.id == action.messageId } ?: return
         when (action) {
             is MessageAction.Copy -> logAction("message.copy", "复制消息", "${message.role.name.lowercase()} · ${message.text.length} 字")
@@ -184,15 +183,30 @@ class CoastShellViewModel(
             }
             is MessageAction.Delete -> {
                 if (current.isStreaming) { showPlaceholder("生成中请先停止，再删除消息。"); return }
-                mutateCurrent { it.filterNot { item -> item.id == message.id } }
-                logAction("message.delete", "删除消息", "${message.role.name.lowercase()} message ${message.id}")
-                showPlaceholder("已从当前本地窗口删除这条消息")
+                if (message.role == MessageRole.User && message.variantCount > 1) {
+                    mutateCurrent { list -> list.map { item -> if (item.id == message.id) removeCurrentVariant(item) else item } }
+                    logAction("message.variant.delete", "删除当前消息版本", "user message ${message.id}")
+                    showPlaceholder("已删除当前版本；其他版本与前后消息保持不变")
+                } else {
+                    mutateCurrent { it.filterNot { item -> item.id == message.id } }
+                    logAction("message.delete", "删除消息", "${message.role.name.lowercase()} message ${message.id}")
+                    showPlaceholder("已从当前本地窗口删除这条消息")
+                }
             }
             is MessageAction.Edit -> {
                 if (message.role != MessageRole.User) return
-                val clean = action.text.trim(); if (clean.isBlank()) return
-                mutateCurrent { list -> list.map { if (it.id == message.id) it.copy(text = clean) else it } }
-                showPlaceholder("已在当前本地窗口修改")
+                val clean = action.text.trim()
+                if (clean.isBlank()) return
+                mutateCurrent { list -> list.map { item ->
+                    if (item.id != message.id) item else appendUserVariant(item, clean)
+                } }
+                showPlaceholder("已生成新的本地消息版本")
+            }
+            is MessageAction.SelectVariant -> {
+                if (message.role != MessageRole.User || message.variantCount <= 1) return
+                mutateCurrent { list -> list.map { item ->
+                    if (item.id != message.id) item else selectVariant(item, action.index)
+                } }
             }
             is MessageAction.Regenerate -> regenerate(message)
         }
@@ -202,6 +216,36 @@ class CoastShellViewModel(
     fun showPlaceholder(message: String) { _state.update { it.copy(snackbarMessage = message) } }
     fun clearSnackbar() { _state.update { it.copy(snackbarMessage = null) } }
 
+    private fun appendUserVariant(message: ChatMessage, text: String): ChatMessage {
+        val variants = message.normalizedVariants() + text
+        return message.copy(
+            text = text,
+            variants = variants,
+            variantIndex = variants.lastIndex,
+            variantCount = variants.size
+        )
+    }
+
+    private fun selectVariant(message: ChatMessage, requestedIndex: Int): ChatMessage {
+        val variants = message.normalizedVariants()
+        val index = requestedIndex.coerceIn(0, variants.lastIndex)
+        return message.copy(text = variants[index], variants = variants, variantIndex = index, variantCount = variants.size)
+    }
+
+    private fun removeCurrentVariant(message: ChatMessage): ChatMessage {
+        val variants = message.normalizedVariants().toMutableList()
+        if (variants.size <= 1) return message
+        val index = message.variantIndex.coerceIn(0, variants.lastIndex)
+        variants.removeAt(index)
+        val nextIndex = index.coerceAtMost(variants.lastIndex)
+        return message.copy(
+            text = variants[nextIndex],
+            variants = variants,
+            variantIndex = nextIndex,
+            variantCount = variants.size
+        )
+    }
+
     private fun regenerate(message: ChatMessage) {
         val current = _state.value
         if (message.role != MessageRole.Assistant) return
@@ -209,7 +253,7 @@ class CoastShellViewModel(
         mutateCurrent { list -> list.map {
             if (it.id == message.id) it.copy(
                 text = "", modelId = current.currentModel, generationSource = "local-regenerate · ${localGenerationLabel()}",
-                liked = false, favorite = false, errorDetail = null, variantIndex = 0, variantCount = 1
+                liked = false, favorite = false, errorDetail = null, variantIndex = 0, variantCount = 1, variants = emptyList()
             ) else it
         } }
         logAction("chat.regenerate", "重新生成本地回复", "assistant message ${message.id}", assistantMessageId = message.id)
