@@ -37,6 +37,7 @@ fun WolfScreen(
     shellState: CoastShellState,
     messages: List<ChatMessage>,
     onSelectModel: (String) -> Unit,
+    onRefreshModels: () -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
@@ -67,9 +68,7 @@ fun WolfScreen(
                     models = shellState.models,
                     current = shellState.currentModel,
                     onSelect = onSelectModel,
-                    onRefresh = {
-                        onSnackbar("Native 当前仍是本地模型目录；后端接线后这里会刷新 OpenRouter 并自动分区。")
-                    }
+                    onRefresh = onRefreshModels
                 )
                 WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store)
                 WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
