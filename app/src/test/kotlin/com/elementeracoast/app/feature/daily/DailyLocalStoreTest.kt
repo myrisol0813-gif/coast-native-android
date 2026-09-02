@@ -10,7 +10,7 @@ class DailyLocalStoreTest {
     @Test fun momentPublishLikeCommentEditDeleteAndPersistenceWork() {
         val persistence = MemoryLocalPersistence()
         val store = DailyStore(persistence)
-        val moment = store.publishMoment("第一条潮声")!!
+        val moment = store.publishMoment("第一条潮声", "2026/09/02")!!
         store.toggleMomentLike(moment.id)
         store.addComment(moment.id, "收到")
         store.editMoment(moment.id, "改过的潮声")
@@ -18,20 +18,27 @@ class DailyLocalStoreTest {
         assertTrue(updated.liked)
         assertEquals(listOf("收到"), updated.comments)
         assertEquals("改过的潮声", updated.text)
+        assertEquals("2026-09-02", updated.date)
         assertEquals(1, DailyStore(persistence).state.value.moments.size)
         store.deleteMoment(moment.id)
         assertTrue(store.state.value.moments.isEmpty())
     }
 
-    @Test fun diaryAddEditDeleteAndPetStateWork() {
-        val store = DailyStore(MemoryLocalPersistence())
+    @Test fun diaryAndDailyProfileFieldsPersistWithoutHiddenPetState() {
+        val persistence = MemoryLocalPersistence()
+        val store = DailyStore(persistence)
         val diary = store.saveDiary(weather = "风", mood = "松", tags = listOf("海"), text = "纸页")!!
         store.saveDiary(diary.id, diary.date, "雨", "亮", listOf("岸"), "新纸页")
-        assertEquals("新纸页", store.state.value.diaries.single().text)
-        store.feedStory()
-        assertEquals(PetMood.Active, store.state.value.petMood)
-        store.returnToBox()
-        assertEquals(PetMood.Resting, store.state.value.petMood)
+        store.setProfileAvatar("content://xiaohan")
+        store.setMyriAvatar("content://myri")
+        store.setCover("content://cover")
+
+        val reloaded = DailyStore(persistence).state.value
+        assertEquals("新纸页", reloaded.diaries.single().text)
+        assertEquals("content://xiaohan", reloaded.profileAvatarUri)
+        assertEquals("content://myri", reloaded.myriAvatarUri)
+        assertEquals("content://cover", reloaded.coverUri)
+
         store.deleteDiary(diary.id)
         assertFalse(store.state.value.diaries.any { it.id == diary.id })
     }
