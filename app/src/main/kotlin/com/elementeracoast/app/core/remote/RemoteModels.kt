@@ -112,7 +112,8 @@ data class RemoteVariant(
     @SerialName("generation_source") val generationSource: String? = null,
     @SerialName("display_author") val displayAuthor: String? = null,
     @SerialName("errorDetail") val errorDetail: String? = null,
-    @SerialName("furniture_runs") val furnitureRuns: List<RemoteFurnitureRun> = emptyList()
+    @SerialName("furniture_runs") val furnitureRuns: List<RemoteFurnitureRun> = emptyList(),
+    @SerialName("desk_slip") val deskSlip: RemoteDeskSlip? = null
 )
 
 @Serializable
