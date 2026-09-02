@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,7 +24,7 @@ fun MemoryLanding(
     onSnackbar: (String) -> Unit
 ) {
     var tab by remember { mutableStateOf(MemoryTab.Memory) }
-    var createRequest by remember { mutableIntStateOf(0) }
+    var pendingCreate by remember { mutableStateOf<MemoryTab?>(null) }
 
     val subtitle = when (tab) {
         MemoryTab.Memory -> "记忆库 · 已经确认的长期纸条"
@@ -39,34 +38,52 @@ fun MemoryLanding(
         MemoryTab.Worldbook -> "+ 词条"
         MemoryTab.Instructions -> null
     }
+    val consumeCreate: () -> Unit = { if (pendingCreate == tab) pendingCreate = null }
 
     Column(Modifier.fillMaxSize()) {
         FeaturePageTopBar(
             title = title,
             subtitle = subtitle,
             onBack = {
+                pendingCreate = null
                 if (tab == MemoryTab.Worldbook) tab = MemoryTab.Memory else onBackToChat()
             },
             actionLabel = action,
-            onAction = action?.let { { createRequest += 1 } }
+            onAction = action?.let { { pendingCreate = tab } }
         )
 
         Box(Modifier.weight(1f)) {
             when (tab) {
                 MemoryTab.Memory -> Column(Modifier.fillMaxSize()) {
-                    MemoryTabs(tab) { next -> tab = next }
-                    MemoryLibraryScreen(store, createRequest, onActionLogged, onSnackbar)
+                    MemoryTabs(tab) { next -> pendingCreate = null; tab = next }
+                    MemoryLibraryScreen(
+                        store = store,
+                        createRequested = pendingCreate == MemoryTab.Memory,
+                        onCreateConsumed = consumeCreate,
+                        onActionLogged = onActionLogged,
+                        onSnackbar = onSnackbar
+                    )
                 }
                 MemoryTab.Seed -> Column(Modifier.fillMaxSize()) {
-                    MemoryTabs(tab) { next -> tab = next }
-                    SeedLibraryScreen(store, createRequest, onSnackbar)
+                    MemoryTabs(tab) { next -> pendingCreate = null; tab = next }
+                    SeedLibraryScreen(
+                        store = store,
+                        createRequested = pendingCreate == MemoryTab.Seed,
+                        onCreateConsumed = consumeCreate,
+                        onSnackbar = onSnackbar
+                    )
                 }
                 MemoryTab.Instructions -> Column(Modifier.fillMaxSize()) {
-                    MemoryTabs(tab) { next -> tab = next }
+                    MemoryTabs(tab) { next -> pendingCreate = null; tab = next }
                     Spacer(Modifier.height(4.dp))
                     CustomInstructionsScreen(store, onSnackbar)
                 }
-                MemoryTab.Worldbook -> WorldbookScreen(store, createRequest, onSnackbar)
+                MemoryTab.Worldbook -> WorldbookScreen(
+                    store = store,
+                    createRequested = pendingCreate == MemoryTab.Worldbook,
+                    onCreateConsumed = consumeCreate,
+                    onSnackbar = onSnackbar
+                )
             }
         }
     }
