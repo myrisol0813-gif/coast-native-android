@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
@@ -53,7 +54,8 @@ internal fun UserMessage(
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = CoastChatTokens.ChatBodySize,
-                        lineHeight = CoastChatTokens.UserBodyLineHeight
+                        lineHeight = CoastChatTokens.UserBodyLineHeight,
+                        fontWeight = FontWeight.Normal
                     )
                 )
                 Spacer(Modifier.height(CoastChatTokens.UserActionTopGap))
