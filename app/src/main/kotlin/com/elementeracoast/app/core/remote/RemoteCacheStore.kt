@@ -28,10 +28,28 @@ class RemoteCacheStore(
     fun dailyDiaries(): List<RemoteDailyDiary> = decode(KEY_DAILY_DIARIES, ListSerializer(RemoteDailyDiary.serializer())) ?: emptyList()
     fun putDailyDiaries(value: List<RemoteDailyDiary>) = put(KEY_DAILY_DIARIES, ListSerializer(RemoteDailyDiary.serializer()), value)
 
+    fun memoryEntries(type: String): List<RemoteMemoryEntry> = decode(memoryEntriesKey(type), ListSerializer(RemoteMemoryEntry.serializer())) ?: emptyList()
+    fun putMemoryEntries(type: String, value: List<RemoteMemoryEntry>) = put(memoryEntriesKey(type), ListSerializer(RemoteMemoryEntry.serializer()), value)
+
+    fun memoryPockets(conversationId: String): List<RemoteMemoryPocket> = decode(memoryPocketsKey(conversationId), ListSerializer(RemoteMemoryPocket.serializer())) ?: emptyList()
+    fun putMemoryPockets(conversationId: String, value: List<RemoteMemoryPocket>) = put(memoryPocketsKey(conversationId), ListSerializer(RemoteMemoryPocket.serializer()), value)
+
+    fun worldbookEntries(): List<RemoteWorldbookEntry> = decode(KEY_WORLDBOOK, ListSerializer(RemoteWorldbookEntry.serializer())) ?: emptyList()
+    fun putWorldbookEntries(value: List<RemoteWorldbookEntry>) = put(KEY_WORLDBOOK, ListSerializer(RemoteWorldbookEntry.serializer()), value)
+
+    fun customInstructions(): RemoteCustomInstructions? = decode(KEY_CUSTOM_INSTRUCTIONS, RemoteCustomInstructions.serializer())
+    fun putCustomInstructions(value: RemoteCustomInstructions?) {
+        if (value == null) persistence.remove(KEY_CUSTOM_INSTRUCTIONS)
+        else put(KEY_CUSTOM_INSTRUCTIONS, RemoteCustomInstructions.serializer(), value)
+    }
+
     fun modelCatalog(): RemoteModelCatalogResponse? = decode(KEY_MODELS, RemoteModelCatalogResponse.serializer())
     fun putModelCatalog(value: RemoteModelCatalogResponse) = put(KEY_MODELS, RemoteModelCatalogResponse.serializer(), value)
 
-    private fun historyKey(id: String): String = "remote.history.${id.replace(Regex("[^A-Za-z0-9_.:-]"), "_")}"
+    private fun historyKey(id: String): String = "remote.history.${safe(id)}"
+    private fun memoryEntriesKey(type: String): String = "remote.cache.memory-entries.${safe(type)}.v1"
+    private fun memoryPocketsKey(id: String): String = "remote.cache.memory-pockets.${safe(id)}.v1"
+    private fun safe(value: String): String = value.replace(Regex("[^A-Za-z0-9_.:-]"), "_")
 
     private fun <T> decode(key: String, serializer: kotlinx.serialization.KSerializer<T>): T? {
         val raw = persistence.get(key)
@@ -49,6 +67,8 @@ class RemoteCacheStore(
         private const val KEY_DAILY_PROFILE = "remote.cache.daily-profile.v1"
         private const val KEY_DAILY_MOMENTS = "remote.cache.daily-moments.v1"
         private const val KEY_DAILY_DIARIES = "remote.cache.daily-diaries.v1"
+        private const val KEY_WORLDBOOK = "remote.cache.worldbook.v1"
+        private const val KEY_CUSTOM_INSTRUCTIONS = "remote.cache.custom-instructions.v1"
         private const val KEY_MODELS = "remote.cache.models.v1"
     }
 }
