@@ -30,9 +30,12 @@ data class ChatMessage(
     val errorDetail: String? = null,
     val variantIndex: Int = 0,
     val variantCount: Int = 1,
+    val variants: List<String> = emptyList(),
     val createdAtLabel: String? = null,
     val furnitureRuns: List<FurnitureRun> = emptyList()
-)
+) {
+    fun normalizedVariants(): List<String> = variants.ifEmpty { listOf(text) }
+}
 
 sealed interface MessageAction {
     val messageId: Long
@@ -43,4 +46,5 @@ sealed interface MessageAction {
     data class Regenerate(override val messageId: Long) : MessageAction
     data class Delete(override val messageId: Long) : MessageAction
     data class Edit(override val messageId: Long, val text: String) : MessageAction
+    data class SelectVariant(override val messageId: Long, val index: Int) : MessageAction
 }
