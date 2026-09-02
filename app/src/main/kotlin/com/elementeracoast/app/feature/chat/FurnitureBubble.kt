@@ -28,12 +28,13 @@ import com.elementeracoast.app.core.model.FurnitureRun
 @Composable
 internal fun FurnitureBubble(
     runs: List<FurnitureRun>,
-    onOpenActionLog: (Set<String>) -> Unit
+    onOpenActionLog: (Set<String>) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     if (runs.isEmpty()) return
     var expanded by remember(runs) { mutableStateOf(false) }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .62f), RoundedCornerShape(16.dp))
             .padding(horizontal = 13.dp, vertical = 10.dp)
