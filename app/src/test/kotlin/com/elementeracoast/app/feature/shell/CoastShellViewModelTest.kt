@@ -21,9 +21,17 @@ import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatRepository
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
+import com.elementeracoast.app.feature.daily.DailyDiary
+import com.elementeracoast.app.feature.daily.DailyMoment
+import com.elementeracoast.app.feature.daily.DailyProfile
+import com.elementeracoast.app.feature.daily.DailyProfileImageField
+import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.daily.DailySnapshot
 import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -172,11 +180,19 @@ class CoastShellViewModelTest {
         val profile = FakeProfileRepository()
         val chat = FakeChatRepository()
         val thoughtSoil = FakeThoughtSoilRepository()
+        val daily = FakeDailyRepository()
         val persistence = MemoryLocalPersistence()
 
         fun vm(): CoastShellViewModel = CoastShellViewModel(
             persistence = persistence,
-            backend = CoastBackendGraph(auth, conversations, profile, chat, thoughtSoil),
+            backend = CoastBackendGraph(
+                auth = auth,
+                conversations = conversations,
+                profile = profile,
+                chat = chat,
+                thoughtSoil = thoughtSoil,
+                daily = daily
+            ),
             workDispatcher = Dispatchers.Unconfined
         )
     }
@@ -231,6 +247,27 @@ class CoastShellViewModelTest {
         override suspend fun refreshDailyProfile() = RemoteDailyProfile()
         override suspend fun refreshModels(force: Boolean) = catalog
         override suspend fun setCurrentChatModel(modelId: String) = current.copy(currentChatModel = modelId)
+    }
+
+    private class FakeDailyRepository : DailyRepository {
+        private val state = MutableStateFlow(DailySnapshot())
+        override val snapshot: StateFlow<DailySnapshot> = state
+        override fun cachedProfile(): DailyProfile = state.value.profile
+        override suspend fun refresh(): DailySnapshot = state.value
+        override suspend fun refreshProfile(): DailyProfile = state.value.profile
+        override suspend fun createMoment(date: String, text: String): DailyMoment = unsupported()
+        override suspend fun patchMoment(id: String, date: String?, text: String?): DailyMoment = unsupported()
+        override suspend fun deleteMoment(id: String) = unsupported<Unit>()
+        override suspend fun setMomentLike(id: String, liked: Boolean): DailyMoment = unsupported()
+        override suspend fun addMomentComment(id: String, text: String): DailyMoment = unsupported()
+        override suspend fun deleteMomentComment(id: String, commentId: String): DailyMoment = unsupported()
+        override suspend fun requestMyriComment(id: String): DailyMoment = unsupported()
+        override suspend fun createDiary(date: String, weather: String, mood: String, tags: List<String>, text: String): DailyDiary = unsupported()
+        override suspend fun patchDiary(id: String, date: String, weather: String, mood: String, tags: List<String>, text: String): DailyDiary = unsupported()
+        override suspend fun deleteDiary(id: String) = unsupported<Unit>()
+        override suspend fun updateProfile(field: DailyProfileImageField, dataUrl: String): DailyProfile = unsupported()
+
+        private fun <T> unsupported(): T = throw UnsupportedOperationException("Daily mutation is not used by shell tests")
     }
 
     private class FakeThoughtSoilRepository : ThoughtSoilRepository {
