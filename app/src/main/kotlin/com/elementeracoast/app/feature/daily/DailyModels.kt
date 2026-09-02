@@ -2,13 +2,19 @@ package com.elementeracoast.app.feature.daily
 
 import java.time.LocalDate
 
+enum class MomentAuthor(val label: String) {
+    Xiaohan("小寒"),
+    Myri("Myri")
+}
+
 data class LocalMoment(
     val id: String,
     val text: String,
     val liked: Boolean = false,
     val comments: List<String> = emptyList(),
     val createdAt: String = "",
-    val date: String = LocalDate.now().toString()
+    val date: String = LocalDate.now().toString(),
+    val author: MomentAuthor = MomentAuthor.Xiaohan
 )
 
 data class LocalDiary(
