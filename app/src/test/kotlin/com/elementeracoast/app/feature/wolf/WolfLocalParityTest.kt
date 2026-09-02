@@ -7,7 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class WolfLocalParityTest {
-    @Test fun wolfDenHasExactlySixApp59Entrances() {
+    @Test fun wolfDenHasExactlySixCurrentEntrances() {
         assertEquals(
             listOf("个人资料", "外观", "聊天记录", "模型箱", "基本设置", "关于与诊断"),
             WolfDestination.entries.map { it.title }
