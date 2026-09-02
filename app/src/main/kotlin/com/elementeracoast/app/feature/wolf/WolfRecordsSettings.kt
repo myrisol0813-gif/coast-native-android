@@ -98,21 +98,6 @@ internal fun ChatRecordsScreen(
 }
 
 @Composable
-internal fun ModelBoxScreen(models: List<String>, current: String, onSelect: (String) -> Unit) {
-    LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Text("模型箱", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text("当前：${current.substringAfterLast('/')}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("本地壳，真实模型列表等后端接线后同步。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            Spacer(Modifier.height(8.dp))
-        }
-        items(models) { model ->
-            WolfRow(model.substringAfterLast('/'), if (model == current) "当前模型" else "本地 mock 模型") { onSelect(model) }
-        }
-    }
-}
-
-@Composable
 internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore) {
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("基本设置", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
