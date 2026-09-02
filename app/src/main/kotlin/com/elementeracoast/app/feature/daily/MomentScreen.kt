@@ -19,14 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -114,7 +106,15 @@ internal fun MomentScreen(
                     authorLabel = moment.author.label,
                     onLike = { store.toggleMomentLike(moment.id) },
                     onComment = { commenting = moment },
-                    onDelete = { deleting = moment }
+                    onDelete = { deleting = moment },
+                    onMyriComment = {
+                        onActionLogged(
+                            "daily.moment.myri-comment.request",
+                            "叫 Myri 来评论",
+                            "本地壳未接模型评论 · moment ${moment.id}"
+                        )
+                        onSnackbar(MyriCommentOfflineMessage)
+                    }
                 )
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -181,7 +181,8 @@ private fun MomentCard(
     authorLabel: String,
     onLike: () -> Unit,
     onComment: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onMyriComment: () -> Unit
 ) {
     DailySurfaceCard {
         Row {
@@ -198,41 +199,14 @@ private fun MomentCard(
                     }
                 }
                 Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        momentFooter(moment),
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    IconButton(onClick = onLike, modifier = Modifier.size(34.dp)) {
-                        Icon(
-                            imageVector = if (moment.liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = if (moment.liked) "取消点赞" else "点赞",
-                            tint = if (moment.liked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(onClick = onComment, modifier = Modifier.size(34.dp)) {
-                        Icon(
-                            Icons.Outlined.ChatBubbleOutline,
-                            contentDescription = "评论",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    IconButton(onClick = onDelete, modifier = Modifier.size(34.dp)) {
-                        Icon(
-                            Icons.Outlined.DeleteOutline,
-                            contentDescription = "删除",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                MomentActionRows(
+                    moment = moment,
+                    footer = momentFooter(moment),
+                    onLike = onLike,
+                    onComment = onComment,
+                    onDelete = onDelete,
+                    onMyriComment = onMyriComment
+                )
             }
         }
     }
