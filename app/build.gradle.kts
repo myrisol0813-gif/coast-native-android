@@ -2,7 +2,14 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+val signingPath = providers.environmentVariable("COAST_ANDROID_KEYSTORE_PATH")
+val signingStorePassword = providers.environmentVariable("COAST_ANDROID_KEYSTORE_PASSWORD")
+val signingAlias = providers.environmentVariable("COAST_ANDROID_KEY_ALIAS")
+val signingKeyPassword = providers.environmentVariable("COAST_ANDROID_KEY_PASSWORD")
+val stableSigningConfigured = listOf(signingPath, signingStorePassword, signingAlias, signingKeyPassword).all { it.isPresent }
 
 android {
     namespace = "com.elementeracoast.app"
@@ -12,14 +19,30 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "0.1.17-app62-comment-order-fix-28"
+        versionCode = 20
+        versionName = "0.1.18-backend-wiring-29"
+        buildConfigField("String", "COAST_API_BASE_URL", "\"https://enteracoast.com\"")
+    }
+
+    signingConfigs {
+        if (stableSigningConfigured) {
+            create("coastStable") {
+                storeFile = file(signingPath.get())
+                storePassword = signingStorePassword.get()
+                keyAlias = signingAlias.get()
+                keyPassword = signingKeyPassword.get()
+            }
+        }
     }
 
     buildTypes {
-        debug { isMinifyEnabled = false }
+        debug {
+            isMinifyEnabled = false
+            if (stableSigningConfigured) signingConfig = signingConfigs.getByName("coastStable")
+        }
         release {
             isMinifyEnabled = false
+            if (stableSigningConfigured) signingConfig = signingConfigs.getByName("coastStable")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -29,7 +52,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/DEPENDENCIES")
     }
@@ -48,6 +74,9 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
