@@ -1,6 +1,5 @@
 package com.elementeracoast.app.feature.memory
 
-import com.elementeracoast.app.core.network.CoastApiClient
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteCustomInstructions
 import com.elementeracoast.app.core.remote.RemoteMemoryEntry
@@ -33,7 +32,7 @@ interface MemoryRepository {
 }
 
 class DefaultMemoryRepository(
-    private val api: CoastApiClient,
+    private val remote: MemoryRemoteDataSource,
     private val cache: RemoteCacheStore
 ) : MemoryRepository {
     private val initial = MemorySnapshot(
@@ -48,11 +47,11 @@ class DefaultMemoryRepository(
     override fun cachedSnapshot(): MemorySnapshot = mutableSnapshot.value
 
     override suspend fun refresh(conversationId: String) = coroutineScope {
-        val memories = async { api.listMemoryEntries("memory") }
-        val seeds = async { api.listMemoryEntries("seed") }
-        val pockets = async { api.listMemoryPockets(conversationId) }
-        val worldbook = async { api.listWorldbookEntries() }
-        val instructions = async { api.getCustomInstructions() }
+        val memories = async { remote.listEntries("memory") }
+        val seeds = async { remote.listEntries("seed") }
+        val pockets = async { remote.listPockets(conversationId) }
+        val worldbook = async { remote.listWorldbook() }
+        val instructions = async { remote.getInstructions() }
         val remoteMemories = memories.await()
         val remoteSeeds = seeds.await()
         val remotePockets = pockets.await()
@@ -74,8 +73,8 @@ class DefaultMemoryRepository(
     }
 
     override suspend fun refreshEntries() {
-        val memories = api.listMemoryEntries("memory")
-        val seeds = api.listMemoryEntries("seed")
+        val memories = remote.listEntries("memory")
+        val seeds = remote.listEntries("seed")
         cache.putMemoryEntries("memory", memories)
         cache.putMemoryEntries("seed", seeds)
         mutableSnapshot.value = mutableSnapshot.value.copy(
@@ -85,7 +84,7 @@ class DefaultMemoryRepository(
     }
 
     override suspend fun refreshPockets(conversationId: String) {
-        val pockets = api.listMemoryPockets(conversationId)
+        val pockets = remote.listPockets(conversationId)
         cache.putMemoryPockets(conversationId, pockets)
         mutableSnapshot.value = mutableSnapshot.value.copy(
             pockets = pockets.map(::toPocket),
@@ -94,13 +93,13 @@ class DefaultMemoryRepository(
     }
 
     override suspend fun refreshWorldbook() {
-        val entries = api.listWorldbookEntries()
+        val entries = remote.listWorldbook()
         cache.putWorldbookEntries(entries)
         mutableSnapshot.value = mutableSnapshot.value.copy(worldbook = entries.map(::toWorldbook))
     }
 
     override suspend fun refreshInstructions() {
-        val instructions = api.getCustomInstructions()
+        val instructions = remote.getInstructions()
         cache.putCustomInstructions(instructions)
         mutableSnapshot.value = mutableSnapshot.value.copy(
             customInstructions = instructions?.let(::toInstructions) ?: CustomInstructions()
@@ -124,18 +123,18 @@ class DefaultMemoryRepository(
             sourceWindow = entry.sourceWindow.trim(),
             sourceTime = entry.sourceDate.takeIf(String::isNotBlank)
         )
-        val saved = if (entry.id.isBlank()) api.createMemoryEntry(request) else api.patchMemoryEntry(entry.id, request)
+        val saved = if (entry.id.isBlank()) remote.createEntry(request) else remote.patchEntry(entry.id, request)
         refreshEntries()
         return toEntry(saved)
     }
 
     override suspend fun deleteEntry(id: String) {
-        api.deleteMemoryEntry(id)
+        remote.deleteEntry(id)
         refreshEntries()
     }
 
     override suspend fun resolvePocket(id: String, action: String, tag: String?) {
-        api.resolveMemoryPocket(
+        remote.resolvePocket(
             id,
             RemoteMemoryPocketResolveRequest(action = action, tag = if (action == "discard") null else tag)
         )
@@ -158,21 +157,20 @@ class DefaultMemoryRepository(
             scope = entry.scope,
             visitorSafe = entry.visitorSafe
         )
-        val saved = if (entry.id.isBlank()) api.createWorldbookEntry(request) else api.patchWorldbookEntry(entry.id, request)
+        val saved = if (entry.id.isBlank()) remote.createWorldbook(request) else remote.patchWorldbook(entry.id, request)
         refreshWorldbook()
         return toWorldbook(saved)
     }
 
     override suspend fun deleteWorldbook(id: String) {
-        api.deleteWorldbookEntry(id)
+        remote.deleteWorldbook(id)
         refreshWorldbook()
     }
 
-    override suspend fun testWorldbook(input: String): List<WorldbookEntry> =
-        api.testWorldbook(input).map(::toWorldbook)
+    override suspend fun testWorldbook(input: String): List<WorldbookEntry> = remote.testWorldbook(input).map(::toWorldbook)
 
     override suspend fun saveInstructions(content: String): CustomInstructions {
-        val saved = api.putCustomInstructions(content)
+        val saved = remote.putInstructions(content)
         cache.putCustomInstructions(saved)
         val mapped = saved?.let(::toInstructions) ?: CustomInstructions()
         mutableSnapshot.value = mutableSnapshot.value.copy(customInstructions = mapped)
