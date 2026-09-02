@@ -21,6 +21,8 @@ internal data class MemoryLandingItem(val title: String, val subtitle: String)
 fun MemoryLanding(
     repository: MemoryRepository,
     conversationId: String,
+    openPendingInitially: Boolean,
+    onPendingOpenConsumed: () -> Unit,
     onBackToChat: () -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
@@ -33,6 +35,12 @@ fun MemoryLanding(
         if (conversationId.isBlank()) return@LaunchedEffect
         runCatching { repository.refresh(conversationId) }
             .onFailure { onSnackbar(it.message ?: "轨迹记忆刷新失败") }
+    }
+    LaunchedEffect(openPendingInitially) {
+        if (openPendingInitially) {
+            pendingOpen = true
+            onPendingOpenConsumed()
+        }
     }
 
     if (pendingOpen) {
