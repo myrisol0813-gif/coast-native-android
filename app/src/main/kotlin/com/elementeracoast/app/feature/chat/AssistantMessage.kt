@@ -40,7 +40,6 @@ internal fun AssistantMessage(
     onAvatarClick: () -> Unit,
     onCopy: () -> Unit,
     onAction: (MessageAction) -> Unit,
-    onVariantPlaceholder: () -> Unit,
     onFootprint: () -> Unit,
     onOpenActionLog: (Set<String>) -> Unit
 ) {
@@ -76,8 +75,6 @@ internal fun AssistantMessage(
                 MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
                 MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
-                Spacer(Modifier.width(3.dp))
-                VariantControl(message.variantIndex, message.variantCount, onVariantPlaceholder)
             }
             GenerationFootprint(message, onFootprint, Modifier.align(Alignment.End))
         }
