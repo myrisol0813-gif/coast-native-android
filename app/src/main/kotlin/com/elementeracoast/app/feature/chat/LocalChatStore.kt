@@ -25,7 +25,8 @@ class LocalChatStore(
     fun messages(id: String): List<ChatMessage> = threads[id].orEmpty()
     fun nextMessageId(): Long = nextMessageId++
 
-    fun create(roomType: RoomType, rawTitle: String): ConversationSummary {
+    fun create(roomType: RoomType, rawTitle: String, empty: Boolean = true): ConversationSummary {
+        require(empty) { "Native local conversations must start empty" }
         val record = newRecord(roomType, rawTitle)
         conversations = listOf(record) + conversations
         threads[record.id] = emptyList()
