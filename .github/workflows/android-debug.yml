@@ -68,8 +68,12 @@ jobs:
             echo 'TypeScript/React material found in Native source.'
             exit 1
           fi
-          if find app/src/main/kotlin -type d | grep -Ei '/(legacy|compat|temp|misc)(/|$)'; then
-            echo 'Forbidden legacy/compat/temp/misc source directory found.'
+          if find app/src/main/kotlin -type d | grep -Ei '/(legacy|compat|bridge|temp|misc)(/|$)'; then
+            echo 'Forbidden legacy/compat/bridge/temp/misc source directory found.'
+            exit 1
+          fi
+          if find app/src/main/kotlin -type f | grep -Ei '/[^/]*(legacy|compat|bridge|temp|misc)[^/]*\.kt$'; then
+            echo 'Forbidden legacy/compat/bridge/temp/misc Kotlin file found.'
             exit 1
           fi
 
