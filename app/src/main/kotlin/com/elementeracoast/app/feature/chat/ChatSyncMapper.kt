@@ -41,6 +41,30 @@ object ChatSyncMapper {
         )
     }
 
+    fun clearUserFailure(history: RemoteHistory, turnId: String): RemoteHistory = patchActiveUser(history, turnId) {
+        it.copy(errorDetail = null)
+    }
+
+    fun markUserFailure(history: RemoteHistory, turnId: String, errorDetail: String): RemoteHistory = patchActiveUser(history, turnId) {
+        it.copy(errorDetail = errorDetail.take(12000))
+    }
+
+    private fun patchActiveUser(
+        history: RemoteHistory,
+        turnId: String,
+        transform: (RemoteVariant) -> RemoteVariant
+    ): RemoteHistory {
+        val turns = history.turns.map { turn ->
+            if (turn.id != turnId || turn.user.variants.isEmpty()) return@map turn
+            val active = turn.user.active.coerceIn(0, turn.user.variants.lastIndex)
+            val variants = turn.user.variants.mapIndexed { index, variant ->
+                if (index == active) transform(variant) else variant
+            }
+            turn.copy(user = turn.user.copy(variants = variants))
+        }
+        return history.copy(updatedAt = Instant.now().toString(), turns = turns)
+    }
+
     fun appendAssistant(
         history: RemoteHistory,
         turnId: String,
@@ -74,11 +98,13 @@ object ChatSyncMapper {
         return history.copy(updatedAt = Instant.now().toString(), turns = turns)
     }
 
-    fun activeMessages(history: RemoteHistory): List<RemoteChatMessage> = buildList {
-        history.turns.forEach { turn ->
+    /** Build provider context through the selected target user turn, never after it. */
+    fun contextMessages(history: RemoteHistory, targetTurnId: String): List<RemoteChatMessage> = buildList {
+        for (turn in history.turns) {
             val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
             val user = turn.user.variants.getOrNull(userIndex)
             if (user != null && user.content.isNotBlank() && !user.hidden) add(RemoteChatMessage("user", user.content))
+            if (turn.id == targetTurnId) break
             val key = userIndex.toString()
             val assistants = turn.assistant.variantsByUserVariant[key].orEmpty()
             val assistantIndex = (turn.assistant.activeByUserVariant[key] ?: 0)
@@ -90,14 +116,20 @@ object ChatSyncMapper {
 
     fun toUi(history: RemoteHistory): List<ChatMessage> = buildList {
         history.turns.forEach { turn ->
-            val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
-            val user = turn.user.variants.getOrNull(userIndex)
+            val userVariants = turn.user.variants
+            val userIndex = turn.user.active.coerceIn(0, (userVariants.size - 1).coerceAtLeast(0))
+            val user = userVariants.getOrNull(userIndex)
             if (user != null && !user.hidden) {
                 add(
                     ChatMessage(
-                        id = stableLong(user.id),
+                        id = stableLong("user:${turn.id}"),
                         role = MessageRole.User,
                         text = user.content,
+                        turnId = turn.id,
+                        errorDetail = user.errorDetail,
+                        variantIndex = userIndex,
+                        variantCount = userVariants.size.coerceAtLeast(1),
+                        variants = userVariants.map { it.content },
                         createdAtLabel = user.createdAt
                     )
                 )
@@ -110,14 +142,18 @@ object ChatSyncMapper {
             if (assistant != null) {
                 add(
                     ChatMessage(
-                        id = stableLong(assistant.id),
+                        id = stableLong("assistant:${turn.id}:$key"),
                         role = MessageRole.Assistant,
                         text = assistant.content,
+                        turnId = turn.id,
                         modelId = assistant.modelId,
                         generationSource = assistant.generationSource,
                         liked = assistant.liked,
                         favorite = assistant.favorite,
                         errorDetail = assistant.errorDetail,
+                        variantIndex = assistantIndex,
+                        variantCount = assistants.size.coerceAtLeast(1),
+                        variants = assistants.map { it.content },
                         createdAtLabel = assistant.createdAt,
                         furnitureRuns = assistant.furnitureRuns.map(::toFurnitureRun)
                     )
@@ -125,6 +161,17 @@ object ChatSyncMapper {
             }
         }
     }
+
+    fun streamingAssistant(turnId: String, modelId: String, partialContent: String): ChatMessage = ChatMessage(
+        id = streamingMessageId(turnId),
+        role = MessageRole.Assistant,
+        text = partialContent,
+        turnId = turnId,
+        modelId = modelId,
+        generationSource = "chat"
+    )
+
+    fun streamingMessageId(turnId: String): Long = stableLong("stream:$turnId")
 
     private fun toFurnitureRun(value: RemoteFurnitureRun): FurnitureRun = FurnitureRun(
         actionId = value.id,
