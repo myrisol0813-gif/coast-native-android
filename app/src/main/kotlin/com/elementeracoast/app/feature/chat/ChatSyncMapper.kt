@@ -6,6 +6,7 @@ import com.elementeracoast.app.core.model.FurnitureRun
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.remote.RemoteAssistantBranches
 import com.elementeracoast.app.core.remote.RemoteChatMessage
+import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteHistory
 import com.elementeracoast.app.core.remote.RemoteTurn
@@ -72,7 +73,8 @@ object ChatSyncMapper {
         modelId: String,
         finishReason: String,
         errorDetail: String = "",
-        furnitureRuns: List<RemoteFurnitureRun> = emptyList()
+        furnitureRuns: List<RemoteFurnitureRun> = emptyList(),
+        deskSlip: RemoteDeskSlip? = null
     ): RemoteHistory {
         val turns = history.turns.map { turn ->
             if (turn.id != turnId) return@map turn
@@ -86,7 +88,8 @@ object ChatSyncMapper {
                 finishReason = finishReason,
                 generationSource = "chat",
                 errorDetail = errorDetail.ifBlank { null },
-                furnitureRuns = furnitureRuns
+                furnitureRuns = furnitureRuns,
+                deskSlip = deskSlip
             )
             turn.copy(
                 assistant = turn.assistant.copy(
@@ -155,7 +158,8 @@ object ChatSyncMapper {
                         variantCount = assistants.size.coerceAtLeast(1),
                         variants = assistants.map { it.content },
                         createdAtLabel = assistant.createdAt,
-                        furnitureRuns = assistant.furnitureRuns.map(::toFurnitureRun)
+                        furnitureRuns = assistant.furnitureRuns.map(::toFurnitureRun),
+                        deskReceipt = assistant.deskSlip?.let(TurnDeskMapper::toUi)
                     )
                 )
             }
