@@ -12,8 +12,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 17
-        versionName = "0.1.15-app62-room-daily-fix-27"
+        versionCode = 19
+        versionName = "0.1.17-app62-comment-order-fix-28"
     }
 
     buildTypes {

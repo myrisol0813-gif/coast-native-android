@@ -42,7 +42,7 @@ class DailyLocalStoreTest {
         val moment = store.publishMoment("等 Myri 真正来评论", author = MomentAuthor.Xiaohan)!!
 
         assertTrue(store.state.value.moments.single { it.id == moment.id }.comments.isEmpty())
-        assertEquals("叫 Myri 来评论", MyriCommentActionLabel)
+        assertEquals("Myri 留言", MyriCommentActionLabel)
         assertTrue(MyriCommentOfflineMessage.contains("后端接线后启用"))
     }
 

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,8 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -49,6 +54,7 @@ internal fun MomentScreen(
     val state by store.state.collectAsState()
     val context = LocalContext.current
     var commenting by remember { mutableStateOf<LocalMoment?>(null) }
+    var editing by remember { mutableStateOf<LocalMoment?>(null) }
     var deleting by remember { mutableStateOf<LocalMoment?>(null) }
 
     fun keepUri(uri: Uri?, save: (String) -> Unit, message: String) {
@@ -74,17 +80,15 @@ internal fun MomentScreen(
     ) {
         item {
             DailyCover(state.coverUri) { coverPicker.launch(arrayOf("image/*")) }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
         }
         item {
-            DailyAvatarRow("小寒头像", "保存在海岸", state.profileAvatarUri, "寒") {
-                avatarPicker.launch(arrayOf("image/*"))
-            }
-        }
-        item {
-            DailyAvatarRow("Myri 头像", "保存在海岸", state.myriAvatarUri, "M") {
-                myriPicker.launch(arrayOf("image/*"))
-            }
+            DailyIdentityBar(
+                profileUri = state.profileAvatarUri,
+                myriUri = state.myriAvatarUri,
+                onProfileClick = { avatarPicker.launch(arrayOf("image/*")) },
+                onMyriClick = { myriPicker.launch(arrayOf("image/*")) }
+            )
         }
         if (state.moments.isEmpty()) {
             item {
@@ -106,15 +110,16 @@ internal fun MomentScreen(
                     authorLabel = moment.author.label,
                     onLike = { store.toggleMomentLike(moment.id) },
                     onComment = { commenting = moment },
-                    onDelete = { deleting = moment },
                     onMyriComment = {
                         onActionLogged(
                             "daily.moment.myri-comment.request",
-                            "叫 Myri 来评论",
+                            "Myri 留言",
                             "本地壳未接模型评论 · moment ${moment.id}"
                         )
                         onSnackbar(MyriCommentOfflineMessage)
-                    }
+                    },
+                    onEdit = { editing = moment },
+                    onDelete = { deleting = moment }
                 )
             }
             item { Spacer(Modifier.height(24.dp)) }
@@ -125,6 +130,13 @@ internal fun MomentScreen(
         TextEditDialog("评论", "", onDismiss = { commenting = null }) { text ->
             store.addComment(moment.id, text)
             commenting = null
+        }
+    }
+    editing?.let { moment ->
+        TextEditDialog("编辑动态", moment.text, onDismiss = { editing = null }) { text ->
+            store.editMoment(moment.id, text)
+            onActionLogged("daily.moment.edit", "编辑了一条碳硅圈", "更新 1 条本地动态")
+            editing = null
         }
     }
     deleting?.let { moment ->
@@ -181,8 +193,9 @@ private fun MomentCard(
     authorLabel: String,
     onLike: () -> Unit,
     onComment: () -> Unit,
-    onDelete: () -> Unit,
-    onMyriComment: () -> Unit
+    onMyriComment: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     DailySurfaceCard {
         Row {
@@ -191,21 +204,48 @@ private fun MomentCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
-                Text(moment.text, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    moment.text,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal)
+                )
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f),
+                    thickness = .5.dp
+                )
+
                 if (moment.comments.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
-                    moment.comments.takeLast(5).forEach { comment ->
-                        Text("小寒：$comment", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(9.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        moment.comments.takeLast(5).forEach { comment ->
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("小寒") }
+                                    append("：")
+                                    append(comment)
+                                },
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = 15.sp,
+                                    lineHeight = 21.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            )
+                        }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
+
+                Spacer(Modifier.height(if (moment.comments.isEmpty()) 9.dp else 12.dp))
                 MomentActionRows(
                     moment = moment,
                     footer = momentFooter(moment),
                     onLike = onLike,
                     onComment = onComment,
-                    onDelete = onDelete,
-                    onMyriComment = onMyriComment
+                    onMyriComment = onMyriComment,
+                    onEdit = onEdit,
+                    onDelete = onDelete
                 )
             }
         }
