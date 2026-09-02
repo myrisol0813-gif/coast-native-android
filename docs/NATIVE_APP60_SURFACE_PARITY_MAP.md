@@ -5,6 +5,7 @@ Baseline product mother: PWA app-60 (`elementera-coast@0b9ca38d50738d0c367637ccd
 Reviewed deltas:
 - app-62 `settings.js`: `小蛇书桌 / Myri 的工作台` with `小蛇行动日志` as the current tool shelf item.
 - Native phone review: Radio / Lighthouse room entries are transient landings; a persistent conversation is created only on first send or explicit New.
+- current PWA Daily moments surface: a model-comment action exists beside normal moment actions. Native exposes it as a separate second-row `叫 Myri 来评论` chip, but keeps model comment generation explicitly unwired until backend integration.
 
 PWA source remains read-only reference. Web/PWA code and assets are not copied into this repository.
 
@@ -33,6 +34,8 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 | 小蛇行动日志 | current only desk tool; persistent redacted local records with filters |
 | Furniture → log | opens the Action Log tool inside Serpent Desk using exact action ids |
 | Daily | 碳硅圈 / 日记 / blank Pet surface |
+| 碳硅圈 normal actions | local like / comment / delete remain on the first action row |
+| 碳硅圈 Myri comment | separate second-row `叫 Myri 来评论` chip; records the local request and clearly reports that real model commenting waits for backend wiring; it does not manufacture a fake Myri comment |
 | Memory | 记忆库 / 种子库 / 世界书 / 自定义指令 in one 2×2 surface |
 | Network | no `INTERNET` permission, no base URL, no real API/OpenRouter/SSE call |
 
@@ -47,6 +50,14 @@ PWA source remains read-only reference. Web/PWA code and assets are not copied i
 7. Tapping the room entry again intentionally starts a new blank landing; the next first send creates another conversation.
 8. The explicit New button still creates a conversation immediately.
 
+## Daily Myri-comment rule
+
+1. Normal user actions stay on the first row; `叫 Myri 来评论` is visually separated onto a small second-row chip.
+2. The chip belongs to `feature/daily/MomentActions.kt`; `MomentScreen.kt` only supplies callbacks.
+3. Native does not alter the current string-only local comment schema merely to predict the PWA backend comment schema while it is still changing.
+4. Until backend wiring exists, tapping the chip records a redacted local action and shows `真实 Myri 评论将在后端接线后启用。`.
+5. No fake Myri-authored comment is inserted into the feed.
+
 ## Ownership
 
 ```text
@@ -55,7 +66,7 @@ feature/wolf         Wolf settings + ModelCatalog + ModelBoxScreen
 feature/letters      Island Letter local content/store/screen
 feature/serpentdesk  visible desk home + tool-shelf navigation
 feature/actionlog    Action Log data/store/tool screen
-feature/daily        Carbon Circle / Diary / blank Pet
+feature/daily        Carbon Circle / MomentActions / Diary / blank Pet
 feature/memory       Memory / Seed / Worldbook / Custom Instructions
 feature/shell        navigation and coordination; transient room landing + materialization orchestration
 core/local           local persistence boundary
