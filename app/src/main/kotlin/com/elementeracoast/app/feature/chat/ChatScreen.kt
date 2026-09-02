@@ -102,16 +102,14 @@ fun ChatWindow(
         )
     }
 
-    if (soilOpen) {
-        state.thoughtSoil?.let { soil ->
-            SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
-        } ?: run { soilOpen = false }
+    val soil = state.thoughtSoil
+    if (soilOpen && soil != null) {
+        SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
     }
 
-    if (deskOpen) {
-        state.turnDeskReceipt?.let { receipt ->
-            TurnDeskBottomSheet(receipt = receipt, onDismiss = { deskOpen = false })
-        } ?: run { deskOpen = false }
+    val deskReceipt = state.turnDeskReceipt
+    if (deskOpen && deskReceipt != null) {
+        TurnDeskBottomSheet(receipt = deskReceipt, onDismiss = { deskOpen = false })
     }
 
     if (avatarDialogOpen) {
