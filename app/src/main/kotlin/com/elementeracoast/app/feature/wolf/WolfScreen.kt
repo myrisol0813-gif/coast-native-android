@@ -66,7 +66,10 @@ fun WolfScreen(
                 WolfDestination.ModelBox -> ModelBoxScreen(
                     models = shellState.models,
                     current = shellState.currentModel,
-                    onSelect = onSelectModel
+                    onSelect = onSelectModel,
+                    onRefresh = {
+                        onSnackbar("Native 当前仍是本地模型目录；后端接线后这里会刷新 OpenRouter 并自动分区。")
+                    }
                 )
                 WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store)
                 WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
