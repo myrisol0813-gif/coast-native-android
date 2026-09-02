@@ -15,8 +15,7 @@ internal fun MessageItem(
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
     onAction: (MessageAction) -> Unit,
-    onFootprint: (ChatMessage) -> Unit,
-    onOpenActionLog: (Set<String>) -> Unit
+    onFootprint: (ChatMessage) -> Unit
 ) {
     when (message.role) {
         MessageRole.User -> UserMessage(
@@ -32,8 +31,7 @@ internal fun MessageItem(
             onAvatarClick = onAvatarClick,
             onCopy = { onCopy(message) },
             onAction = onAction,
-            onFootprint = { onFootprint(message) },
-            onOpenActionLog = onOpenActionLog
+            onFootprint = { onFootprint(message) }
         )
     }
 }
