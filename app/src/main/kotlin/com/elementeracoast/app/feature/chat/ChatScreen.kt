@@ -4,15 +4,11 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,13 +22,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
-import com.elementeracoast.app.feature.memory.SeedStatus
 import com.elementeracoast.app.feature.shell.LocalFeatureServices
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,8 +45,7 @@ fun ChatWindow(
     var avatarDialogOpen by rememberSaveable { mutableStateOf(false) }
     var editingMessage by androidx.compose.runtime.remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
-    val wolfState by services.wolf.state.collectAsState()
-    val memoryState by services.memory.state.collectAsState()
+    var deskOpen by rememberSaveable { mutableStateOf(false) }
     val dailyState by services.daily.state.collectAsState()
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -68,6 +61,7 @@ fun ChatWindow(
         ChatTimeline(
             conversationId = state.activeConversationId,
             messages = state.messages,
+            thoughtSoil = state.thoughtSoil,
             isStreaming = state.isStreaming,
             streamingMessageId = state.streamingMessageId,
             avatarBitmap = avatarBitmap,
@@ -85,15 +79,13 @@ fun ChatWindow(
                 onPlaceholder("生成足迹：$model · $source")
             },
             onOpenActionLog = onOpenActionLog,
+            onOpenThoughtSoil = { if (state.thoughtSoil != null) soilOpen = true },
             modifier = Modifier.weight(1f)
         )
 
-        Text(
-            text = "思维壤 · ${memoryState.seeds.count { it.status == SeedStatus.Active }} 粒手持种",
-            modifier = Modifier.fillMaxWidth().clickable { soilOpen = true }.padding(horizontal = 32.dp, vertical = 6.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
+        state.turnDeskReceipt?.let { receipt ->
+            TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true })
+        }
         DogtalkCard(
             scope = DogtalkScope.from(state.activeRoomType),
             onSaved = { onPlaceholder("狗话仍属于本轮未接的本地小抽屉，没有写入后端。") }
@@ -111,13 +103,15 @@ fun ChatWindow(
     }
 
     if (soilOpen) {
-        SoilBottomSheet(
-            recentMessages = state.messages.takeLast(wolfState.basic.recentTurns * 2),
-            settings = wolfState.basic,
-            memoryHits = memoryState.memories.take(wolfState.basic.memoryLimit),
-            furnitureCount = state.messages.sumOf { it.furnitureRuns.size },
-            onDismiss = { soilOpen = false }
-        )
+        state.thoughtSoil?.let { soil ->
+            SoilBottomSheet(soil = soil, onDismiss = { soilOpen = false })
+        } ?: run { soilOpen = false }
+    }
+
+    if (deskOpen) {
+        state.turnDeskReceipt?.let { receipt ->
+            TurnDeskBottomSheet(receipt = receipt, onDismiss = { deskOpen = false })
+        } ?: run { deskOpen = false }
     }
 
     if (avatarDialogOpen) {
