@@ -26,10 +26,12 @@ Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 - per-assistant explicit `FurnitureRun` bubble bound to local action ids
 - Wolf Den: 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断
 - Serpent Action Log: redacted persistent local action transparency
-- Daily home: 碳硅圈 / 日记 / 宠物系统; Carbon Circle and Diary use PWA-like local pages
+- Daily home: 碳硅圈 / 日记 / 宠物系统 plus a visible `未来小组件` snackbar placeholder matching the PWA review surface
+- Carbon Circle and Diary use PWA-like local pages
 - Carbon Circle owns local Xiaohan/Myri avatar sources and cover; chat shares the same Myri avatar source
+- manual Carbon posts are Xiaohan-authored; chat fake-furniture posts are explicitly Myri-authored and render with the matching local avatar/name
 - Pet entrance remains, while its interior and temporary pet-state model are intentionally empty for a later dedicated round
-- Memory: PWA-like 记忆库 / 种子库 / 世界书 / 自定义指令, with real local 日期/模型/窗口/标签 filters
+- Memory: PWA-like 记忆库 / 种子库 / 世界书 / 自定义指令, with real local 日期/模型/窗口/标签 filters for Memory and Seeds
 - local JSON / HTML chat export and JSON import into the current window
 - light / dark / gold plus local user-bubble and accent appearance
 - platform sans typography with slightly heavier body weights and softer foreground colors
