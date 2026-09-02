@@ -24,6 +24,8 @@ data class CoastShellState(
     val conversations: List<ConversationSummary> = emptyList(),
     val activeConversationId: String = "",
     val messages: List<ChatMessage> = emptyList(),
+    val thoughtSoil: ThoughtSoilSnapshot? = null,
+    val turnDeskReceipt: TurnDeskReceipt? = null,
     val currentModel: String = "",
     val models: List<String> = emptyList(),
     val myriAvatarDataUrl: String = "",
