@@ -45,6 +45,7 @@ fun MainShell(
     onOpenModels: () -> Unit,
     onDismissModels: () -> Unit,
     onSelectModel: (String) -> Unit,
+    onRefreshModels: () -> Unit,
     onPlaceholder: (String) -> Unit,
     onSnackbarShown: () -> Unit
 ) {
@@ -119,6 +120,7 @@ fun MainShell(
                         messages = state.messages,
                         onBackToChat = onBackToChat,
                         onSelectModel = onSelectModel,
+                        onRefreshModels = onRefreshModels,
                         onImportMessages = onImportMessages,
                         onLocalActionLogged = onLocalActionLogged,
                         onPlaceholder = onPlaceholder
