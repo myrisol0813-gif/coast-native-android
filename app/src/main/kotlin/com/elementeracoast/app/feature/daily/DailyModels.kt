@@ -20,16 +20,10 @@ data class LocalDiary(
     val text: String
 )
 
-enum class PetMood(val label: String) {
-    Resting("休息中"), Active("活跃"), Sleepy("困倦")
-}
-
 data class DailyState(
     val moments: List<LocalMoment> = emptyList(),
     val diaries: List<LocalDiary> = emptyList(),
     val profileAvatarUri: String = "",
     val myriAvatarUri: String = "",
-    val coverUri: String = "",
-    val petMood: PetMood = PetMood.Resting,
-    val petNote: String = ""
+    val coverUri: String = ""
 )
