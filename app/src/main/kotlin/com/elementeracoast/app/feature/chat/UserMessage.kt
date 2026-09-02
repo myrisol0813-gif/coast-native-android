@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
@@ -38,15 +39,16 @@ internal fun UserMessage(
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(Modifier.weight(1f))
             Column(modifier = Modifier.widthIn(max = maxBubble), horizontalAlignment = Alignment.End) {
+                val bubbleShape = RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
                 Text(
                     text = message.text,
-                    modifier = Modifier.background(
-                        customBubble ?: MaterialTheme.colorScheme.surfaceVariant,
-                        RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
-                    ).padding(
-                        horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
-                        vertical = CoastChatTokens.UserBubbleVerticalPadding
-                    ),
+                    modifier = Modifier
+                        .shadow(2.dp, bubbleShape, clip = false)
+                        .background(customBubble ?: MaterialTheme.colorScheme.surfaceVariant, bubbleShape)
+                        .padding(
+                            horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
+                            vertical = CoastChatTokens.UserBubbleVerticalPadding
+                        ),
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = CoastChatTokens.ChatBodySize,
