@@ -46,6 +46,7 @@ class CoastShellViewModel(
     val local = LocalFeatureServices(persistence)
     private var generationJob: Job? = null
     private var historyJob: Job? = null
+    private val soilJobs = mutableMapOf<String, Job>()
 
     init {
         syncAppearance()
@@ -89,6 +90,8 @@ class CoastShellViewModel(
     fun logout() {
         stopGeneration()
         historyJob?.cancel()
+        soilJobs.values.forEach(Job::cancel)
+        soilJobs.clear()
         viewModelScope.launch(workDispatcher) {
             backend.auth.logout()
             _state.update {
@@ -284,6 +287,9 @@ class CoastShellViewModel(
             try {
                 val conversation = ensureRemoteConversation()
                 val conversationId = conversation.id
+                if (_state.value.activeConversationId == conversationId) {
+                    _state.update { it.copy(turnDeskReceipt = null) }
+                }
                 val baseHistory = historyForSend(conversationId)
                 val appended = ChatSyncMapper.appendUser(baseHistory, clean)
                 backend.chat.cacheHistory(conversationId, appended.history)
@@ -438,7 +444,9 @@ class CoastShellViewModel(
                 conversations = conversations,
                 activeRoomType = target?.roomType ?: RoomType.Main,
                 activeConversationId = target?.id.orEmpty(),
-                messages = history?.let(ChatSyncMapper::toUi).orEmpty()
+                messages = history?.let(ChatSyncMapper::toUi).orEmpty(),
+                thoughtSoil = null,
+                turnDeskReceipt = null
             )
         }
         applyProfile(profile, daily)
@@ -479,6 +487,7 @@ class CoastShellViewModel(
         historyJob?.cancel()
         val cached = backend.chat.cachedHistory(conversation.id)
         if (cached != null) showHistory(conversation.id, cached)
+        loadThoughtSoil(conversation.id)
         historyJob = viewModelScope.launch(workDispatcher) {
             _state.update { it.copy(historyLoading = true) }
             try {
@@ -491,6 +500,42 @@ class CoastShellViewModel(
             } finally {
                 historyJob = null
             }
+        }
+    }
+
+    private fun loadThoughtSoil(conversationId: String) {
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val soil = backend.thoughtSoil.load(conversationId)
+                if (_state.value.activeConversationId == conversationId) {
+                    _state.update { it.copy(thoughtSoil = soil) }
+                }
+            } catch (error: CoastApiException) {
+                if (error.kind == CoastApiErrorKind.Unauthorized) {
+                    handleBackendError(error, "思维壤载入失败", keepAuthenticatedOnNetworkError = true)
+                }
+            }
+        }
+    }
+
+    private fun organizeThoughtSoilAfterReply(conversationId: String, modelId: String) {
+        val previous = soilJobs[conversationId]
+        val job = viewModelScope.launch(workDispatcher) {
+            previous?.join()
+            try {
+                val soil = backend.thoughtSoil.organizeAfterReply(conversationId, modelId)
+                if (_state.value.activeConversationId == conversationId) {
+                    _state.update { it.copy(thoughtSoil = soil) }
+                }
+            } catch (error: CoastApiException) {
+                if (error.kind == CoastApiErrorKind.Unauthorized) {
+                    handleBackendError(error, "思维壤整理失败", keepAuthenticatedOnNetworkError = true)
+                }
+            }
+        }
+        soilJobs[conversationId] = job
+        job.invokeOnCompletion {
+            if (soilJobs[conversationId] === job) soilJobs.remove(conversationId)
         }
     }
 
@@ -507,6 +552,8 @@ class CoastShellViewModel(
                 activeConversationId = created.id,
                 activeRoomType = created.roomType,
                 messages = emptyList(),
+                thoughtSoil = null,
+                turnDeskReceipt = null,
                 backendOffline = false
             )
         }
@@ -533,7 +580,8 @@ class CoastShellViewModel(
             it.copy(
                 isStreaming = true,
                 streamingMessageId = streamingId,
-                streamingVariantIndex = null
+                streamingVariantIndex = null,
+                turnDeskReceipt = null
             )
         }
         try {
@@ -545,7 +593,15 @@ class CoastShellViewModel(
                     }
                     is ChatProgress.Completed -> {
                         showHistory(conversationId, progress.history)
-                        _state.update { it.copy(backendOffline = false) }
+                        if (_state.value.activeConversationId == conversationId) {
+                            _state.update {
+                                it.copy(
+                                    backendOffline = false,
+                                    turnDeskReceipt = progress.deskReceipt
+                                )
+                            }
+                        }
+                        organizeThoughtSoilAfterReply(conversationId, progress.modelId)
                     }
                 }
             }
@@ -650,6 +706,8 @@ class CoastShellViewModel(
                 actionLogFocusIds = emptySet(),
                 activeConversationId = conversation.id,
                 messages = history?.let(ChatSyncMapper::toUi).orEmpty(),
+                thoughtSoil = null,
+                turnDeskReceipt = null,
                 showModelPicker = false,
                 isStreaming = false,
                 streamingMessageId = null,
@@ -668,6 +726,8 @@ class CoastShellViewModel(
                 actionLogFocusIds = emptySet(),
                 activeConversationId = "",
                 messages = emptyList(),
+                thoughtSoil = null,
+                turnDeskReceipt = null,
                 showModelPicker = false,
                 historyLoading = false,
                 isStreaming = false,
@@ -693,12 +753,16 @@ class CoastShellViewModel(
             backend.auth.clearConfirmedInvalidSession()
             generationJob?.cancel()
             historyJob?.cancel()
+            soilJobs.values.forEach(Job::cancel)
+            soilJobs.clear()
             _state.update {
                 it.copy(
                     authenticated = false,
                     authBusy = false,
                     authMessage = "登录状态已失效，请重新输入海岸密码。",
                     backendOffline = false,
+                    thoughtSoil = null,
+                    turnDeskReceipt = null,
                     isStreaming = false,
                     streamingMessageId = null,
                     streamingVariantIndex = null
