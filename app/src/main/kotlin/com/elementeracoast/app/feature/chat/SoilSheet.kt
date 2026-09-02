@@ -29,15 +29,15 @@ internal fun SoilBottomSheet(
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 10.dp)) {
-            Text("思维壤 · 本地结构预览", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text("不会发往真实后端；这里只展示 app-59 的上下文结构。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("思维壤 · Native 可见结构", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text("真实上下文由 Coast 后端组装；这里仅展示 Native 当前可见的本地提示。", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(14.dp))
-            SoilSection("本轮递给模型", "本地 fake generation · 当前输入 + 最近纸条")
+            SoilSection("本轮递给后端", "当前输入与会话标识；记忆、世界书与工具上下文由 Coast 后端负责组装")
             SoilSection("最近上下文", "最近 ${settings.recentTurns} 轮 · 舒服区间上沿 ${settings.contextBudget}")
             SoilSection("基本设置", "${settings.outputLength} · max ${settings.maxOutputTokens} · ${settings.creativity} · ${if (settings.streamingEnabled) "流式" else "非流式"}")
-            SoilSection("本地记忆命中", if (memoryHits.isEmpty()) "本轮没有本地命中" else memoryHits.take(settings.memoryLimit).joinToString(" · ") { it.title })
-            SoilSection("本轮家具", if (furnitureCount == 0) "没有动用本地家具" else "$furnitureCount 件本地家具记录")
-            SoilSection("当前纸条数", "${recentMessages.size} 条消息仅作为本地展示")
+            SoilSection("本地记忆预览", if (memoryHits.isEmpty()) "本轮没有本地预览项" else memoryHits.take(settings.memoryLimit).joinToString(" · ") { it.title })
+            SoilSection("本轮家具", if (furnitureCount == 0) "没有本地家具展示" else "$furnitureCount 件本地家具记录")
+            SoilSection("当前纸条数", "${recentMessages.size} 条消息仅作为 Native 界面展示；后端历史是 source of truth")
             Spacer(Modifier.height(24.dp))
         }
     }
