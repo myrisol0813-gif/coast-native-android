@@ -44,8 +44,8 @@ internal fun ProfileScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        item { WolfTextField("昵称", nickname) { nickname = it } }
-        item { WolfTextField("聊天署名 / 导出显示名", signature) { signature = it } }
+        item { WolfTextField("昵称", nickname, { nickname = it }) }
+        item { WolfTextField("聊天署名 / 导出显示名", signature, { signature = it }) }
         item { WolfRow("用户气泡颜色", "复用外观里的同一项设置", onAppearance) }
         item {
             Text(
@@ -71,7 +71,8 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
             SettingGroup("主题") {
                 CoastThemeMode.entries.forEach { mode ->
                     ChoiceRow(mode.label, state.appearance.theme == mode) {
-                        store.setTheme(mode); onSnackbar("主题已切换为${mode.label}")
+                        store.setTheme(mode)
+                        onSnackbar("主题已切换为${mode.label}")
                     }
                 }
             }
@@ -95,7 +96,12 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
 }
 
 @Composable
-internal fun WolfTextField(label: String, value: String, onValueChange: (String) -> Unit, minLines: Int = 1) {
+internal fun WolfTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    minLines: Int = 1
+) {
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(5.dp))
@@ -124,9 +130,7 @@ internal fun SettingGroup(title: String, content: @Composable () -> Unit) {
 
 @Composable
 internal fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
         Text(if (selected) "●" else "○", color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(horizontal = 5.dp))
         Text(label, modifier = Modifier.weight(1f))
