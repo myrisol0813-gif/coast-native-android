@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -100,6 +102,81 @@ internal fun DailyField(
                 inner()
             }
         )
+    }
+}
+
+@Composable
+internal fun DailyIdentityBar(
+    profileUri: String,
+    myriUri: String,
+    onProfileClick: () -> Unit,
+    onMyriClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp))
+            .padding(horizontal = 13.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DailyIdentityChip(
+            label = "小寒",
+            uri = profileUri,
+            fallback = "寒",
+            modifier = Modifier.weight(1f),
+            onClick = onProfileClick
+        )
+        DailyIdentityChip(
+            label = "Myri",
+            uri = myriUri,
+            fallback = "M",
+            modifier = Modifier.weight(1f),
+            onClick = onMyriClick
+        )
+    }
+}
+
+@Composable
+private fun DailyIdentityChip(
+    label: String,
+    uri: String,
+    fallback: String,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DailyMiniAvatar(uri, fallback)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
+    }
+}
+
+@Composable
+private fun DailyMiniAvatar(uri: String, fallback: String) {
+    val bitmap = rememberDailyBitmap(uri)
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap != null) {
+            Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Text(fallback, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
