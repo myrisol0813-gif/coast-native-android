@@ -2,72 +2,66 @@
 
 Private Android native client for Elementera Coast / CoastGPT.
 
-**Status: Native v1 local UI shell aligned to Elementera Coast Web/PWA app-57. Real backend wiring is intentionally deferred.**
+**Status: Native v1 full local surface shell aligned to PWA app-59. Real backend wiring is intentionally deferred.**
 
-Current source of truth: `docs/NATIVE_PWA_PARITY_MAP.md`.
+Current source of truth: `docs/NATIVE_APP59_SURFACE_PARITY_MAP.md`.
 
 ## Product identity
 
-- App name: `CoastGPT`
-- applicationId: `com.elementeracoast.app`
-- Gate title: `Elementera Coast`
-- Gate tagline: `沿海岸保存回声`
-- Kotlin / Jetpack Compose native client
-- no WebView, React Native or TypeScript layer
+- App: `CoastGPT` / `com.elementeracoast.app`
+- Gate: `Elementera Coast` · `沿海岸保存回声`
+- Kotlin / Jetpack Compose only
+- no WebView, React Native, TypeScript or committed Web/PWA assets
 
-## Native v1 body
+## Native body
 
-- Gate → MainShell
-- Gate brand geometry ported from the real inline hand-drawn SVG in the supplied app-57 `functions/auth.js`, not traced from screenshots
-- light / dark / gold Coast themes
-- drawer with room entrances, conversations, Memory / Daily, Theme / Wolf Den / Serpent Desk
-- PWA-aligned `RoomType`: `main` / `radio` / `lighthouse`
-- one shared `ChatWindow` for all three room types
-- split chat UI: timeline, role renderer, assistant/user messages, actions, variants, footprint and local dialogs
-- assistant actions: copy / like / regenerate / favorite / delete
-- user actions: copy / edit / delete
-- local `1/1` variant shell and local model/source generation footprint
-- assistant avatar button with Android Photo Picker local-only replacement/reset
-- PWA-like timeline spacing, 34dp assistant avatar, right-aligned user bubble and compact action row
-- shared Dogtalk four-field row
-- shared add / input+mic / call-send-stop composer
-- Daily light shell: 碳硅圈 / 日记 / 宠物系统
-- Memory light shell: 记忆库 / 种子库 / 世界书 / 自定义指令
+- preserved Native 25 Gate, tuned drawer/topbar, RoomType and one shared ChatWindow
+- Main / Radio / Lighthouse still share timeline, message actions, Dogtalk and composer
+- assistant actions: copy / like / favorite / local regenerate / delete / footprint / 1-1 variant
+- user actions: copy / edit / delete / 1-1 variant
+- local thought-soil / hand-seed sheet
+- per-assistant explicit `FurnitureRun` bubble bound to local action ids
+- Wolf Den: 个人资料 / 外观 / 聊天记录 / 模型箱 / 基本设置 / 关于与诊断
+- Serpent Action Log: redacted persistent local action transparency
+- Daily: 碳硅圈 / 日记 / 宠物系统 with local stores
+- Memory: 记忆库 / 种子库 / 世界书 / 自定义指令 with local stores
+- local JSON / HTML chat export and JSON import into the current window
+- light / dark / gold plus local user-bubble and accent appearance
 
-## Local-only behavior
+## State ownership
 
-The current APK really performs these actions in the in-memory Native thread:
+Feature state is not dumped into `MainShell` or one all-purpose ViewModel:
 
-- copy to Android clipboard
-- toggle assistant like/favorite
-- edit one user message
-- delete one selected message
-- fake-stream regenerate one assistant message
-- change/reset the local assistant avatar
+```text
+feature/chat       LocalChatStore + LocalFurnitureOrchestrator
+feature/wolf       WolfStore
+feature/actionlog  ActionLogStore
+feature/daily      DailyStore
+feature/memory     MemoryStore
+feature/shell      navigation and cross-feature coordination
+core/local         SharedPreferences / in-memory persistence boundary
+```
 
-None of these actions calls a server.
+The physical-device product remains local-only. SharedPreferences stores Wolf/Daily/Memory/ActionLog state; conversations remain the Native chat owner and can be explicitly imported/exported.
 
-Deleting the global last conversation now removes its old thread and creates a fresh empty Main `新聊天 1` with a new id, so the delete no longer looks like the same window silently came back.
+## App-59 product mother
 
-## Still deliberately not wired
+This pass was rebuilt cleanly from Native 25 (`f3d8c2519fd64827ad8075c6a7df891ce62910a4`) using the read-only PWA app-59 source at `elementera-coast@c4dd2ad6260bb9d8065a97ab57ddccfd78c697ef`.
 
-- no Android `INTERNET` permission
-- no real authentication/session
-- no real base URL or HTTP implementation
-- no profile/conversation/history/chat request
-- no real SSE
-- no Radio/Lighthouse server behavior
-- no Daily/Memory backend persistence
-- no Dogtalk backend persistence
-- no avatar profile upload/sync
-- no Mailbox/MCP wiring
-- no provider keys, tokens, passwords or signing secrets
+The abandoned earlier Native 26 attempt is not a compatibility source and is not bridged into this code.
 
-`core/network/CoastGatewayClient.kt` remains an interface-only future boundary. A later `COAST-NATIVE-BACKEND-WIRING` pass owns transport.
+## Hard boundaries
 
-## Retired structures stay retired
+- no `android.permission.INTERNET`
+- no real login/API/SSE/model call
+- no base URL/token/password/provider secret
+- no real Daily/Memory/MCP sync
+- no o3 reply-card changes
+- no Calendar / Today Coast / Summary / Album
+- no old Serpent Desk pseudo-settings
+- no `legacy` / `compat` / `bridge` / `temp` / `misc` source layer
 
-The Native surface does not restore Calendar / 今日一瞥 / Daily Summary / Album. `ChatScope` remains retired in favor of `RoomType`.
+`core/network/CoastGatewayClient.kt` remains an unwired future interface.
 
 ## Dogtalk invariant
 
@@ -78,19 +72,17 @@ weather
 read_mode
 ```
 
-## MiniiChat attribution
-
-The earlier PoC legally reused selected interaction ideas from MiniiChat by Minis233 under the MIT License. Remaining derived interaction areas are documented in `THIRD_PARTY_NOTICES.md` and `third_party/MiniiChat-LICENSE.txt`.
-
-No GPL/AGPL implementation from RikkaHub, GPT Mobile, or other copyleft projects is included.
-
 ## Build
 
-Requires JDK 17, Android SDK 34, and Gradle 8.9.
+Requires JDK 17, Android SDK 34, Gradle 8.9.
 
 ```bash
 gradle :app:testDebugUnitTest --no-daemon --stacktrace
 gradle :app:assembleDebug --no-daemon --stacktrace
 ```
 
-GitHub Actions runs the tests and debug assembly and stages the current debug APK artifact.
+GitHub Actions runs both and stages the debug APK artifact.
+
+## Attribution
+
+Selected earlier PoC interaction patterns from MiniiChat remain attributed under MIT in `THIRD_PARTY_NOTICES.md` and `third_party/MiniiChat-LICENSE.txt`. No GPL/AGPL implementation is included.
