@@ -53,6 +53,8 @@ class CoastApiClient(
         encodeDefaults = false
     }
 ) {
+    private val historyJson = Json(json) { encodeDefaults = true }
+
     suspend fun login(password: String): AuthSession {
         val request = Request.Builder()
             .url(config.url("/login"))
@@ -130,7 +132,7 @@ class CoastApiClient(
         ).history
 
     suspend fun putHistory(conversationId: String, history: RemoteHistory): RemoteHistory {
-        val payload = json.encodeToString(RemoteHistory.serializer(), history.copy(conversationId = null))
+        val payload = historyJson.encodeToString(RemoteHistory.serializer(), history.copy(conversationId = null))
         return jsonRequest(
             Request.Builder()
                 .url(config.url("/api/chat/history?conversation_id=${encodeQuery(conversationId)}"))
