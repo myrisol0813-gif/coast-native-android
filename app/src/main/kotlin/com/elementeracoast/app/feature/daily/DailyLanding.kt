@@ -73,7 +73,10 @@ fun DailyLanding(
         }
     }
 
-    val refreshAction = { scope.launch { refreshDaily() } }
+    val refreshAction: () -> Unit = {
+        scope.launch { refreshDaily() }
+        Unit
+    }
 
     Column(Modifier.fillMaxSize()) {
         when (page) {
