@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -20,9 +21,9 @@ import com.elementeracoast.app.core.model.CoastThemeMode
 private val LightColors = lightColorScheme(
     primary = Color(0xFFFF6B28), onPrimary = Color.White,
     primaryContainer = Color(0xFFFFEFE6), onPrimaryContainer = Color(0xFF3A1A0C),
-    background = Color.White, onBackground = Color(0xFF34353A),
-    surface = Color.White, onSurface = Color(0xFF34353A),
-    surfaceVariant = Color(0xFFF7F7F7), onSurfaceVariant = Color(0xFF8A8A90),
+    background = Color.White, onBackground = Color(0xFF3A3B40),
+    surface = Color.White, onSurface = Color(0xFF3A3B40),
+    surfaceVariant = Color(0xFFF7F7F7), onSurfaceVariant = Color(0xFF85858C),
     outline = Color(0xFFDCDCE0), outlineVariant = Color(0xFFECECEF),
     error = Color(0xFFB3261E), onError = Color.White
 )
@@ -47,16 +48,17 @@ private val GoldColors = darkColorScheme(
     error = Color(0xFFFFB4AB), onError = Color(0xFF690005)
 )
 
+private val CoastSans = FontFamily.SansSerif
 private val CoastTypography = Typography(
-    headlineMedium = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.SemiBold),
-    titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 25.sp, fontWeight = FontWeight.Medium),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium),
-    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal),
-    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Normal)
+    headlineMedium = TextStyle(fontFamily = CoastSans, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
+    titleLarge = TextStyle(fontFamily = CoastSans, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
+    titleMedium = TextStyle(fontFamily = CoastSans, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.18).sp),
+    bodyLarge = TextStyle(fontFamily = CoastSans, fontSize = 16.sp, lineHeight = 25.sp, fontWeight = FontWeight.Medium),
+    bodyMedium = TextStyle(fontFamily = CoastSans, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium),
+    bodySmall = TextStyle(fontFamily = CoastSans, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+    labelLarge = TextStyle(fontFamily = CoastSans, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+    labelMedium = TextStyle(fontFamily = CoastSans, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontFamily = CoastSans, fontSize = 11.sp, fontWeight = FontWeight.Medium)
 )
 
 @Composable
