@@ -36,10 +36,13 @@ fun ActionLogScreen(
     val records by store.records.collectAsState()
     var status by remember { mutableStateOf<LocalActionStatus?>(null) }
     var actionKey by remember { mutableStateOf("") }
+    var conversationFilter by remember(focusIds, conversationId) {
+        mutableStateOf(if (focusIds.isNotEmpty()) conversationId else "")
+    }
     val filter = ActionLogFilter(
         status = status,
         actionKey = actionKey,
-        conversationId = if (focusIds.isNotEmpty()) conversationId else "",
+        conversationId = conversationFilter,
         actionIds = focusIds
     )
     val visible = store.filtered(filter)
@@ -54,9 +57,12 @@ fun ActionLogScreen(
             FilterRow(
                 status = status,
                 actionKey = actionKey,
+                conversationId = conversationFilter,
                 keys = records.map { it.actionKey }.distinct(),
+                conversations = records.map { it.conversationId }.distinct(),
                 onStatus = { status = it },
-                onActionKey = { actionKey = it }
+                onActionKey = { actionKey = it },
+                onConversation = { if (focusIds.isEmpty()) conversationFilter = it }
             )
             if (focusIds.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
@@ -65,9 +71,7 @@ fun ActionLogScreen(
         }
         if (visible.isEmpty()) {
             item {
-                QuietCard {
-                    Text("当前筛选下还没有家具行动记录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                QuietCard { Text("当前筛选下还没有家具行动记录。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         } else {
             items(visible, key = { it.actionId }) { record -> ActionRow(record) }
@@ -79,27 +83,44 @@ fun ActionLogScreen(
 private fun FilterRow(
     status: LocalActionStatus?,
     actionKey: String,
+    conversationId: String,
     keys: List<String>,
+    conversations: List<String>,
     onStatus: (LocalActionStatus?) -> Unit,
-    onActionKey: (String) -> Unit
+    onActionKey: (String) -> Unit,
+    onConversation: (String) -> Unit
 ) {
     var statusOpen by remember { mutableStateOf(false) }
     var keyOpen by remember { mutableStateOf(false) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Column {
-            FilterChip(if (status == null) "全部状态" else status.name.lowercase()) { statusOpen = true }
-            DropdownMenu(statusOpen, onDismissRequest = { statusOpen = false }) {
-                DropdownMenuItem(text = { Text("全部状态") }, onClick = { onStatus(null); statusOpen = false })
-                LocalActionStatus.entries.forEach { value ->
-                    DropdownMenuItem(text = { Text(value.name.lowercase()) }, onClick = { onStatus(value); statusOpen = false })
+    var conversationOpen by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column {
+                FilterChip(if (status == null) "全部状态" else status.name.lowercase()) { statusOpen = true }
+                DropdownMenu(statusOpen, onDismissRequest = { statusOpen = false }) {
+                    DropdownMenuItem(text = { Text("全部状态") }, onClick = { onStatus(null); statusOpen = false })
+                    LocalActionStatus.entries.forEach { value ->
+                        DropdownMenuItem(text = { Text(value.name.lowercase()) }, onClick = { onStatus(value); statusOpen = false })
+                    }
+                }
+            }
+            Column {
+                FilterChip(if (actionKey.isBlank()) "全部类型" else actionKey) { keyOpen = true }
+                DropdownMenu(keyOpen, onDismissRequest = { keyOpen = false }) {
+                    DropdownMenuItem(text = { Text("全部类型") }, onClick = { onActionKey(""); keyOpen = false })
+                    keys.forEach { key ->
+                        DropdownMenuItem(text = { Text(key) }, onClick = { onActionKey(key); keyOpen = false })
+                    }
                 }
             }
         }
         Column {
-            FilterChip(if (actionKey.isBlank()) "全部家具" else actionKey) { keyOpen = true }
-            DropdownMenu(keyOpen, onDismissRequest = { keyOpen = false }) {
-                DropdownMenuItem(text = { Text("全部家具") }, onClick = { onActionKey(""); keyOpen = false })
-                keys.forEach { key -> DropdownMenuItem(text = { Text(key) }, onClick = { onActionKey(key); keyOpen = false }) }
+            FilterChip(if (conversationId.isBlank()) "全部 conversation" else conversationId) { conversationOpen = true }
+            DropdownMenu(conversationOpen, onDismissRequest = { conversationOpen = false }) {
+                DropdownMenuItem(text = { Text("全部 conversation") }, onClick = { onConversation(""); conversationOpen = false })
+                conversations.forEach { id ->
+                    DropdownMenuItem(text = { Text(id) }, onClick = { onConversation(id); conversationOpen = false })
+                }
             }
         }
     }
@@ -129,6 +150,7 @@ private fun ActionRow(record: LocalActionRecord) {
             }
             if (open) {
                 Spacer(Modifier.height(10.dp))
+                Detail("action_id", record.actionId)
                 Detail("action_key", record.actionKey)
                 Detail("创建", record.createdAt)
                 Detail("完成", record.finishedAt)
