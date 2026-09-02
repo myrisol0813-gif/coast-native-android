@@ -73,6 +73,14 @@ internal fun ChatTimeline(
         ) {
             itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
                 Column {
+                    val streamingTail = isStreaming && message.id == streamingMessageId
+                    if (message.role == MessageRole.Assistant && !streamingTail && message.furnitureRuns.isNotEmpty()) {
+                        FurnitureBubble(
+                            runs = message.furnitureRuns,
+                            onOpenActionLog = onOpenActionLog,
+                            modifier = Modifier.padding(bottom = 5.dp)
+                        )
+                    }
                     if (index == latestAssistantIndex && thoughtSoil != null) {
                         ThoughtSoilEntry(
                             soil = thoughtSoil,
@@ -82,14 +90,13 @@ internal fun ChatTimeline(
                     }
                     MessageItem(
                         message = message,
-                        isStreamingTail = isStreaming && message.id == streamingMessageId,
+                        isStreamingTail = streamingTail,
                         avatarBitmap = avatarBitmap,
                         onAvatarClick = onAvatarClick,
                         onCopy = onCopy,
                         onEdit = onEdit,
                         onAction = onAction,
-                        onFootprint = onFootprint,
-                        onOpenActionLog = onOpenActionLog
+                        onFootprint = onFootprint
                     )
                 }
             }
