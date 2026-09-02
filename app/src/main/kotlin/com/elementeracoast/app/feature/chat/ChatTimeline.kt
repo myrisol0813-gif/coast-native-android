@@ -36,47 +36,26 @@ internal fun ChatTimeline(
     onAction: (MessageAction) -> Unit,
     onVariantPlaceholder: (ChatMessage) -> Unit,
     onFootprint: (ChatMessage) -> Unit,
+    onOpenActionLog: (Set<String>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     val tailLength = messages.lastOrNull()?.text?.length ?: 0
-
     LaunchedEffect(conversationId, messages.size, tailLength) {
         if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
     }
 
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
-    ) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         if (messages.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "潮水退到纸页外。",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    "写点什么，新的窗口会从这里长出来。",
-                    modifier = Modifier.padding(top = 7.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .68f),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            Column(modifier = Modifier.align(Alignment.Center).padding(horizontal = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("潮水退到纸页外。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("写点什么，新的窗口会从这里长出来。", modifier = Modifier.padding(top = 7.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .68f))
             }
             return@Box
         }
-
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = CoastChatTokens.TimelineMaxWidth),
+            modifier = Modifier.fillMaxWidth().widthIn(max = CoastChatTokens.TimelineMaxWidth),
             contentPadding = PaddingValues(
                 start = CoastChatTokens.TimelineHorizontalPadding,
                 end = CoastChatTokens.TimelineHorizontalPadding,
@@ -95,7 +74,8 @@ internal fun ChatTimeline(
                     onEdit = onEdit,
                     onAction = onAction,
                     onVariantPlaceholder = onVariantPlaceholder,
-                    onFootprint = onFootprint
+                    onFootprint = onFootprint,
+                    onOpenActionLog = onOpenActionLog
                 )
             }
         }
