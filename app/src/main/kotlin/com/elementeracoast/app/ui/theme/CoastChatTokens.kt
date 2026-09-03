@@ -3,7 +3,6 @@ package com.elementeracoast.app.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -42,7 +41,7 @@ object CoastChatTokens {
     val MessageActionTopGap = 10.dp
     val StreamingGap = 5.dp
 
-    val DogtalkHorizontalPadding = 28.dp
+    val DogtalkHorizontalPadding = 0.dp
     val DogtalkOuterVerticalPadding = 4.dp
     val DogtalkRadius = 16.dp
     val DogtalkCollapsedHorizontalPadding = 13.dp
@@ -122,13 +121,8 @@ object CoastChatTokens {
     val ConversationMoreGlyph = 19.dp
 }
 
-val DogtalkCardLight = Color(0xFFFAF9F7)
-val DogtalkFieldLight = Color.White
+@Composable
+fun coastDogtalkCardColor(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f)
 
 @Composable
-fun coastDogtalkCardColor(): Color = if (MaterialTheme.colorScheme.background.luminance() > .55f) DogtalkCardLight
-else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .64f)
-
-@Composable
-fun coastDogtalkFieldColor(): Color = if (MaterialTheme.colorScheme.background.luminance() > .55f) DogtalkFieldLight
-else MaterialTheme.colorScheme.surface.copy(alpha = .96f)
+fun coastDogtalkFieldColor(): Color = MaterialTheme.colorScheme.surface.copy(alpha = .94f)
