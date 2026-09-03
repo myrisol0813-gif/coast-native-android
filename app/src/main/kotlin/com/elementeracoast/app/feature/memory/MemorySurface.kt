@@ -46,8 +46,6 @@ enum class MemoryFilterKind(val label: String, val allLabel: String, val emptyLa
     Tag("标签", "全部标签", "暂无标签")
 }
 
-internal val canonicalMemoryTags = listOf("关系", "历史锚点", "偏好", "人物档案", "海岸世界观", "工程技术")
-
 @Composable
 fun MemoryTabs(active: MemoryTab, onSelect: (MemoryTab) -> Unit) {
     val shape = RoundedCornerShape(22.dp)
