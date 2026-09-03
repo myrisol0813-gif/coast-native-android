@@ -20,6 +20,7 @@ import com.elementeracoast.app.core.remote.RemoteHistory
 import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
 import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.feature.chat.ChatBranchNavigator
+import com.elementeracoast.app.feature.chat.ChatHistoryMutations
 import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import com.elementeracoast.app.feature.daily.DailyProfile
@@ -378,11 +379,15 @@ class CoastShellViewModel(
             )
             is MessageAction.Retry -> retryMessage(message)
             is MessageAction.SelectVariant -> selectVariantForViewing(message, action.index)
-            is MessageAction.ToggleLike,
-            is MessageAction.ToggleFavorite,
-            is MessageAction.Delete,
-            is MessageAction.Edit,
-            is MessageAction.Regenerate -> showPlaceholder("这项消息写回本轮尚未接线，没有修改后端数据。")
+            is MessageAction.ToggleLike -> mutateMessageHistory("点赞写回失败", "已同步点赞") { history ->
+                ChatHistoryMutations.toggleActiveAssistantLike(history, message.turnId ?: return@mutateMessageHistory history)
+            }
+            is MessageAction.ToggleFavorite -> mutateMessageHistory("收藏写回失败", "已同步收藏") { history ->
+                ChatHistoryMutations.toggleActiveAssistantFavorite(history, message.turnId ?: return@mutateMessageHistory history)
+            }
+            is MessageAction.Delete -> deleteMessage(message)
+            is MessageAction.Edit -> editMessage(message, action.text)
+            is MessageAction.Regenerate -> regenerateMessage(message)
         }
     }
 
@@ -729,17 +734,128 @@ class CoastShellViewModel(
     }
 
     private fun selectVariantForViewing(message: ChatMessage, index: Int) {
-        if (_state.value.isStreaming) {
-            showPlaceholder("当前回复仍在生成，完成后再查看其他版本。")
+        val turnId = message.turnId ?: return
+        mutateMessageHistory("版本切换写回失败", "已同步当前版本") { history ->
+            ChatBranchNavigator.select(history, turnId, message.role, index)
+        }
+    }
+
+    private fun deleteMessage(message: ChatMessage) {
+        val turnId = message.turnId ?: return
+        mutateMessageHistory("删除消息失败", "消息已从海岸删除") { history ->
+            when (message.role) {
+                MessageRole.User -> ChatHistoryMutations.deleteActiveUser(history, turnId)
+                MessageRole.Assistant -> ChatHistoryMutations.deleteActiveAssistant(history, turnId)
+            }
+        }
+    }
+
+    private fun editMessage(message: ChatMessage, rawText: String) {
+        val turnId = message.turnId ?: return
+        val clean = rawText.trim()
+        if (message.role != MessageRole.User || clean.isBlank()) return
+        if (_state.value.isStreaming || generationJob?.isActive == true) {
+            showPlaceholder("当前回复仍在生成，完成后再编辑消息。")
             return
         }
         val conversationId = _state.value.activeConversationId
+        if (conversationId.isBlank()) return
+        val previous = backend.chat.cachedHistory(conversationId) ?: run {
+            showPlaceholder("聊天记录尚未载入完成，请重新打开窗口后再编辑。")
+            return
+        }
+        val edited = ChatHistoryMutations.editActiveUser(previous, turnId, clean)
+        if (edited == previous) return
+        backend.chat.cacheHistory(conversationId, edited)
+        showHistory(conversationId, edited)
+
+        generationJob = viewModelScope.launch(workDispatcher) {
+            try {
+                val persisted = backend.chat.persistHistory(conversationId, edited)
+                showHistory(conversationId, persisted)
+                val conversation = _state.value.conversations.firstOrNull { it.id == conversationId }
+                if (conversation?.roomType == RoomType.Lighthouse) {
+                    _state.update { it.copy(snackbarMessage = "编辑版本已写回海岸") }
+                    return@launch
+                }
+                val model = _state.value.currentModel
+                if (model.isBlank()) {
+                    _state.update { it.copy(snackbarMessage = "编辑版本已写回；当前没有可用聊天模型，未生成新回复") }
+                    return@launch
+                }
+                generateTurn(conversationId, persisted, turnId, model)
+            } catch (error: CoastApiException) {
+                backend.chat.cacheHistory(conversationId, previous)
+                showHistory(conversationId, previous)
+                handleBackendError(error, "编辑消息失败", keepAuthenticatedOnNetworkError = true)
+            } finally {
+                generationJob = null
+            }
+        }
+    }
+
+    private fun regenerateMessage(message: ChatMessage) {
         val turnId = message.turnId ?: return
-        val history = backend.chat.cachedHistory(conversationId) ?: return
-        val selected = ChatBranchNavigator.select(history, turnId, message.role, index)
-        backend.chat.cacheHistory(conversationId, selected)
-        showHistory(conversationId, selected)
-        showPlaceholder("已在本机切换查看版本；本轮没有改写后端的 active 版本。")
+        if (message.role != MessageRole.Assistant) return
+        if (_state.value.isStreaming || generationJob?.isActive == true) {
+            showPlaceholder("当前回复仍在生成，完成后再重新生成。")
+            return
+        }
+        val conversationId = _state.value.activeConversationId
+        if (conversationId.isBlank()) return
+        val conversation = _state.value.conversations.firstOrNull { it.id == conversationId }
+        if (conversation?.roomType == RoomType.Lighthouse) {
+            showPlaceholder("灯塔来信只保存文字，不触发模型重刷。")
+            return
+        }
+        val history = backend.chat.cachedHistory(conversationId) ?: run {
+            showPlaceholder("聊天记录尚未载入完成，请重新打开窗口后再重刷。")
+            return
+        }
+        val model = _state.value.currentModel
+        if (model.isBlank()) {
+            showPlaceholder("当前模型还没有从海岸载入，暂时不能重新生成。")
+            return
+        }
+        generationJob = viewModelScope.launch(workDispatcher) {
+            try {
+                generateTurn(conversationId, history, turnId, model)
+            } finally {
+                generationJob = null
+            }
+        }
+    }
+
+    private fun mutateMessageHistory(
+        failureLabel: String,
+        successMessage: String,
+        transform: (RemoteHistory) -> RemoteHistory
+    ) {
+        if (_state.value.isStreaming || generationJob?.isActive == true) {
+            showPlaceholder("当前回复仍在生成，完成后再修改消息。")
+            return
+        }
+        val conversationId = _state.value.activeConversationId
+        if (conversationId.isBlank()) return
+        val previous = backend.chat.cachedHistory(conversationId) ?: run {
+            showPlaceholder("聊天记录尚未载入完成，请重新打开窗口后再修改。")
+            return
+        }
+        val next = transform(previous)
+        if (next == previous) return
+        backend.chat.cacheHistory(conversationId, next)
+        showHistory(conversationId, next)
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val persisted = backend.chat.persistHistory(conversationId, next)
+                showHistory(conversationId, persisted)
+                _state.update { it.copy(backendOffline = false, snackbarMessage = successMessage) }
+            } catch (error: CoastApiException) {
+                backend.chat.cacheHistory(conversationId, previous)
+                showHistory(conversationId, previous)
+                handleBackendError(error, failureLabel, keepAuthenticatedOnNetworkError = true)
+            }
+        }
     }
 
     private fun showStreaming(
