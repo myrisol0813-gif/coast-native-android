@@ -47,26 +47,34 @@ class DefaultMemoryRepository(
     override fun cachedSnapshot(): MemorySnapshot = mutableSnapshot.value
 
     override suspend fun refresh(conversationId: String) = coroutineScope {
+        val cleanConversationId = conversationId.trim()
+        primePocketSnapshot(cleanConversationId)
+
         val memories = async { remote.listEntries("memory") }
         val seeds = async { remote.listEntries("seed") }
-        val pockets = async { remote.listPockets(conversationId) }
+        val pockets = cleanConversationId.takeIf(String::isNotBlank)?.let { id ->
+            async { remote.listPockets(id) }
+        }
         val worldbook = async { remote.listWorldbook() }
         val instructions = async { remote.getInstructions() }
+
         val remoteMemories = memories.await()
         val remoteSeeds = seeds.await()
-        val remotePockets = pockets.await()
+        val remotePockets = pockets?.await().orEmpty()
         val remoteWorldbook = worldbook.await()
         val remoteInstructions = instructions.await()
+
         cache.putMemoryEntries("memory", remoteMemories)
         cache.putMemoryEntries("seed", remoteSeeds)
-        cache.putMemoryPockets(conversationId, remotePockets)
+        if (cleanConversationId.isNotBlank()) cache.putMemoryPockets(cleanConversationId, remotePockets)
         cache.putWorldbookEntries(remoteWorldbook)
         cache.putCustomInstructions(remoteInstructions)
+
         mutableSnapshot.value = MemorySnapshot(
             memories = remoteMemories.map(::toEntry),
             seeds = remoteSeeds.map(::toEntry),
             pockets = remotePockets.map(::toPocket),
-            pocketConversationId = conversationId,
+            pocketConversationId = cleanConversationId.ifBlank { null },
             worldbook = remoteWorldbook.map(::toWorldbook),
             customInstructions = remoteInstructions?.let(::toInstructions) ?: CustomInstructions()
         )
@@ -84,11 +92,17 @@ class DefaultMemoryRepository(
     }
 
     override suspend fun refreshPockets(conversationId: String) {
-        val pockets = remote.listPockets(conversationId)
-        cache.putMemoryPockets(conversationId, pockets)
+        val cleanConversationId = conversationId.trim()
+        if (cleanConversationId.isBlank()) {
+            mutableSnapshot.value = mutableSnapshot.value.copy(pockets = emptyList(), pocketConversationId = null)
+            return
+        }
+        primePocketSnapshot(cleanConversationId)
+        val pockets = remote.listPockets(cleanConversationId)
+        cache.putMemoryPockets(cleanConversationId, pockets)
         mutableSnapshot.value = mutableSnapshot.value.copy(
             pockets = pockets.map(::toPocket),
-            pocketConversationId = conversationId
+            pocketConversationId = cleanConversationId
         )
     }
 
@@ -175,6 +189,17 @@ class DefaultMemoryRepository(
         val mapped = saved?.let(::toInstructions) ?: CustomInstructions()
         mutableSnapshot.value = mutableSnapshot.value.copy(customInstructions = mapped)
         return mapped
+    }
+
+    private fun primePocketSnapshot(conversationId: String) {
+        if (conversationId.isBlank()) {
+            mutableSnapshot.value = mutableSnapshot.value.copy(pockets = emptyList(), pocketConversationId = null)
+            return
+        }
+        mutableSnapshot.value = mutableSnapshot.value.copy(
+            pockets = cache.memoryPockets(conversationId).map(::toPocket),
+            pocketConversationId = conversationId
+        )
     }
 
     private companion object {
