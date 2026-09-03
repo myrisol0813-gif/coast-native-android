@@ -66,6 +66,7 @@ jobs:
           remote="$root/core/remote"
           chat="$root/feature/chat"
           daily="$root/feature/daily"
+          memory="$root/feature/memory"
           shell="$root/feature/shell"
           gate="$root/feature/gate"
           wolf="$root/feature/wolf"
@@ -80,12 +81,17 @@ jobs:
           test -f "$network/SseParser.kt"
           test -f "$remote/RemoteModels.kt"
           test -f "$remote/RemoteDaily.kt"
+          test -f "$remote/RemoteMemory.kt"
           test -f "$remote/RemoteCacheStore.kt"
           test -f "$chat/ChatRepository.kt"
           test -f "$chat/ChatSyncMapper.kt"
           test -f "$daily/DailyCanonicalModels.kt"
           test -f "$daily/DailyRepository.kt"
           test -f "$daily/DailyImageCodec.kt"
+          test -f "$memory/MemoryCanonicalModels.kt"
+          test -f "$memory/MemoryRemoteDataSource.kt"
+          test -f "$memory/MemoryRepository.kt"
+          test -f "$memory/PendingPocketsScreen.kt"
           test -f "$shell/ConversationRepository.kt"
           test -f "$shell/ProfileRepository.kt"
           test -f "$shell/CoastBackendGraph.kt"
@@ -98,8 +104,8 @@ jobs:
           grep -q 'android:icon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 25' app/build.gradle.kts
-          grep -q 'versionName = "0.1.23-stable-signing-31"' app/build.gradle.kts
+          grep -q 'versionCode = 26' app/build.gradle.kts
+          grep -q 'versionName = "0.1.24-memory-32"' app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -112,11 +118,18 @@ jobs:
           grep -q '/api/daily/moments' "$network/CoastApiClient.kt"
           grep -q '/api/daily/diaries' "$network/CoastApiClient.kt"
           grep -q '/api/daily/profile' "$network/CoastApiClient.kt"
+          grep -q '/api/memory/entries' "$memory/MemoryRemoteDataSource.kt"
+          grep -q '/api/memory/pockets' "$memory/MemoryRemoteDataSource.kt"
+          grep -q '/api/memory/custom-instructions' "$memory/MemoryRemoteDataSource.kt"
+          grep -q '/api/worldbook' "$memory/MemoryRemoteDataSource.kt"
           grep -q 'backend.daily.refreshProfile()' "$shell/CoastShellViewModel.kt"
           grep -q 'backend.daily.cachedProfile()' "$shell/CoastShellViewModel.kt"
           grep -q 'backend.profile.setAssistantAvatar' "$shell/CoastShellViewModel.kt"
           grep -q 'assistantAvatarDataUrl' "$shell/CoastShellViewModel.kt"
           grep -q 'suspend fun setAssistantAvatar' "$shell/ProfileRepository.kt"
+          grep -q 'val memory: MemoryRepository get() = backend.memory' "$shell/CoastShellViewModel.kt"
+          grep -q 'val memory: MemoryRepository' "$shell/CoastBackendGraph.kt"
+          grep -q 'backend.memory.refresh(memoryConversationId)' "$shell/CoastShellViewModel.kt"
           grep -q 'fun refreshCoast' "$shell/CoastShellViewModel.kt"
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
@@ -130,9 +143,13 @@ jobs:
           test ! -e "$network/CoastGatewayClient.kt"
           test ! -e "$daily/DailyStore.kt"
           test ! -e "$daily/DailyModels.kt"
+          test ! -e "$memory/MemoryStore.kt"
+          test ! -e "$memory/MemoryModels.kt"
           test ! -e app/src/test/kotlin/com/elementeracoast/app/feature/daily/DailyLocalStoreTest.kt
           ! grep -q 'feature.daily.DailyStore' "$shell/LocalFeatureServices.kt"
           ! grep -q 'val daily' "$shell/LocalFeatureServices.kt"
+          ! grep -q 'feature.memory.MemoryStore' "$shell/LocalFeatureServices.kt"
+          ! grep -q 'val memory' "$shell/LocalFeatureServices.kt"
 
           if grep -Eq 'RemoteDailyProfile|cachedDailyProfile|refreshDailyProfile|getDailyProfile|putDailyProfile' "$shell/ProfileRepository.kt"; then
             echo 'Daily profile ownership returned to ProfileRepository.'
@@ -148,6 +165,14 @@ jobs:
           fi
           if grep -RIE 'daily\.moments|daily\.diaries|daily\.profile\.avatar|daily\.profile\.myri-avatar|daily\.cover' "$daily" "$shell/LocalFeatureServices.kt"; then
             echo 'Formal Daily data returned to a Native local owner.'
+            exit 1
+          fi
+          if grep -RIE '"memory\.(entries|seeds|worldbook|customInstructions)"' "$memory" "$shell"; then
+            echo 'Formal Memory data returned to retired Native local persistence keys.'
+            exit 1
+          fi
+          if grep -RIE 'MemoryStore|LocalMemoryEntry|LocalSeed|LocalWorldbookEntry|MemoryState' "$memory" "$shell/LocalFeatureServices.kt"; then
+            echo 'Retired local Memory owner or models returned.'
             exit 1
           fi
           if grep -RIE 'sendFakeMessage|fakeChunks|local-mock|fake generation|fake generation' \
@@ -203,18 +228,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-stable-signing-31-0.1.23-debug.apk
+          apk=artifact/CoastGPT-native-memory-32-0.1.24-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.23-stable-signing-31\nversionCode=25\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=0.1.24-memory-32\nversionCode=26\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-stable-signing-31-0.1.23-debug
+          name: CoastGPT-native-memory-32-0.1.24-debug
           path: |
-            artifact/CoastGPT-native-stable-signing-31-0.1.23-debug.apk
+            artifact/CoastGPT-native-memory-32-0.1.24-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error
