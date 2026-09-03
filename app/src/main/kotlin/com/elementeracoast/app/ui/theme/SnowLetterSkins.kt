@@ -52,16 +52,18 @@ fun SnowLetterSurface(
     val settings = LocalSnowLetterVisuals.current
     val textureAlpha = settings.paperTextureAlpha.coerceIn(0f, 1f)
     val shape = if (enabled) snowLetterShape(role, fallbackShape) else fallbackShape
-    val paperPainter = if (enabled) painterResource(id = snowLetterSurfaceAsset(role)) else null
+    val paperPainter = if (enabled) snowLetterSurfaceAsset(role)?.let { painterResource(id = it) } else null
     val stickerPainter = if (enabled) snowLetterStickerAsset(role)?.let { painterResource(id = it) } else null
-    val surfaceModifier = if (enabled && paperPainter != null) {
+    val surfaceModifier = if (enabled) {
         Modifier
             .optionalShadow(snowLetterElevation(role), shape)
             .clip(shape)
             .drawWithContent {
                 drawRect(snowLetterBaseColor(role).copy(alpha = snowLetterBaseAlpha(role)))
-                with(paperPainter) {
-                    draw(size = size, alpha = snowLetterPaperAssetAlpha(role, textureAlpha))
+                if (paperPainter != null) {
+                    with(paperPainter) {
+                        draw(size = size, alpha = snowLetterPaperAssetAlpha(role, textureAlpha))
+                    }
                 }
                 drawSnowLetterComponentSkin(role, textureAlpha, drawBase = false)
                 if (stickerPainter != null) {
@@ -121,19 +123,13 @@ private fun snowLetterElevation(role: SnowLetterSurfaceRole): Dp = when (role) {
     SnowLetterSurfaceRole.DogtalkField -> 0.dp
 }
 
-private fun snowLetterSurfaceAsset(role: SnowLetterSurfaceRole): Int = when (role) {
-    SnowLetterSurfaceRole.AssistantBubble -> R.drawable.snow_letter_paper_card
-    SnowLetterSurfaceRole.UserBubble -> R.drawable.snow_letter_paper_card
-    SnowLetterSurfaceRole.ComposerField -> R.drawable.snow_letter_paper_card
-    SnowLetterSurfaceRole.ComposerButton -> R.drawable.snow_letter_paper_card
-    SnowLetterSurfaceRole.ActionButton -> R.drawable.snow_letter_paper_card
+private fun snowLetterSurfaceAsset(role: SnowLetterSurfaceRole): Int? = when (role) {
     SnowLetterSurfaceRole.StatusCard -> R.drawable.snow_letter_paper_card
     SnowLetterSurfaceRole.DogtalkCard -> R.drawable.snow_letter_paper_card
-    SnowLetterSurfaceRole.DogtalkField -> R.drawable.snow_letter_paper_card
+    else -> null
 }
 
 private fun snowLetterStickerAsset(role: SnowLetterSurfaceRole): Int? = when (role) {
-    SnowLetterSurfaceRole.AssistantBubble -> R.drawable.snow_letter_snake_paper
     SnowLetterSurfaceRole.StatusCard -> R.drawable.snow_letter_snake_paper
     SnowLetterSurfaceRole.DogtalkCard -> R.drawable.snow_letter_wolf_write
     else -> null
@@ -151,28 +147,27 @@ private fun snowLetterBaseColor(role: SnowLetterSurfaceRole): Color = when (role
 }
 
 private fun snowLetterBaseAlpha(role: SnowLetterSurfaceRole): Float = when (role) {
-    SnowLetterSurfaceRole.ActionButton -> .36f
-    SnowLetterSurfaceRole.ComposerButton -> .54f
-    SnowLetterSurfaceRole.ComposerField -> .62f
-    SnowLetterSurfaceRole.DogtalkField -> .62f
-    else -> .58f
+    SnowLetterSurfaceRole.AssistantBubble -> .92f
+    SnowLetterSurfaceRole.UserBubble -> .88f
+    SnowLetterSurfaceRole.ComposerField -> .82f
+    SnowLetterSurfaceRole.ComposerButton -> .72f
+    SnowLetterSurfaceRole.ActionButton -> .66f
+    SnowLetterSurfaceRole.StatusCard -> .78f
+    SnowLetterSurfaceRole.DogtalkCard -> .78f
+    SnowLetterSurfaceRole.DogtalkField -> .84f
 }
 
 private fun snowLetterPaperAssetAlpha(role: SnowLetterSurfaceRole, textureAlpha: Float): Float = when (role) {
-    SnowLetterSurfaceRole.ActionButton -> .28f
-    SnowLetterSurfaceRole.ComposerButton -> .34f
-    SnowLetterSurfaceRole.ComposerField -> .50f
-    SnowLetterSurfaceRole.DogtalkField -> .48f
-    SnowLetterSurfaceRole.AssistantBubble -> .46f
-    SnowLetterSurfaceRole.UserBubble -> .52f
-    else -> .44f
-} * (.82f + textureAlpha.coerceIn(0f, 1f) * .55f)
+    SnowLetterSurfaceRole.StatusCard -> .12f
+    SnowLetterSurfaceRole.DogtalkCard -> .10f
+    else -> 0f
+} * (.70f + textureAlpha.coerceIn(0f, 1f) * .35f)
 
 private fun snowLetterBorderColor(role: SnowLetterSurfaceRole): Color = when (role) {
-    SnowLetterSurfaceRole.UserBubble -> Color(0xFFE6C996).copy(alpha = .56f)
-    SnowLetterSurfaceRole.ComposerButton -> Color(0xFFD8E6F1).copy(alpha = .86f)
-    SnowLetterSurfaceRole.ActionButton -> Color(0xFFD7E2EC).copy(alpha = .50f)
-    else -> Color(0xFFD6E2EC).copy(alpha = .70f)
+    SnowLetterSurfaceRole.UserBubble -> Color(0xFFE6C996).copy(alpha = .42f)
+    SnowLetterSurfaceRole.ComposerButton -> Color(0xFFD8E6F1).copy(alpha = .66f)
+    SnowLetterSurfaceRole.ActionButton -> Color(0xFFD7E2EC).copy(alpha = .38f)
+    else -> Color(0xFFD6E2EC).copy(alpha = .56f)
 }
 
 private fun DrawScope.drawSnowLetterComponentSkin(
@@ -185,25 +180,26 @@ private fun DrawScope.drawSnowLetterComponentSkin(
     }
 
     val lineAlpha = when (role) {
-        SnowLetterSurfaceRole.ActionButton, SnowLetterSurfaceRole.ComposerButton -> .10f
-        SnowLetterSurfaceRole.ComposerField, SnowLetterSurfaceRole.DogtalkField -> .16f
-        else -> .12f
-    } * (.55f + textureAlpha)
+        SnowLetterSurfaceRole.ActionButton, SnowLetterSurfaceRole.ComposerButton -> .045f
+        SnowLetterSurfaceRole.ComposerField, SnowLetterSurfaceRole.DogtalkField -> .075f
+        SnowLetterSurfaceRole.AssistantBubble, SnowLetterSurfaceRole.UserBubble -> .070f
+        else -> .060f
+    } * (.45f + textureAlpha)
     val lineColor = Color(0xFFAFC4D8).copy(alpha = lineAlpha)
     val step = when (role) {
         SnowLetterSurfaceRole.ComposerField, SnowLetterSurfaceRole.DogtalkField -> 18.dp.toPx()
-        SnowLetterSurfaceRole.ActionButton, SnowLetterSurfaceRole.ComposerButton -> 22.dp.toPx()
-        else -> 28.dp.toPx()
+        SnowLetterSurfaceRole.ActionButton, SnowLetterSurfaceRole.ComposerButton -> 24.dp.toPx()
+        else -> 30.dp.toPx()
     }
-    var y = step * .75f
+    var y = step * .78f
     var index = 0
     while (y < size.height) {
-        val drift = if (index % 2 == 0) 0.dp.toPx() else 8.dp.toPx()
+        val drift = if (index % 2 == 0) 0.dp.toPx() else 6.dp.toPx()
         drawLine(
             color = lineColor,
-            start = Offset(8.dp.toPx(), y + drift * .08f),
-            end = Offset(size.width - 8.dp.toPx(), y - drift * .05f),
-            strokeWidth = .8.dp.toPx()
+            start = Offset(9.dp.toPx(), y + drift * .06f),
+            end = Offset(size.width - 9.dp.toPx(), y - drift * .04f),
+            strokeWidth = .7.dp.toPx()
         )
         y += step
         index += 1
@@ -220,21 +216,19 @@ private fun DrawScope.drawSnowLetterSticker(
     decorationAlpha: Float
 ) {
     val side = min(size.width, size.height) * when (role) {
-        SnowLetterSurfaceRole.AssistantBubble -> .30f
-        SnowLetterSurfaceRole.StatusCard -> .70f
-        SnowLetterSurfaceRole.DogtalkCard -> .64f
-        else -> .38f
+        SnowLetterSurfaceRole.StatusCard -> .50f
+        SnowLetterSurfaceRole.DogtalkCard -> .46f
+        else -> .32f
     }
     if (side < 24.dp.toPx()) return
 
     val alpha = when (role) {
-        SnowLetterSurfaceRole.AssistantBubble -> .07f
-        SnowLetterSurfaceRole.StatusCard -> .16f
-        SnowLetterSurfaceRole.DogtalkCard -> .14f
-        else -> .10f
+        SnowLetterSurfaceRole.StatusCard -> .055f
+        SnowLetterSurfaceRole.DogtalkCard -> .050f
+        else -> .035f
     } * decorationAlpha.coerceIn(0f, 1f)
 
-    val inset = 6.dp.toPx()
+    val inset = 8.dp.toPx()
     translate(left = size.width - side - inset, top = size.height - side - inset) {
         with(painter) {
             draw(size = Size(side, side), alpha = alpha)
@@ -249,23 +243,23 @@ private fun DrawScope.drawTinyPaperDetails(role: SnowLetterSurfaceRole) {
 
     if (role == SnowLetterSurfaceRole.UserBubble || role == SnowLetterSurfaceRole.ComposerField || role == SnowLetterSurfaceRole.DogtalkField) {
         val mark = Offset(size.width - min(size.width * .18f, 32.dp.toPx()), min(size.height * .30f, 18.dp.toPx()))
-        drawCircle(gold.copy(alpha = .14f), 5.dp.toPx(), mark)
-        drawLine(gold.copy(alpha = .20f), mark + Offset(-5.dp.toPx(), -5.dp.toPx()), mark + Offset(5.dp.toPx(), 5.dp.toPx()), 1.dp.toPx())
+        drawCircle(gold.copy(alpha = .08f), 4.dp.toPx(), mark)
+        drawLine(gold.copy(alpha = .12f), mark + Offset(-4.dp.toPx(), -4.dp.toPx()), mark + Offset(4.dp.toPx(), 4.dp.toPx()), .8.dp.toPx())
     }
 
     if (role == SnowLetterSurfaceRole.AssistantBubble || role == SnowLetterSurfaceRole.StatusCard || role == SnowLetterSurfaceRole.DogtalkCard) {
         drawPawMini(
             center = Offset(size.width - 22.dp.toPx(), size.height - 16.dp.toPx()),
-            scale = .56f,
-            color = ink.copy(alpha = .10f)
+            scale = .48f,
+            color = ink.copy(alpha = .055f)
         )
     }
 
     if (role == SnowLetterSurfaceRole.StatusCard || role == SnowLetterSurfaceRole.DogtalkCard) {
         val left = 12.dp.toPx()
         val top = 9.dp.toPx()
-        drawLine(snow.copy(alpha = .22f), Offset(left, top), Offset(left + 26.dp.toPx(), top - 2.dp.toPx()), 1.dp.toPx())
-        drawLine(snow.copy(alpha = .20f), Offset(left + 2.dp.toPx(), top + 5.dp.toPx()), Offset(left + 34.dp.toPx(), top + 3.dp.toPx()), 1.dp.toPx())
+        drawLine(snow.copy(alpha = .12f), Offset(left, top), Offset(left + 26.dp.toPx(), top - 2.dp.toPx()), .8.dp.toPx())
+        drawLine(snow.copy(alpha = .10f), Offset(left + 2.dp.toPx(), top + 5.dp.toPx()), Offset(left + 34.dp.toPx(), top + 3.dp.toPx()), .8.dp.toPx())
     }
 }
 
