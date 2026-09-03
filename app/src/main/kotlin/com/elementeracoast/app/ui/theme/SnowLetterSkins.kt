@@ -120,10 +120,10 @@ private fun DrawScope.drawSnowLetterTemplateSurface(role: SnowLetterSurfaceRole)
     }
 
     val shadow = tornPath(2.dp.toPx(), 3.dp.toPx(), size.width - 1.dp.toPx(), size.height, role)
-    drawPath(shadow, Color(0xFFB7C8D8).copy(alpha = .18f))
+    drawPath(shadow, Color(0xFFB7C8D8).copy(alpha = snowLetterShadowAlpha(role)))
 
     val paper = tornPath(0f, 0f, size.width - 3.dp.toPx(), size.height - 3.dp.toPx(), role)
-    drawPath(paper, snowLetterPaperColor(role).copy(alpha = snowLetterPaperAlpha(role)))
+    drawPath(paper, snowLetterPaperColor(role))
     drawPath(paper, snowLetterEdgeColor(role), style = Stroke(width = 1.dp.toPx()))
 
     drawCornerTape(role)
@@ -170,8 +170,7 @@ private fun DrawScope.tornPath(left: Float, top: Float, right: Float, bottom: Fl
 
 private fun DrawScope.drawRoundStamp(role: SnowLetterSurfaceRole) {
     val radius = min(size.width, size.height) / 2f
-    val base = snowLetterPaperColor(role).copy(alpha = .88f)
-    drawRoundRect(base, size = size, cornerRadius = CornerRadius(radius, radius))
+    drawRoundRect(snowLetterPaperColor(role), size = size, cornerRadius = CornerRadius(radius, radius))
     drawRoundRect(
         color = snowLetterEdgeColor(role).copy(alpha = .72f),
         size = size,
@@ -182,7 +181,7 @@ private fun DrawScope.drawRoundStamp(role: SnowLetterSurfaceRole) {
 
 private fun DrawScope.drawCornerTape(role: SnowLetterSurfaceRole) {
     if (role != SnowLetterSurfaceRole.AssistantBubble && role != SnowLetterSurfaceRole.StatusCard && role != SnowLetterSurfaceRole.DogtalkCard) return
-    val tapeColor = Color(0xFFEBDDC9).copy(alpha = .34f)
+    val tapeColor = Color(0xFFEBDDC9).copy(alpha = .26f)
     rotate(degrees = -8f, pivot = Offset(size.width - 24.dp.toPx(), 18.dp.toPx())) {
         drawRoundRect(
             color = tapeColor,
@@ -198,23 +197,22 @@ private fun snowLetterPaperColor(role: SnowLetterSurfaceRole): Color = when (rol
     SnowLetterSurfaceRole.ComposerField -> Color(0xFFFFFEFA)
     SnowLetterSurfaceRole.ComposerButton -> Color(0xFFFFFEFA)
     SnowLetterSurfaceRole.ActionButton -> Color(0xFFFFFEFA)
-    SnowLetterSurfaceRole.StatusCard -> Color(0xFFF9FCFF)
-    SnowLetterSurfaceRole.DogtalkCard -> Color(0xFFF9FCFF)
+    SnowLetterSurfaceRole.StatusCard -> Color(0xFFF6FBFF)
+    SnowLetterSurfaceRole.DogtalkCard -> Color(0xFFF6FBFF)
+    SnowLetterSurfaceRole.DogtalkField -> Color(0xFFFFFEFA)
     else -> Color(0xFFFFFCF5)
 }
 
-private fun snowLetterPaperAlpha(role: SnowLetterSurfaceRole): Float = when (role) {
-    SnowLetterSurfaceRole.AssistantBubble -> .93f
-    SnowLetterSurfaceRole.UserBubble -> .88f
-    SnowLetterSurfaceRole.StatusCard -> .82f
-    SnowLetterSurfaceRole.DogtalkCard -> .82f
-    SnowLetterSurfaceRole.ComposerField -> .86f
-    SnowLetterSurfaceRole.DogtalkField -> .82f
-    else -> .88f
+private fun snowLetterEdgeColor(role: SnowLetterSurfaceRole): Color = when (role) {
+    SnowLetterSurfaceRole.UserBubble -> Color(0xFFE3C690).copy(alpha = .42f)
+    SnowLetterSurfaceRole.ComposerField, SnowLetterSurfaceRole.DogtalkField -> Color(0xFFD0DFEB).copy(alpha = .54f)
+    SnowLetterSurfaceRole.StatusCard, SnowLetterSurfaceRole.DogtalkCard -> Color(0xFFD2E0EC).copy(alpha = .50f)
+    else -> Color(0xFFC9D9E6).copy(alpha = .58f)
 }
 
-private fun snowLetterEdgeColor(role: SnowLetterSurfaceRole): Color = when (role) {
-    SnowLetterSurfaceRole.UserBubble -> Color(0xFFE3C690).copy(alpha = .48f)
-    SnowLetterSurfaceRole.ComposerField, SnowLetterSurfaceRole.DogtalkField -> Color(0xFFD0DFEB).copy(alpha = .58f)
-    else -> Color(0xFFC9D9E6).copy(alpha = .58f)
+private fun snowLetterShadowAlpha(role: SnowLetterSurfaceRole): Float = when (role) {
+    SnowLetterSurfaceRole.StatusCard, SnowLetterSurfaceRole.DogtalkCard -> .13f
+    SnowLetterSurfaceRole.DogtalkField, SnowLetterSurfaceRole.ComposerField -> .12f
+    SnowLetterSurfaceRole.ActionButton, SnowLetterSurfaceRole.ComposerButton -> .10f
+    else -> .16f
 }
