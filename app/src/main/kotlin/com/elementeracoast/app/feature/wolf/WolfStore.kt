@@ -1,7 +1,7 @@
 package com.elementeracoast.app.feature.wolf
 
 import com.elementeracoast.app.core.local.LocalPersistence
-import com.elementeracoast.app.core.model.CoastThemeMode
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,12 +17,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         ))
     }
 
-    fun setTheme(theme: CoastThemeMode) = update {
+    fun setTheme(theme: CoastThemePreset) = update {
         it.copy(appearance = it.appearance.copy(theme = theme))
-    }
-
-    fun cycleTheme() {
-        setTheme(_state.value.appearance.theme.next())
     }
 
     fun setUserBubble(hex: String) = update {
@@ -46,8 +42,8 @@ class WolfStore(private val persistence: LocalPersistence) {
     private fun load(): WolfState {
         fun int(key: String, fallback: Int) = persistence.get(key, fallback.toString()).toIntOrNull() ?: fallback
         fun bool(key: String, fallback: Boolean) = persistence.get(key, fallback.toString()).toBooleanStrictOrNull() ?: fallback
-        val theme = runCatching { CoastThemeMode.valueOf(persistence.get(KEY_THEME, CoastThemeMode.Light.name)) }
-            .getOrDefault(CoastThemeMode.Light)
+        val storedPreset = persistence.get(KEY_THEME_PRESET).ifBlank { persistence.get(KEY_LEGACY_THEME, CoastThemePreset.CoastDefault.name) }
+        val theme = CoastThemePreset.fromStored(storedPreset)
         return WolfState(
             profile = WolfProfile(
                 nickname = persistence.get(KEY_NICKNAME, "小寒").take(80),
@@ -77,7 +73,7 @@ class WolfStore(private val persistence: LocalPersistence) {
     private fun persist(value: WolfState) {
         persistence.put(KEY_NICKNAME, value.profile.nickname)
         persistence.put(KEY_SIGNATURE, value.profile.signature)
-        persistence.put(KEY_THEME, value.appearance.theme.name)
+        persistence.put(KEY_THEME_PRESET, value.appearance.theme.name)
         persistence.put(KEY_BUBBLE, value.appearance.userBubbleHex)
         persistence.put(KEY_ACCENT, value.appearance.accentHex)
         val basic = value.basic
@@ -115,7 +111,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         private const val ROOT = "wolf."
         private const val KEY_NICKNAME = ROOT + "nickname"
         private const val KEY_SIGNATURE = ROOT + "signature"
-        private const val KEY_THEME = ROOT + "theme"
+        private const val KEY_THEME_PRESET = ROOT + "themePreset"
+        private const val KEY_LEGACY_THEME = ROOT + "theme"
         private const val KEY_BUBBLE = ROOT + "bubble"
         private const val KEY_ACCENT = ROOT + "accent"
         private const val KEY_RECENT_TURNS = ROOT + "recentTurns"
