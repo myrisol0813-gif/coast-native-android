@@ -1,5 +1,6 @@
 package com.elementeracoast.app.core.model
 
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -26,10 +27,11 @@ class RoomTypeContractTest {
     }
 
     @Test
-    fun nativeV1ThemeContractIsLightDarkGold() {
-        assertEquals(
-            listOf(CoastThemeMode.Light, CoastThemeMode.Dark, CoastThemeMode.Gold),
-            CoastThemeMode.entries
-        )
+    fun nativeThemeContractKeepsDefaultAndWardrobePresets() {
+        assertEquals(CoastThemePreset.CoastDefault, CoastThemePreset.entries.first())
+        assertEquals(12, CoastThemePreset.entries.size)
+        assertEquals("默认海岸", CoastThemePreset.CoastDefault.label)
+        assertTrue(CoastThemePreset.entries.any { it == CoastThemePreset.DeepBlueGold })
+        assertTrue(CoastThemePreset.entries.any { it == CoastThemePreset.PurpleDreamTide })
     }
 }

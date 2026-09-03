@@ -24,6 +24,7 @@ import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -48,6 +49,7 @@ class CoastShellViewModel(
     val local = LocalFeatureServices(persistence)
     val daily: DailyRepository get() = backend.daily
     val memory: MemoryRepository get() = backend.memory
+    val dogtalk: DogtalkRepository get() = backend.dogtalk
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private val soilJobs = mutableMapOf<String, Job>()
@@ -613,6 +615,10 @@ class CoastShellViewModel(
     ) {
         var partial = ""
         val cleared = backend.chat.clearFailure(history, turnId)
+        val titleUserText = ChatSyncMapper.contextMessages(cleared, turnId)
+            .lastOrNull { it.role == "user" }
+            ?.content
+            .orEmpty()
         backend.chat.cacheHistory(conversationId, cleared)
         val streamingId = ChatSyncMapper.streamingMessageId(turnId)
         showStreaming(conversationId, cleared, turnId, modelId, partial)
@@ -641,6 +647,7 @@ class CoastShellViewModel(
                                 )
                             }
                         }
+                        refreshGeneratedTitle(conversationId, titleUserText, partial)
                         organizeThoughtSoilAfterReply(conversationId, progress.modelId)
                     }
                 }
@@ -671,6 +678,22 @@ class CoastShellViewModel(
                         streamingVariantIndex = null
                     )
                 }
+            }
+        }
+    }
+
+    private suspend fun refreshGeneratedTitle(conversationId: String, user: String, assistant: String) {
+        if (user.isBlank() || assistant.isBlank()) return
+        try {
+            val titled = backend.conversations.generateTitle(conversationId, user, assistant) ?: return
+            _state.update { state ->
+                state.copy(
+                    conversations = state.conversations.map { if (it.id == conversationId) titled else it }
+                )
+            }
+        } catch (error: CoastApiException) {
+            if (error.kind == CoastApiErrorKind.Unauthorized) {
+                handleBackendError(error, "窗口自动命名失败", keepAuthenticatedOnNetworkError = true)
             }
         }
     }

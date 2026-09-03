@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.elementeracoast.app.core.model.CoastThemeMode
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 
 @Composable
 internal fun ProfileScreen(
@@ -61,11 +61,11 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         item { Text("外观", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item {
-            SettingGroup("主题") {
-                CoastThemeMode.entries.forEach { mode ->
-                    ChoiceRow(mode.label, state.appearance.theme == mode) {
-                        store.setTheme(mode)
-                        onSnackbar("主题已切换为${mode.label}")
+            SettingGroup("主题衣柜") {
+                CoastThemePreset.entries.forEach { preset ->
+                    ChoiceRow("${preset.label}｜${preset.tag}", state.appearance.theme == preset) {
+                        store.setTheme(preset)
+                        onSnackbar("主题已切换为${preset.label}")
                     }
                 }
             }
@@ -79,12 +79,12 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
         }
         item {
             SettingGroup("重点色") {
-                listOf("#ff6a21" to "橙色", "#f28b2e" to "金色", "#3b82f6" to "蓝色", "#ec4899" to "粉色").forEach { (value, label) ->
+                listOf("" to "默认 · 跟随主题", "#ff6a21" to "橙色", "#f28b2e" to "金色", "#3b82f6" to "蓝色", "#ec4899" to "粉色").forEach { (value, label) ->
                     ChoiceRow(label, state.appearance.accentHex == value) { store.setAccent(value) }
                 }
             }
         }
-        item { Text("以上都只保存在本机，不接后端。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+        item { Text("以上都只保存在本机，不接后端。默认海岸主题不会被覆盖。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
     }
 }
 

@@ -66,10 +66,12 @@ jobs:
           remote="$root/core/remote"
           chat="$root/feature/chat"
           daily="$root/feature/daily"
+          dogtalk="$root/feature/dogtalk"
           memory="$root/feature/memory"
           shell="$root/feature/shell"
           gate="$root/feature/gate"
           wolf="$root/feature/wolf"
+          theme="$root/ui/theme"
 
           test -f "$auth/AuthSession.kt"
           test -f "$auth/AuthStore.kt"
@@ -81,20 +83,29 @@ jobs:
           test -f "$network/SseParser.kt"
           test -f "$remote/RemoteModels.kt"
           test -f "$remote/RemoteDaily.kt"
+          test -f "$remote/RemoteDogtalk.kt"
           test -f "$remote/RemoteMemory.kt"
           test -f "$remote/RemoteCacheStore.kt"
+          test -f "$remote/RemoteTurnContext.kt"
           test -f "$chat/ChatRepository.kt"
           test -f "$chat/ChatSyncMapper.kt"
+          test -f "$chat/TurnDeskMapper.kt"
+          test -f "$chat/TurnDeskSheet.kt"
           test -f "$daily/DailyCanonicalModels.kt"
           test -f "$daily/DailyRepository.kt"
           test -f "$daily/DailyImageCodec.kt"
+          test -f "$dogtalk/DogtalkRepository.kt"
+          test -f "$dogtalk/DogtalkUiState.kt"
           test -f "$memory/MemoryCanonicalModels.kt"
           test -f "$memory/MemoryRemoteDataSource.kt"
           test -f "$memory/MemoryRepository.kt"
           test -f "$memory/PendingPocketsScreen.kt"
           test -f "$shell/ConversationRepository.kt"
+          test -f "$shell/ConversationTitleRemoteDataSource.kt"
           test -f "$shell/ProfileRepository.kt"
           test -f "$shell/CoastBackendGraph.kt"
+          test -f "$shell/ThemeWardrobeSheet.kt"
+          test -f "$theme/CoastThemePresets.kt"
           test -f app/src/main/res/mipmap-nodpi/ic_launcher_coast.png
           test ! -e app/src/main/res/drawable/ic_launcher_coast.xml
           test ! -e app/src/main/res/mipmap-nodpi/ic_launcher_coast.webp
@@ -104,8 +115,8 @@ jobs:
           grep -q 'android:icon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 26' app/build.gradle.kts
-          grep -q 'versionName = "0.1.24-memory-32"' app/build.gradle.kts
+          grep -q 'versionCode = 28' app/build.gradle.kts
+          grep -q 'versionName = "0.1.26-dogtalk-title-34"' app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -118,6 +129,10 @@ jobs:
           grep -q '/api/daily/moments' "$network/CoastApiClient.kt"
           grep -q '/api/daily/diaries' "$network/CoastApiClient.kt"
           grep -q '/api/daily/profile' "$network/CoastApiClient.kt"
+          grep -q '/api/dogtalk' "$dogtalk/DogtalkRepository.kt"
+          grep -q 'DefaultDogtalkRepository' "$shell/CoastBackendGraph.kt"
+          grep -q '/api/chat/title' "$shell/ConversationTitleRemoteDataSource.kt"
+          grep -q 'backend.conversations.generateTitle' "$shell/CoastShellViewModel.kt"
           grep -q '/api/memory/entries' "$memory/MemoryRemoteDataSource.kt"
           grep -q '/api/memory/pockets' "$memory/MemoryRemoteDataSource.kt"
           grep -q '/api/memory/custom-instructions' "$memory/MemoryRemoteDataSource.kt"
@@ -134,9 +149,34 @@ jobs:
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
           grep -q 'MessageAction.Retry' "$shell/CoastShellViewModel.kt"
+          ! grep -R -q 'DogtalkFixtureState' "$dogtalk"
           ! grep -q 'GateSmallEntry("更新"' "$gate/GateScreen.kt"
           grep -q 'title = "版本与更新"' "$wolf/WolfScreen.kt"
           grep -q 'BuildConfig.VERSION_NAME' "$wolf/WolfScreen.kt"
+
+          # Context-label and turn-desk contract: nine source sections, collapsible Native cards, no flat dump owner.
+          grep -q 'SerialName("external_tide")' "$remote/RemoteTurnContext.kt"
+          grep -q 'ifBlank { "当前消息" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "最近上下文" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "核心自定义" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "思维壤" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "相关记忆" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "世界书" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "神秘狗话" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "工作台 / 工具回执" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'ifBlank { "外来潮汐" }' "$chat/TurnDeskMapper.kt"
+          grep -q 'TurnDeskSectionCard' "$chat/TurnDeskSheet.kt"
+          grep -q 'mutableStateOf<Set<Int>>(emptySet())' "$chat/TurnDeskSheet.kt"
+
+          # Theme wardrobe keeps one persisted Native owner and the original Coast default as a preset.
+          grep -q 'enum class CoastThemePreset' "$theme/CoastThemePresets.kt"
+          grep -q 'CoastDefault("默认海岸", "原始默认")' "$theme/CoastThemePresets.kt"
+          grep -q 'PurpleDreamTide("紫色梦潮", "紫蓝梦感")' "$theme/CoastThemePresets.kt"
+          grep -q 'data class CoastThemePalette' "$theme/CoastThemePresets.kt"
+          grep -q 'CoastThemePreset.entries' "$shell/ThemeWardrobeSheet.kt"
+          grep -q 'ModalBottomSheet' "$shell/ThemeWardrobeSheet.kt"
+          grep -q 'KEY_THEME_PRESET' "$wolf/WolfStore.kt"
+          grep -q 'fun setTheme(theme: CoastThemePreset)' "$wolf/WolfStore.kt"
 
           test ! -e "$chat/LocalChatStore.kt"
           test ! -e "$chat/LocalFurnitureOrchestrator.kt"
@@ -229,18 +269,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-memory-32-0.1.24-debug.apk
+          apk=artifact/CoastGPT-native-dogtalk-title-34-0.1.26-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.24-memory-32\nversionCode=26\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=0.1.26-dogtalk-title-34\nversionCode=28\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-memory-32-0.1.24-debug
+          name: CoastGPT-native-dogtalk-title-34-0.1.26-debug
           path: |
-            artifact/CoastGPT-native-memory-32-0.1.24-debug.apk
+            artifact/CoastGPT-native-dogtalk-title-34-0.1.26-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error

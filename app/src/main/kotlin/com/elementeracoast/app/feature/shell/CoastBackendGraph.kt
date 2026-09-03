@@ -13,6 +13,8 @@ import com.elementeracoast.app.feature.chat.ChatRepository
 import com.elementeracoast.app.feature.chat.DefaultChatRepository
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DefaultDailyRepository
+import com.elementeracoast.app.feature.dogtalk.DefaultDogtalkRepository
+import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.DefaultMemoryRepository
 import com.elementeracoast.app.feature.memory.DefaultThoughtSoilRepository
 import com.elementeracoast.app.feature.memory.MemoryRemoteDataSource
@@ -26,7 +28,8 @@ data class CoastBackendGraph(
     val chat: ChatRepository,
     val thoughtSoil: ThoughtSoilRepository,
     val daily: DailyRepository,
-    val memory: MemoryRepository
+    val memory: MemoryRepository,
+    val dogtalk: DogtalkRepository
 ) {
     companion object {
         fun production(context: Context, persistence: LocalPersistence): CoastBackendGraph {
@@ -36,14 +39,16 @@ data class CoastBackendGraph(
             val api = CoastApiClient(config, http)
             val cache = RemoteCacheStore(persistence)
             val memoryRemote = MemoryRemoteDataSource(config, http)
+            val titleRemote = ConversationTitleRemoteDataSource(config, http)
             return CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
-                conversations = DefaultConversationRepository(api, cache),
+                conversations = DefaultConversationRepository(api, cache, titleRemote),
                 profile = DefaultProfileRepository(api, cache),
                 chat = DefaultChatRepository(api, cache),
                 thoughtSoil = DefaultThoughtSoilRepository(api),
                 daily = DefaultDailyRepository(api, cache),
-                memory = DefaultMemoryRepository(memoryRemote, cache)
+                memory = DefaultMemoryRepository(memoryRemote, cache),
+                dogtalk = DefaultDogtalkRepository(config, http)
             )
         }
     }

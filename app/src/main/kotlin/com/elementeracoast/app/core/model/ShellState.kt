@@ -1,12 +1,6 @@
 package com.elementeracoast.app.core.model
 
-enum class CoastThemeMode(val label: String) {
-    Light("浅色"),
-    Dark("深色"),
-    Gold("黑金");
-
-    fun next(): CoastThemeMode = entries[(ordinal + 1) % entries.size]
-}
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 
 data class CoastShellState(
     val authenticated: Boolean = false,
@@ -15,7 +9,7 @@ data class CoastShellState(
     val backendOffline: Boolean = false,
     val historyLoading: Boolean = false,
     val password: String = "",
-    val theme: CoastThemeMode = CoastThemeMode.Light,
+    val theme: CoastThemePreset = CoastThemePreset.CoastDefault,
     val userBubbleHex: String = "",
     val accentHex: String = "",
     val activeRoomType: RoomType = RoomType.Main,

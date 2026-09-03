@@ -1,6 +1,6 @@
 package com.elementeracoast.app.feature.wolf
 
-import com.elementeracoast.app.core.model.CoastThemeMode
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 
 enum class WolfDestination(val title: String, val subtitle: String) {
     Profile("个人资料", "昵称、聊天署名与显示资料"),
@@ -17,7 +17,7 @@ data class WolfProfile(
 )
 
 data class WolfAppearance(
-    val theme: CoastThemeMode = CoastThemeMode.Light,
+    val theme: CoastThemePreset = CoastThemePreset.CoastDefault,
     val userBubbleHex: String = "",
     val accentHex: String = ""
 )
