@@ -26,6 +26,9 @@ import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyProfileImageField
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DailySnapshot
+import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
+import com.elementeracoast.app.feature.dogtalk.DogtalkScope
+import com.elementeracoast.app.feature.dogtalk.DogtalkUiState
 import com.elementeracoast.app.feature.memory.CustomInstructions
 import com.elementeracoast.app.feature.memory.MemoryEntry
 import com.elementeracoast.app.feature.memory.MemoryRepository
@@ -162,6 +165,21 @@ class CoastShellViewModelTest {
     }
 
     @Test
+    fun firstNativeReplyTriggersCanonicalGeneratedTitle() {
+        val fixture = Fixture()
+        val conversation = fixture.conversations.seed(RoomType.Main, "新聊天")
+        val vm = fixture.vm()
+
+        vm.sendMessage("请根据这一轮自动命名")
+
+        assertEquals(1, fixture.conversations.generateTitleCalls)
+        assertEquals(
+            "自动命名",
+            vm.state.value.conversations.first { it.id == conversation.id }.title
+        )
+    }
+
+    @Test
     fun backendConversationDeleteNeverCreatesLocalFallbackConversation() {
         val fixture = Fixture()
         val only = fixture.conversations.seed(RoomType.Main, "唯一窗口")
@@ -201,6 +219,7 @@ class CoastShellViewModelTest {
         val thoughtSoil = FakeThoughtSoilRepository()
         val daily = FakeDailyRepository()
         val memory = FakeMemoryRepository()
+        val dogtalk = FakeDogtalkRepository()
         val persistence = MemoryLocalPersistence()
 
         fun vm(): CoastShellViewModel = CoastShellViewModel(
@@ -212,7 +231,8 @@ class CoastShellViewModelTest {
                 chat = chat,
                 thoughtSoil = thoughtSoil,
                 daily = daily,
-                memory = memory
+                memory = memory,
+                dogtalk = dogtalk
             ),
             workDispatcher = Dispatchers.Unconfined
         )
@@ -232,6 +252,7 @@ class CoastShellViewModelTest {
     private class FakeConversationRepository : ConversationRepository {
         private var next = 1
         private val values = mutableListOf<com.elementeracoast.app.core.model.ConversationSummary>()
+        var generateTitleCalls = 0
 
         fun seed(roomType: RoomType, title: String) = com.elementeracoast.app.core.model.ConversationSummary(
             "${roomType.wireValue}-${next++}", title, roomType
@@ -243,6 +264,18 @@ class CoastShellViewModelTest {
         override suspend fun rename(id: String, title: String): com.elementeracoast.app.core.model.ConversationSummary {
             val index = values.indexOfFirst { it.id == id }
             val updated = values[index].copy(title = title)
+            values[index] = updated
+            return updated
+        }
+        override suspend fun generateTitle(
+            id: String,
+            user: String,
+            assistant: String
+        ): com.elementeracoast.app.core.model.ConversationSummary? {
+            generateTitleCalls += 1
+            val index = values.indexOfFirst { it.id == id }
+            if (index < 0 || values[index].title != "新聊天") return null
+            val updated = values[index].copy(title = "自动命名")
             values[index] = updated
             return updated
         }
@@ -323,6 +356,24 @@ class CoastShellViewModelTest {
         override suspend fun saveInstructions(content: String): CustomInstructions = unsupported()
 
         private fun <T> unsupported(): T = throw UnsupportedOperationException("Memory mutation is not used by shell tests")
+    }
+
+    private class FakeDogtalkRepository : DogtalkRepository {
+        private val state = MutableStateFlow<Map<String, DogtalkUiState>>(emptyMap())
+        override val snapshots: StateFlow<Map<String, DogtalkUiState>> = state
+
+        override fun cached(scope: DogtalkScope, conversationId: String): DogtalkUiState =
+            state.value[key(scope, conversationId)] ?: DogtalkUiState()
+
+        override suspend fun refresh(scope: DogtalkScope, conversationId: String): DogtalkUiState =
+            cached(scope, conversationId)
+
+        override suspend fun save(scope: DogtalkScope, conversationId: String, value: DogtalkUiState): DogtalkUiState {
+            state.value = state.value + (key(scope, conversationId) to value)
+            return value
+        }
+
+        private fun key(scope: DogtalkScope, conversationId: String): String = "$scope:$conversationId"
     }
 
     private class FakeThoughtSoilRepository : ThoughtSoilRepository {
