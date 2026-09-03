@@ -45,7 +45,10 @@ class MainActivity : ComponentActivity() {
                         onNewConversation = vm::newConversation,
                         onRenameConversation = vm::renameConversation,
                         onDeleteConversation = vm::deleteConversation,
-                        onSelectTheme = vm::setTheme,
+                        onSelectTheme = { preset ->
+                            vm.local.wolf.setTheme(preset)
+                            vm.syncAppearance()
+                        },
                         onOpenFeature = vm::openFeature,
                         onBackToChat = vm::backToChat,
                         onRefresh = vm::refreshCoastState,
