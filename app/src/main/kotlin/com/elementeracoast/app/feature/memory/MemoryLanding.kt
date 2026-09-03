@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,13 +19,48 @@ internal data class MemoryLandingItem(val title: String, val subtitle: String)
 
 @Composable
 fun MemoryLanding(
-    store: MemoryStore,
+    repository: MemoryRepository,
+    conversationId: String,
+    openPendingInitially: Boolean,
+    onPendingOpenConsumed: () -> Unit,
     onBackToChat: () -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
 ) {
     var tab by remember { mutableStateOf(MemoryTab.Memory) }
     var pendingCreate by remember { mutableStateOf<MemoryTab?>(null) }
+    var pendingOpen by remember { mutableStateOf(false) }
+
+    LaunchedEffect(conversationId) {
+        runCatching { repository.refresh(conversationId) }
+            .onFailure { onSnackbar(it.message ?: "轨迹记忆刷新失败") }
+    }
+    LaunchedEffect(openPendingInitially) {
+        if (openPendingInitially) {
+            if (conversationId.isBlank()) {
+                onSnackbar("当前还没有聊天窗口，待确认袋需要先进入一个窗口。")
+            } else {
+                pendingOpen = true
+            }
+            onPendingOpenConsumed()
+        }
+    }
+
+    if (pendingOpen) {
+        Column(Modifier.fillMaxSize()) {
+            FeaturePageTopBar(
+                title = "待确认袋",
+                subtitle = "当前窗口 · 只有确认后才进入记忆库或种子库",
+                onBack = { pendingOpen = false },
+                actionLabel = null,
+                onAction = null
+            )
+            Box(Modifier.weight(1f)) {
+                PendingPocketsScreen(repository = repository, onSnackbar = onSnackbar)
+            }
+        }
+        return
+    }
 
     val subtitle = when (tab) {
         MemoryTab.Memory -> "记忆库 · 已经确认的长期纸条"
@@ -59,9 +95,13 @@ fun MemoryLanding(
                 MemoryTab.Memory -> Column(Modifier.fillMaxSize()) {
                     MemoryTabs(tab, selectTab)
                     MemoryLibraryScreen(
-                        store = store,
+                        repository = repository,
                         createRequested = pendingCreate == MemoryTab.Memory,
                         onCreateConsumed = consumeCreate,
+                        onOpenPending = {
+                            if (conversationId.isBlank()) onSnackbar("当前还没有聊天窗口，待确认袋需要先进入一个窗口。")
+                            else pendingOpen = true
+                        },
                         onActionLogged = onActionLogged,
                         onSnackbar = onSnackbar
                     )
@@ -69,16 +109,20 @@ fun MemoryLanding(
                 MemoryTab.Seed -> Column(Modifier.fillMaxSize()) {
                     MemoryTabs(tab, selectTab)
                     SeedLibraryScreen(
-                        store = store,
+                        repository = repository,
                         createRequested = pendingCreate == MemoryTab.Seed,
                         onCreateConsumed = consumeCreate,
+                        onOpenPending = {
+                            if (conversationId.isBlank()) onSnackbar("当前还没有聊天窗口，待确认袋需要先进入一个窗口。")
+                            else pendingOpen = true
+                        },
                         onSnackbar = onSnackbar
                     )
                 }
                 MemoryTab.Worldbook -> Column(Modifier.fillMaxSize()) {
                     MemoryTabs(tab, selectTab)
                     WorldbookScreen(
-                        store = store,
+                        repository = repository,
                         createRequested = pendingCreate == MemoryTab.Worldbook,
                         onCreateConsumed = consumeCreate,
                         onSnackbar = onSnackbar
@@ -87,7 +131,7 @@ fun MemoryLanding(
                 MemoryTab.Instructions -> Column(Modifier.fillMaxSize()) {
                     MemoryTabs(tab, selectTab)
                     Spacer(Modifier.height(4.dp))
-                    CustomInstructionsScreen(store, onSnackbar)
+                    CustomInstructionsScreen(repository, onSnackbar)
                 }
             }
         }

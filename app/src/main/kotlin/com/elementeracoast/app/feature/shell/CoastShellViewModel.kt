@@ -24,6 +24,7 @@ import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,7 @@ class CoastShellViewModel(
 
     val local = LocalFeatureServices(persistence)
     val daily: DailyRepository get() = backend.daily
+    val memory: MemoryRepository get() = backend.memory
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private val soilJobs = mutableMapOf<String, Job>()
@@ -277,6 +279,8 @@ class CoastShellViewModel(
             val remoteDaily = remoteOrNull("读取海岸日报") { backend.daily.refresh() }
             val remoteModels = remoteOrNull("读取模型目录") { backend.profile.refreshModels() }
             val remoteConversations = remoteOrNull("读取聊天窗口") { backend.conversations.refresh() }
+            val memoryConversationId = _state.value.activeConversationId
+            if (memoryConversationId.isNotBlank()) remoteOrNull("读取轨迹记忆") { backend.memory.refresh(memoryConversationId) }
             if (!_state.value.authenticated) return@launch
 
             applyProfile(

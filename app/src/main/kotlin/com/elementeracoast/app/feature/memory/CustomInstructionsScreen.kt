@@ -16,17 +16,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.feature.daily.DailyPrimaryButton
 import com.elementeracoast.app.feature.daily.DailySurfaceCard
+import kotlinx.coroutines.launch
 
 @Composable
-internal fun CustomInstructionsScreen(store: MemoryStore, onSnackbar: (String) -> Unit) {
-    val state by store.state.collectAsState()
-    var draft by remember(state.customInstructions) { mutableStateOf(state.customInstructions) }
+internal fun CustomInstructionsScreen(repository: MemoryRepository, onSnackbar: (String) -> Unit) {
+    val state by repository.snapshot.collectAsState()
+    val scope = rememberCoroutineScope()
+    val instructions = state.customInstructions
+    var draft by remember(instructions.content) { mutableStateOf(instructions.content) }
     LazyColumn(contentPadding = PaddingValues(horizontal = 28.dp, vertical = 16.dp)) {
         item {
             Text("当前自定义指令", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
@@ -45,19 +49,29 @@ internal fun CustomInstructionsScreen(store: MemoryStore, onSnackbar: (String) -
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text("状态：active · 来源：本机手动编辑", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-            Text("未来后端接线时才会真正参与上下文。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text("状态：${instructions.status} · 来源：${instructions.source}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            instructions.updatedAt?.takeIf(String::isNotBlank)?.let {
+                Text("最近更新：$it", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
             Spacer(Modifier.height(18.dp))
             DailyPrimaryButton("保存当前指令") {
-                store.saveCustomInstructions(draft)
-                onSnackbar("自定义指令已保存在本机")
+                scope.launch {
+                    runCatching { repository.saveInstructions(draft) }
+                        .onSuccess { onSnackbar("自定义指令已写回海岸") }
+                        .onFailure { onSnackbar(it.message ?: "保存自定义指令失败") }
+                }
             }
             Text(
                 "清空当前指令",
                 modifier = Modifier.fillMaxWidth().clickable {
-                    draft = ""
-                    store.clearCustomInstructions()
-                    onSnackbar("本地自定义指令已清空")
+                    scope.launch {
+                        runCatching { repository.saveInstructions("") }
+                            .onSuccess {
+                                draft = ""
+                                onSnackbar("海岸自定义指令已清空")
+                            }
+                            .onFailure { onSnackbar(it.message ?: "清空自定义指令失败") }
+                    }
                 }.padding(vertical = 16.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge

@@ -12,8 +12,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
@@ -23,6 +26,7 @@ import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
 import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.memory.MemoryRepository
 import kotlinx.coroutines.launch
 
 @Composable
@@ -30,6 +34,7 @@ fun MainShell(
     state: CoastShellState,
     services: LocalFeatureServices,
     daily: DailyRepository,
+    memory: MemoryRepository,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -56,6 +61,7 @@ fun MainShell(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val snackbar = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    var openPendingMemoryOnLanding by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.snackbarMessage) {
         val message = state.snackbarMessage ?: return@LaunchedEffect
@@ -114,6 +120,10 @@ fun MainShell(
                         onStop = onStop,
                         onMessageAction = onMessageAction,
                         onOpenActionLog = onOpenActionLog,
+                        onOpenPendingMemory = {
+                            openPendingMemoryOnLanding = true
+                            onOpenFeature(FeatureDestination.Memory)
+                        },
                         onPlaceholder = onPlaceholder
                     )
                 } else {
@@ -122,6 +132,9 @@ fun MainShell(
                         shellState = state,
                         services = services,
                         daily = daily,
+                        memory = memory,
+                        openMemoryPending = openPendingMemoryOnLanding,
+                        onMemoryPendingConsumed = { openPendingMemoryOnLanding = false },
                         messages = state.messages,
                         onBackToChat = onBackToChat,
                         onRefresh = onRefresh,
