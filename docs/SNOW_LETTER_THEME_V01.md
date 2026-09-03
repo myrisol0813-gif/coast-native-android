@@ -8,7 +8,8 @@ This pass does not change backend wiring, navigation structure, message actions,
 
 - Adds the `SnowLetter` wardrobe preset with a pale paper / snow / blue-gold palette.
 - Adds `SnowLetterVisualSettings` and a `LocalSnowLetterVisuals` composition local for visual debugging.
-- Adds a code-rendered `SnowLetterChatScaffold` for the main chat background.
+- Adds a real drawable-backed `SnowLetterChatScaffold` for the main chat background, bottom snow road, wolf sticker, and snake sticker.
+- Adds `SnowLetterFeatureScaffold` so Native feature pages can share light Snow Letter wallpaper and corner stickers without changing their routes or behavior.
 - Adds `SnowLetterSkins` as the shared component clothing layer for Snow Letter surfaces.
 - Adds Snow Letter debug sliders inside the theme wardrobe:
   - main chat background
@@ -24,14 +25,26 @@ This pass does not change backend wiring, navigation structure, message actions,
   - turn-desk strip and cards
   - dogtalk card and dogtalk fields
 
+## Real image assets
+
+This pass imports curated, APK-friendly WebP resources into `app/src/main/res/drawable-nodpi/`:
+
+- `snow_letter_chat_bg.webp`
+- `snow_letter_bottom_strip.webp`
+- `snow_letter_paper_card.webp`
+- `snow_letter_snake_paper.webp`
+- `snow_letter_wolf_write.webp`
+
+No new images were generated for this pass; the imported files are compressed app resources derived from the selected Snow Letter asset set.
+
 ## Intentional constraints
 
 - Real chat messages, input bars, buttons, drawers, and routes remain Compose UI.
 - Full UI mockups are design references only, not page backgrounds.
 - Component skins are owned by `SnowLetterSkins.kt`; feature files only choose which local component wears which role.
-- PNG/WebP illustration assets are not required for this v0.1 pass; this version still uses lightweight Compose drawing so it can be reviewed safely before importing the curated sticker pack.
-- Generated sticker assets can be imported later into `res/drawable-nodpi/snow_letter/` after visual selection.
+- Drawable assets are owned by the theme layer and are referenced through Android resources, not embedded as Kotlin strings or ad-hoc base64 constants.
+- Code-drawn snow texture remains only as a light overlay and fallback, not the main animal/sticker artwork.
 
 ## Next visual pass
 
-After the component-skin branch builds and runs on device, the next pass can replace or augment the code-drawn wolf, snake, bottom snow road, and paper texture with the curated WebP sticker assets.
+After the drawable-backed branch builds and runs on device, the next pass can tune asset opacity, swap in larger image resources where useful, and continue replacing small icon shells with more specific Snow Letter stamps.

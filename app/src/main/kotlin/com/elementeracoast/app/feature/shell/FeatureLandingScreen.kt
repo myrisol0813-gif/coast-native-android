@@ -11,6 +11,7 @@ import com.elementeracoast.app.feature.memory.MemoryLanding
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.serpentdesk.SerpentDeskScreen
 import com.elementeracoast.app.feature.wolf.WolfScreen
+import com.elementeracoast.app.ui.theme.SnowLetterFeatureScaffold
 
 @Composable
 internal fun FeatureLandingScreen(
@@ -31,46 +32,48 @@ internal fun FeatureLandingScreen(
     onLocalActionLogged: (String, String, String) -> Unit,
     onPlaceholder: (String) -> Unit
 ) {
-    when (feature) {
-        FeatureDestination.Daily -> DailyLanding(
-            repository = daily,
-            myriAvatarDataUrl = shellState.myriAvatarDataUrl,
-            onUpdateMyriAvatar = onUpdateMyriAvatar,
-            onRefreshCoast = onRefresh,
-            onBackToChat = onBackToChat,
-            onActionLogged = onLocalActionLogged,
-            onSnackbar = onPlaceholder
-        )
-        FeatureDestination.Memory -> MemoryLanding(
-            repository = memory,
-            conversationId = shellState.activeConversationId,
-            openPendingInitially = openMemoryPending,
-            onPendingOpenConsumed = onMemoryPendingConsumed,
-            onBackToChat = onBackToChat,
-            onActionLogged = onLocalActionLogged,
-            onSnackbar = onPlaceholder
-        )
-        FeatureDestination.Wolf -> WolfScreen(
-            store = services.wolf,
-            shellState = shellState,
-            messages = messages,
-            onSelectModel = onSelectModel,
-            onRefreshModels = onRefreshModels,
-            onImportMessages = onImportMessages,
-            onActionLogged = onLocalActionLogged,
-            onSnackbar = onPlaceholder
-        )
-        FeatureDestination.ActionLog -> SerpentDeskScreen(
-            actionLogStore = services.actionLog,
-            conversationId = shellState.activeConversationId,
-            focusIds = shellState.actionLogFocusIds
-        )
-        FeatureDestination.IslandLetter -> IslandLetterScreen(
-            store = services.islandLetter,
-            conversationId = shellState.activeConversationId,
-            modelName = shellState.currentModel,
-            onBack = onBackToChat,
-            onSnackbar = onPlaceholder
-        )
+    SnowLetterFeatureScaffold {
+        when (feature) {
+            FeatureDestination.Daily -> DailyLanding(
+                repository = daily,
+                myriAvatarDataUrl = shellState.myriAvatarDataUrl,
+                onUpdateMyriAvatar = onUpdateMyriAvatar,
+                onRefreshCoast = onRefresh,
+                onBackToChat = onBackToChat,
+                onActionLogged = onLocalActionLogged,
+                onSnackbar = onPlaceholder
+            )
+            FeatureDestination.Memory -> MemoryLanding(
+                repository = memory,
+                conversationId = shellState.activeConversationId,
+                openPendingInitially = openMemoryPending,
+                onPendingOpenConsumed = onMemoryPendingConsumed,
+                onBackToChat = onBackToChat,
+                onActionLogged = onLocalActionLogged,
+                onSnackbar = onPlaceholder
+            )
+            FeatureDestination.Wolf -> WolfScreen(
+                store = services.wolf,
+                shellState = shellState,
+                messages = messages,
+                onSelectModel = onSelectModel,
+                onRefreshModels = onRefreshModels,
+                onImportMessages = onImportMessages,
+                onActionLogged = onLocalActionLogged,
+                onSnackbar = onPlaceholder
+            )
+            FeatureDestination.ActionLog -> SerpentDeskScreen(
+                actionLogStore = services.actionLog,
+                conversationId = shellState.activeConversationId,
+                focusIds = shellState.actionLogFocusIds
+            )
+            FeatureDestination.IslandLetter -> IslandLetterScreen(
+                store = services.islandLetter,
+                conversationId = shellState.activeConversationId,
+                modelName = shellState.currentModel,
+                onBack = onBackToChat,
+                onSnackbar = onPlaceholder
+            )
+        }
     }
 }
