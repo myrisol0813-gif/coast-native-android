@@ -78,12 +78,12 @@ internal fun UserMessage(
                     }
                     MessageActionButton(Icons.Default.Edit, "编辑", onClick = onEdit)
                     MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
+                    MessageActionButton(
+                        Icons.Default.DeleteOutline,
+                        if (message.variantCount > 1) "删除当前版本" else "删除消息",
+                        onClick = { onAction(MessageAction.Delete(message.id)) }
+                    )
                     if (message.variantCount > 1) {
-                        MessageActionButton(
-                            Icons.Default.DeleteOutline,
-                            "删除当前版本",
-                            onClick = { onAction(MessageAction.Delete(message.id)) }
-                        )
                         Spacer(Modifier.width(CoastChatTokens.VariantActionGap))
                         VariantControl(
                             index = message.variantIndex,
