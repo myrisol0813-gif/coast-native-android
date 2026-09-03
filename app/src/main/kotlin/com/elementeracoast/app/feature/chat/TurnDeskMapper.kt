@@ -97,7 +97,15 @@ internal object TurnDeskMapper {
                     if (value.workbench.sideTools.isNotEmpty()) add(TurnDeskDetail("海岸日报小工具", value.workbench.sideTools.joinToString("、", transform = ::toolLabel)))
                     if (value.workbench.modelVisibleTools.isNotEmpty()) add(TurnDeskDetail("模型可见工具", value.workbench.modelVisibleTools.joinToString("、", transform = ::toolLabel)))
                     if (value.workbench.backendTools.isNotEmpty()) add(TurnDeskDetail("后端可用工具", value.workbench.backendTools.joinToString("、", transform = ::toolLabel)))
-                    add(TurnDeskDetail("工作台提示", if (value.workbench.promptDelivered) "已递给" else "未递给"))
+                    val hasWorkbenchMaterial = value.workbench.promptDelivered ||
+                        value.workbench.prompt.isNotBlank() ||
+                        value.workbench.coreTools.isNotEmpty() ||
+                        value.workbench.sideTools.isNotEmpty() ||
+                        value.workbench.modelVisibleTools.isNotEmpty() ||
+                        value.workbench.backendTools.isNotEmpty() ||
+                        value.workbench.furniture.isNotEmpty() ||
+                        value.workbench.toolResults.any { it.delivered && it.content.isNotBlank() }
+                    if (hasWorkbenchMaterial) add(TurnDeskDetail("工作台提示", if (value.workbench.promptDelivered) "已递给" else "未递给"))
                     if (value.workbench.prompt.isNotBlank()) add(TurnDeskDetail("工作台提示全文", value.workbench.prompt))
                     if (value.workbench.furniture.isNotEmpty()) add(TurnDeskDetail("本轮动用", value.workbench.furniture.joinToString("、")))
                     value.workbench.toolResults.filter { it.delivered && it.content.isNotBlank() }.forEach { result ->
