@@ -26,6 +26,7 @@ import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
+import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,6 +34,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ChatWindow(
     state: CoastShellState,
+    dogtalk: DogtalkRepository,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
@@ -86,7 +88,11 @@ fun ChatWindow(
         deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
         DogtalkCard(
             scope = DogtalkScope.from(state.activeRoomType),
-            onSaved = { onPlaceholder("狗话仍属于本轮未接的本地小抽屉，没有写入后端。") }
+            conversationId = state.activeConversationId,
+            repository = dogtalk,
+            historyLoading = state.historyLoading,
+            isStreaming = state.isStreaming,
+            onNotice = onPlaceholder
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
         CoastComposer(
