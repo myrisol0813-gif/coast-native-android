@@ -146,6 +146,7 @@ jobs:
           test ! -e "$memory/MemoryStore.kt"
           test ! -e "$memory/MemoryModels.kt"
           test ! -e app/src/test/kotlin/com/elementeracoast/app/feature/daily/DailyLocalStoreTest.kt
+          test ! -e app/src/test/kotlin/com/elementeracoast/app/feature/memory/MemoryLocalStoreTest.kt
           ! grep -q 'feature.daily.DailyStore' "$shell/LocalFeatureServices.kt"
           ! grep -q 'val daily' "$shell/LocalFeatureServices.kt"
           ! grep -q 'feature.memory.MemoryStore' "$shell/LocalFeatureServices.kt"
