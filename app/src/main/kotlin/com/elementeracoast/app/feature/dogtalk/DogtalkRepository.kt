@@ -34,7 +34,7 @@ interface DogtalkRepository {
 class DefaultDogtalkRepository(
     private val config: CoastApiConfig,
     private val client: OkHttpClient,
-    private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = false }
+    private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }
 ) : DogtalkRepository {
     private val state = MutableStateFlow<Map<String, DogtalkUiState>>(emptyMap())
     private val ids = mutableMapOf<String, String?>()
