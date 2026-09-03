@@ -26,6 +26,7 @@ import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
 import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import kotlinx.coroutines.launch
@@ -36,6 +37,7 @@ fun MainShell(
     services: LocalFeatureServices,
     daily: DailyRepository,
     memory: MemoryRepository,
+    dogtalk: DogtalkRepository,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -118,6 +120,7 @@ fun MainShell(
                 if (feature == null) {
                     ChatWindow(
                         state = state,
+                        dogtalk = dogtalk,
                         onSend = onSend,
                         onStop = onStop,
                         onMessageAction = onMessageAction,
