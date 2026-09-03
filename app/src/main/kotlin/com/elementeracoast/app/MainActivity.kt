@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
 
             CoastTheme(
-                mode = wolf.appearance.theme,
+                preset = wolf.appearance.theme,
                 accentHex = wolf.appearance.accentHex,
                 userBubbleHex = wolf.appearance.userBubbleHex
             ) {
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
                         onNewConversation = vm::newConversation,
                         onRenameConversation = vm::renameConversation,
                         onDeleteConversation = vm::deleteConversation,
-                        onCycleTheme = vm::cycleTheme,
+                        onSelectTheme = vm::setTheme,
                         onOpenFeature = vm::openFeature,
                         onBackToChat = vm::backToChat,
                         onRefresh = vm::refreshCoastState,
