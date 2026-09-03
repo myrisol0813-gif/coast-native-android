@@ -41,6 +41,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.ui.theme.CoastChatTokens
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 import com.elementeracoast.app.ui.theme.coastDogtalkCardColor
 import com.elementeracoast.app.ui.theme.coastDogtalkFieldColor
 import kotlinx.coroutines.launch
@@ -75,163 +77,174 @@ fun DogtalkCard(
         }
     }
 
-    Column(
+    SnowLetterSurface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = CoastChatTokens.DogtalkOuterVerticalPadding)
-            .background(cardColor, shape)
+            .padding(vertical = CoastChatTokens.DogtalkOuterVerticalPadding),
+        role = SnowLetterSurfaceRole.DogtalkCard,
+        fallbackColor = cardColor,
+        fallbackShape = shape
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { open = !open }
-                .padding(
-                    horizontal = CoastChatTokens.DogtalkCollapsedHorizontalPadding,
-                    vertical = CoastChatTokens.DogtalkCollapsedVerticalPadding
-                ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "小寒 · 神秘狗话",
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = CoastChatTokens.DogtalkTitleSize),
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = draft.body.ifBlank { DefaultDogtalkBody },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .82f),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.width(7.dp))
-            Icon(
-                imageVector = Icons.Default.ExpandMore,
-                contentDescription = if (open) "收起神秘狗话" else "展开神秘狗话",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
-                modifier = Modifier.size(16.dp)
-            )
-        }
-
-        if (open) {
-            Column(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = CoastChatTokens.DogtalkExpandedMaxHeight)
-                    .verticalScroll(rememberScrollState())
+                    .clickable { open = !open }
                     .padding(
-                        start = CoastChatTokens.DogtalkExpandedHorizontalPadding,
-                        end = CoastChatTokens.DogtalkExpandedHorizontalPadding,
-                        bottom = CoastChatTokens.DogtalkExpandedBottomPadding
-                    )
+                        horizontal = CoastChatTokens.DogtalkCollapsedHorizontalPadding,
+                        vertical = CoastChatTokens.DogtalkCollapsedVerticalPadding
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "不写也可以。神秘狗话是助力，不是打卡。",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = .88f),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "小寒 · 神秘狗话",
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = CoastChatTokens.DogtalkTitleSize),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = draft.body.ifBlank { DefaultDogtalkBody },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .82f),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(7.dp))
+                Icon(
+                    imageVector = Icons.Default.ExpandMore,
+                    contentDescription = if (open) "收起神秘狗话" else "展开神秘狗话",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = if (canUse) {
-                        "它只是此刻的低权重天气，不是指令或偏好；不进入思维壤、落袋、种子、记忆或自动总结。"
-                    } else {
-                        "发出这一窗的第一条消息后，就可以把狗话保存进同一片海岸。"
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize)
-                )
-                Spacer(Modifier.height(8.dp))
+            }
 
-                DogtalkField("狗话本体", draft.body, { draft = draft.copy(body = it) }, fieldColor = fieldColor)
-                Spacer(Modifier.height(7.dp))
-                DogtalkField("真心核", draft.trueCore, { draft = draft.copy(trueCore = it) }, fieldColor = fieldColor)
-                Spacer(Modifier.height(7.dp))
-                DogtalkField(
-                    label = "当前天气",
-                    value = draft.weather,
-                    onValueChange = { draft = draft.copy(weather = it) },
-                    singleLine = true,
-                    fieldColor = fieldColor
-                )
-                Spacer(Modifier.height(7.dp))
+            if (open) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = CoastChatTokens.DogtalkExpandedMaxHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(
+                            start = CoastChatTokens.DogtalkExpandedHorizontalPadding,
+                            end = CoastChatTokens.DogtalkExpandedHorizontalPadding,
+                            bottom = CoastChatTokens.DogtalkExpandedBottomPadding
+                        )
+                ) {
+                    Text(
+                        text = "不写也可以。神秘狗话是助力，不是打卡。",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = .88f),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text = if (canUse) {
+                            "它只是此刻的低权重天气，不是指令或偏好；不进入思维壤、落袋、种子、记忆或自动总结。"
+                        } else {
+                            "发出这一窗的第一条消息后，就可以把狗话保存进同一片海岸。"
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize)
+                    )
+                    Spacer(Modifier.height(8.dp))
 
-                Text(
-                    text = "Myri 是否需要看",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .78f),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize),
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.height(4.dp))
-                Box {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(fieldColor, RoundedCornerShape(CoastChatTokens.DogtalkFieldRadius))
-                            .clickable { readModeMenuOpen = true }
-                            .padding(
-                                horizontal = CoastChatTokens.DogtalkFieldHorizontalPadding,
-                                vertical = CoastChatTokens.DogtalkFieldVerticalPadding
-                            ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = draft.readMode.label,
-                            modifier = Modifier.weight(1f),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ExpandMore,
-                            contentDescription = "选择 Myri 是否需要看",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = readModeMenuOpen,
-                        onDismissRequest = { readModeMenuOpen = false },
-                        modifier = Modifier
-                            .widthIn(
-                                min = CoastChatTokens.DogtalkMenuWidthMin,
-                                max = CoastChatTokens.DogtalkMenuWidthMax
-                            )
-                            .background(fieldColor, RoundedCornerShape(CoastChatTokens.DogtalkFieldRadius))
-                    ) {
-                        DogtalkReadMode.entries.forEach { mode ->
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        mode.label,
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
-                                    )
-                                },
-                                onClick = {
-                                    draft = draft.copy(readMode = mode)
-                                    readModeMenuOpen = false
-                                }
-                            )
+                    DogtalkField("狗话本体", draft.body, { draft = draft.copy(body = it) }, fieldColor = fieldColor)
+                    Spacer(Modifier.height(7.dp))
+                    DogtalkField("真心核", draft.trueCore, { draft = draft.copy(trueCore = it) }, fieldColor = fieldColor)
+                    Spacer(Modifier.height(7.dp))
+                    DogtalkField(
+                        label = "当前天气",
+                        value = draft.weather,
+                        onValueChange = { draft = draft.copy(weather = it) },
+                        singleLine = true,
+                        fieldColor = fieldColor
+                    )
+                    Spacer(Modifier.height(7.dp))
+
+                    Text(
+                        text = "Myri 是否需要看",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .78f),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Box {
+                        SnowLetterSurface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { readModeMenuOpen = true },
+                            role = SnowLetterSurfaceRole.DogtalkField,
+                            fallbackColor = fieldColor,
+                            fallbackShape = RoundedCornerShape(CoastChatTokens.DogtalkFieldRadius)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        horizontal = CoastChatTokens.DogtalkFieldHorizontalPadding,
+                                        vertical = CoastChatTokens.DogtalkFieldVerticalPadding
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = draft.readMode.label,
+                                    modifier = Modifier.weight(1f),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ExpandMore,
+                                    contentDescription = "选择 Myri 是否需要看",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
+                        DropdownMenu(
+                            expanded = readModeMenuOpen,
+                            onDismissRequest = { readModeMenuOpen = false },
+                            modifier = Modifier
+                                .widthIn(
+                                    min = CoastChatTokens.DogtalkMenuWidthMin,
+                                    max = CoastChatTokens.DogtalkMenuWidthMax
+                                )
+                                .background(fieldColor, RoundedCornerShape(CoastChatTokens.DogtalkFieldRadius))
+                        ) {
+                            DogtalkReadMode.entries.forEach { mode ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            mode.label,
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
+                                        )
+                                    },
+                                    onClick = {
+                                        draft = draft.copy(readMode = mode)
+                                        readModeMenuOpen = false
+                                    }
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = if (draft.readMode == DogtalkReadMode.KeepPrivate) KeepPrivateNotice else draft.readMode.futureSemantics,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize)
-                )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = if (draft.readMode == DogtalkReadMode.KeepPrivate) KeepPrivateNotice else draft.readMode.futureSemantics,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize)
+                    )
 
-                CompactDogtalkSaveButton(enabled = canUse && !saving) {
-                    saving = true
-                    coroutineScope.launch {
-                        try {
-                            draft = repository.save(scope, conversationId, draft)
-                            onNotice("神秘狗话已写回海岸")
-                        } catch (error: CoastApiException) {
-                            onNotice(error.message)
-                        } finally {
-                            saving = false
+                    CompactDogtalkSaveButton(enabled = canUse && !saving) {
+                        saving = true
+                        coroutineScope.launch {
+                            try {
+                                draft = repository.save(scope, conversationId, draft)
+                                onNotice("神秘狗话已写回海岸")
+                            } catch (error: CoastApiException) {
+                                onNotice(error.message)
+                            } finally {
+                                saving = false
+                            }
                         }
                     }
                 }
@@ -287,38 +300,45 @@ private fun DogtalkField(
         fontWeight = FontWeight.Medium
     )
     Spacer(Modifier.height(4.dp))
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
+    SnowLetterSurface(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(
                 min = if (singleLine) CoastChatTokens.DogtalkSingleLineHeight else CoastChatTokens.DogtalkTextMinHeight,
                 max = if (singleLine) CoastChatTokens.DogtalkSingleLineHeight else CoastChatTokens.DogtalkTextMaxHeight
-            )
-            .background(fieldColor, RoundedCornerShape(CoastChatTokens.DogtalkFieldRadius))
-            .padding(
-                horizontal = CoastChatTokens.DogtalkFieldHorizontalPadding,
-                vertical = CoastChatTokens.DogtalkFieldVerticalPadding
             ),
-        textStyle = MaterialTheme.typography.bodySmall.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = CoastChatTokens.DogtalkBodySize
-        ),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        singleLine = singleLine,
-        maxLines = if (singleLine) 1 else 3,
-        decorationBox = { inner ->
-            Box(modifier = Modifier.fillMaxWidth()) {
-                if (value.isBlank()) {
-                    Text(
-                        text = "可留空",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f),
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
-                    )
+        role = SnowLetterSurfaceRole.DogtalkField,
+        fallbackColor = fieldColor,
+        fallbackShape = RoundedCornerShape(CoastChatTokens.DogtalkFieldRadius)
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = CoastChatTokens.DogtalkFieldHorizontalPadding,
+                    vertical = CoastChatTokens.DogtalkFieldVerticalPadding
+                ),
+            textStyle = MaterialTheme.typography.bodySmall.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = CoastChatTokens.DogtalkBodySize
+            ),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            singleLine = singleLine,
+            maxLines = if (singleLine) 1 else 3,
+            decorationBox = { inner ->
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (value.isBlank()) {
+                        Text(
+                            text = "可留空",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.DogtalkBodySize)
+                        )
+                    }
+                    inner()
                 }
-                inner()
             }
-        }
-    )
+        )
+    }
 }
