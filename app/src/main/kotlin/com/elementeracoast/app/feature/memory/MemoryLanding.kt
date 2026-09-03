@@ -32,13 +32,16 @@ fun MemoryLanding(
     var pendingOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(conversationId) {
-        if (conversationId.isBlank()) return@LaunchedEffect
         runCatching { repository.refresh(conversationId) }
             .onFailure { onSnackbar(it.message ?: "轨迹记忆刷新失败") }
     }
     LaunchedEffect(openPendingInitially) {
         if (openPendingInitially) {
-            pendingOpen = true
+            if (conversationId.isBlank()) {
+                onSnackbar("当前还没有聊天窗口，待确认袋需要先进入一个窗口。")
+            } else {
+                pendingOpen = true
+            }
             onPendingOpenConsumed()
         }
     }
@@ -95,7 +98,10 @@ fun MemoryLanding(
                         repository = repository,
                         createRequested = pendingCreate == MemoryTab.Memory,
                         onCreateConsumed = consumeCreate,
-                        onOpenPending = { pendingOpen = true },
+                        onOpenPending = {
+                            if (conversationId.isBlank()) onSnackbar("当前还没有聊天窗口，待确认袋需要先进入一个窗口。")
+                            else pendingOpen = true
+                        },
                         onActionLogged = onActionLogged,
                         onSnackbar = onSnackbar
                     )
@@ -106,7 +112,10 @@ fun MemoryLanding(
                         repository = repository,
                         createRequested = pendingCreate == MemoryTab.Seed,
                         onCreateConsumed = consumeCreate,
-                        onOpenPending = { pendingOpen = true },
+                        onOpenPending = {
+                            if (conversationId.isBlank()) onSnackbar("当前还没有聊天窗口，待确认袋需要先进入一个窗口。")
+                            else pendingOpen = true
+                        },
                         onSnackbar = onSnackbar
                     )
                 }
