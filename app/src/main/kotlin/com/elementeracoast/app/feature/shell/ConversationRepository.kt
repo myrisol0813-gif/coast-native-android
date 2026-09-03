@@ -11,12 +11,14 @@ interface ConversationRepository {
     suspend fun refresh(): List<ConversationSummary>
     suspend fun create(roomType: RoomType, title: String = "新聊天"): ConversationSummary
     suspend fun rename(id: String, title: String): ConversationSummary
+    suspend fun generateTitle(id: String, user: String, assistant: String): ConversationSummary?
     suspend fun delete(id: String)
 }
 
 class DefaultConversationRepository(
     private val api: CoastApiClient,
-    private val cache: RemoteCacheStore
+    private val cache: RemoteCacheStore,
+    private val titleRemote: ConversationTitleRemoteDataSource
 ) : ConversationRepository {
     override fun cached(): List<ConversationSummary> = cache.conversations().map(::toSummary)
 
@@ -34,6 +36,12 @@ class DefaultConversationRepository(
 
     override suspend fun rename(id: String, title: String): ConversationSummary {
         val updated = api.renameConversation(id, title.trim().ifBlank { "新聊天" })
+        replaceCached(updated)
+        return toSummary(updated)
+    }
+
+    override suspend fun generateTitle(id: String, user: String, assistant: String): ConversationSummary? {
+        val updated = titleRemote.generate(id, user, assistant) ?: return null
         replaceCached(updated)
         return toSummary(updated)
     }
