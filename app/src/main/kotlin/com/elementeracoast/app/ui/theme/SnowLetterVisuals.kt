@@ -68,9 +68,7 @@ private fun SnowLetterPageTemplate(
     }
 }
 
-private val InkBlue = Color(0xFF23425F)
 private val SnowBlue = Color(0xFFAFC4D8)
-private val PaleBlue = Color(0xFFDDEAF3)
 private val PaperCream = Color(0xFFFFFEFA)
 private val OldGold = Color(0xFFD7A84D)
 private val ShadowBlue = Color(0xFFB7C8D8)
@@ -88,9 +86,8 @@ private fun DrawScope.drawSnowLetterBackdrop(
     val sheet = RectSpec(marginX, marginTop, size.width - marginX, size.height - marginBottom)
 
     drawTornPaper(sheet.shift(3.dp.toPx(), 5.dp.toPx()), ShadowBlue.copy(alpha = .20f * paperAlpha), Color.Transparent, .5f)
-    drawTornPaper(sheet, PaperCream.copy(alpha = .94f * paperAlpha), SnowBlue.copy(alpha = .34f * paperAlpha), 1f)
+    drawTornPaper(sheet, PaperCream.copy(alpha = .96f * paperAlpha), SnowBlue.copy(alpha = .30f * paperAlpha), 1f)
     drawStationeryMarks(sheet, decorationAlpha * paperAlpha)
-    drawSnowRoad(sheet, decorationAlpha * paperAlpha, forFeature)
 }
 
 private fun DrawScope.drawTornPaper(rect: RectSpec, fill: Color, stroke: Color, wobbleScale: Float) {
@@ -135,7 +132,6 @@ private fun DrawScope.tornRectPath(rect: RectSpec, wobbleScale: Float): Path {
 
 private fun DrawScope.drawStationeryMarks(rect: RectSpec, alpha: Float) {
     drawPaperclip(Offset(rect.left + 30.dp.toPx(), rect.top + 28.dp.toPx()), alpha)
-    drawStamp(Offset(rect.right - 108.dp.toPx(), rect.top + 18.dp.toPx()), alpha)
 }
 
 private fun DrawScope.drawPaperclip(center: Offset, alpha: Float) {
@@ -157,45 +153,6 @@ private fun DrawScope.drawPaperclip(center: Offset, alpha: Float) {
     }
 }
 
-private fun DrawScope.drawStamp(topLeft: Offset, alpha: Float) {
-    drawRoundRect(
-        color = PaleBlue.copy(alpha = .32f * alpha),
-        topLeft = topLeft,
-        size = Size(70.dp.toPx(), 42.dp.toPx()),
-        cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx())
-    )
-    drawRoundRect(
-        color = InkBlue.copy(alpha = .10f * alpha),
-        topLeft = topLeft,
-        size = Size(70.dp.toPx(), 42.dp.toPx()),
-        cornerRadius = CornerRadius(5.dp.toPx(), 5.dp.toPx()),
-        style = Stroke(width = 1.dp.toPx())
-    )
-}
-
-private fun DrawScope.drawSnowRoad(rect: RectSpec, alpha: Float, forFeature: Boolean) {
-    val base = rect.bottom - if (forFeature) 112.dp.toPx() else 92.dp.toPx()
-    val far = Path().apply {
-        moveTo(rect.left, rect.bottom)
-        lineTo(rect.left, base)
-        cubicTo(rect.width * .20f, base - 32.dp.toPx(), rect.width * .44f, base + 6.dp.toPx(), rect.width * .56f, base - 18.dp.toPx())
-        cubicTo(rect.width * .76f, base - 48.dp.toPx(), rect.width * .88f, base + 16.dp.toPx(), rect.right, base - 12.dp.toPx())
-        lineTo(rect.right, rect.bottom)
-        close()
-    }
-    drawPath(far, PaleBlue.copy(alpha = .42f * alpha))
-    val near = Path().apply {
-        moveTo(rect.left, rect.bottom)
-        lineTo(rect.left, rect.bottom - 54.dp.toPx())
-        cubicTo(rect.width * .25f, rect.bottom - 22.dp.toPx(), rect.width * .44f, rect.bottom - 72.dp.toPx(), rect.width * .62f, rect.bottom - 38.dp.toPx())
-        cubicTo(rect.width * .82f, rect.bottom - 8.dp.toPx(), rect.width * .92f, rect.bottom - 56.dp.toPx(), rect.right, rect.bottom - 36.dp.toPx())
-        lineTo(rect.right, rect.bottom)
-        close()
-    }
-    drawPath(near, Color.White.copy(alpha = .50f * alpha))
-}
-
 private data class RectSpec(val left: Float, val top: Float, val right: Float, val bottom: Float) {
-    val width: Float get() = right - left
     fun shift(dx: Float, dy: Float) = RectSpec(left + dx, top + dy, right + dx, bottom + dy)
 }
