@@ -64,6 +64,7 @@ jobs:
           network="$root/core/network"
           auth="$root/core/auth"
           remote="$root/core/remote"
+          model="$root/core/model"
           chat="$root/feature/chat"
           daily="$root/feature/daily"
           dogtalk="$root/feature/dogtalk"
@@ -87,8 +88,10 @@ jobs:
           test -f "$remote/RemoteMemory.kt"
           test -f "$remote/RemoteCacheStore.kt"
           test -f "$remote/RemoteTurnContext.kt"
+          test -f "$model/ModelDisplayName.kt"
           test -f "$chat/ChatRepository.kt"
           test -f "$chat/ChatSyncMapper.kt"
+          test -f "$chat/ChatHistoryMutations.kt"
           test -f "$chat/TurnDeskMapper.kt"
           test -f "$chat/TurnDeskSheet.kt"
           test -f "$daily/DailyCanonicalModels.kt"
@@ -116,8 +119,8 @@ jobs:
           grep -q 'android:icon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 29' app/build.gradle.kts
-          grep -q 'versionName = "0.1.27-rikkahub-import-01"' app/build.gradle.kts
+          grep -q 'versionCode = 30' app/build.gradle.kts
+          grep -q 'versionName = "0.1.28-message-actions-context-02"' app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -150,11 +153,15 @@ jobs:
           grep -q 'fun sendMessage(' "$shell/CoastShellViewModel.kt"
           grep -q 'SessionRestoreResult.Offline' "$shell/CoastShellViewModel.kt"
           grep -q 'MessageAction.Retry' "$shell/CoastShellViewModel.kt"
+          grep -q 'ChatHistoryMutations' "$shell/CoastShellViewModel.kt"
+          grep -q 'backend.chat.persistHistory' "$shell/CoastShellViewModel.kt"
           grep -q 'val source: String = "coast"' "$remote/RemoteModels.kt"
           grep -q 'SerialName("message_source")' "$remote/RemoteModels.kt"
           grep -q 'source = value.source' "$shell/ConversationRepository.kt"
-          grep -q 'messageSource != "rikkahub"' "$chat/ChatSyncMapper.kt"
+          grep -q 'MAX_CONTEXT_MESSAGES = 16' "$chat/ChatSyncMapper.kt"
+          ! grep -q 'messageSource != "rikkahub"' "$chat/ChatSyncMapper.kt"
           grep -q 'MAX_TURNS = 400' "$chat/ChatSyncMapper.kt"
+          grep -q 'modelDisplayName(state.currentModel)' "$shell/CoastTopBar.kt"
           grep -q '"RikkaHub"' "$shell/CoastDrawer.kt"
           grep -q '还没有导入 RikkaHub 窗口' "$shell/CoastDrawer.kt"
           ! grep -R -q 'DogtalkFixtureState' "$dogtalk"
@@ -277,18 +284,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-rikkahub-import-01-0.1.27-debug.apk
+          apk=artifact/CoastGPT-native-message-actions-context-02-0.1.28-debug.apk
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.27-rikkahub-import-01\nversionCode=29\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=0.1.28-message-actions-context-02\nversionCode=30\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-rikkahub-import-01-0.1.27-debug
+          name: CoastGPT-native-message-actions-context-02-0.1.28-debug
           path: |
-            artifact/CoastGPT-native-rikkahub-import-01-0.1.27-debug.apk
+            artifact/CoastGPT-native-message-actions-context-02-0.1.28-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error
