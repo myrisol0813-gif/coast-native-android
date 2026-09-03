@@ -1,7 +1,7 @@
 package com.elementeracoast.app.feature.wolf
 
 import com.elementeracoast.app.core.local.MemoryLocalPersistence
-import com.elementeracoast.app.core.model.CoastThemeMode
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -33,15 +33,21 @@ class WolfLocalParityTest {
         val persistence = MemoryLocalPersistence()
         val store = WolfStore(persistence)
         store.saveProfile("Kryo", "小寒")
-        store.setTheme(CoastThemeMode.Gold)
+        store.setTheme(CoastThemePreset.BlushMyri)
         store.setUserBubble("#f5e8ee")
         store.setAccent("#ec4899")
         store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
         val reloaded = WolfStore(persistence).state.value
         assertEquals("Kryo", reloaded.profile.nickname)
-        assertEquals(CoastThemeMode.Gold, reloaded.appearance.theme)
+        assertEquals(CoastThemePreset.BlushMyri, reloaded.appearance.theme)
         assertEquals("#f5e8ee", reloaded.appearance.userBubbleHex)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
+    }
+
+    @Test fun legacyThreeModeThemeReadsIntoPresetWardrobeOnce() {
+        val persistence = MemoryLocalPersistence()
+        persistence.put("wolf.theme", "Gold")
+        assertEquals(CoastThemePreset.DeepBlueGold, WolfStore(persistence).state.value.appearance.theme)
     }
 }
