@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.model.TurnDeskSection
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
 @Composable
 internal fun TurnDeskStatusStrip(
@@ -34,10 +36,11 @@ internal fun TurnDeskStatusStrip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    SnowLetterSurface(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .34f),
-        shape = MaterialTheme.shapes.medium
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .34f),
+        fallbackShape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 9.dp),
@@ -104,11 +107,12 @@ private fun TurnDeskSectionCard(
     expanded: Boolean,
     onToggle: () -> Unit
 ) {
-    Surface(
+    SnowLetterSurface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .46f),
-        shape = MaterialTheme.shapes.large,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f))
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .46f),
+        fallbackShape = MaterialTheme.shapes.large,
+        fallbackBorder = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f))
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
