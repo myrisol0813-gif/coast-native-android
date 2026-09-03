@@ -37,6 +37,7 @@ class DefaultDogtalkRepository(
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = false }
 ) : DogtalkRepository {
     private val state = MutableStateFlow<Map<String, DogtalkUiState>>(emptyMap())
+    private val ids = mutableMapOf<String, String?>()
     override val snapshots: StateFlow<Map<String, DogtalkUiState>> = state.asStateFlow()
 
     override fun cached(scope: DogtalkScope, conversationId: String): DogtalkUiState =
@@ -51,9 +52,9 @@ class DefaultDogtalkRepository(
     }
 
     override suspend fun save(scope: DogtalkScope, conversationId: String, value: DogtalkUiState): DogtalkUiState {
-        val current = cached(scope, conversationId)
+        val targetKey = key(scope, conversationId)
         val payload = RemoteDogtalkSaveRequest(
-            id = current.id,
+            id = ids[targetKey],
             roomScope = scope.wireValue,
             conversationId = conversationId.takeIf { scope == DogtalkScope.Main && it.isNotBlank() },
             body = value.body,
@@ -69,14 +70,15 @@ class DefaultDogtalkRepository(
     }
 
     private fun publish(scope: DogtalkScope, conversationId: String, remote: RemoteDogtalk): DogtalkUiState {
+        val targetKey = key(scope, conversationId)
+        ids[targetKey] = remote.id
         val value = DogtalkUiState(
-            id = remote.id,
             body = remote.body,
             trueCore = remote.trueCore,
             weather = remote.weather,
             readMode = DogtalkReadMode.fromWire(remote.readMode)
         )
-        state.value = state.value + (key(scope, conversationId) to value)
+        state.value = state.value + (targetKey to value)
         return value
     }
 
