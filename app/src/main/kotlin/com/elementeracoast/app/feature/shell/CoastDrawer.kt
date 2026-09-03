@@ -251,16 +251,21 @@ fun ConversationList(
     onDeleteConversation: (String) -> Unit
 ) {
     val filtered = filterConversations(conversations, query)
+    val coast = filtered.filter { it.source != "rikkahub" }
+    val rikka = filtered.filter { it.source == "rikkahub" }
+    var rikkaExpanded by remember { mutableStateOf(false) }
+    val showRikka = rikkaExpanded || query.isNotBlank()
+
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        if (filtered.isEmpty()) {
+        if (coast.isEmpty()) {
             Text(
-                "没有匹配的窗口",
+                if (query.isBlank()) "还没有普通聊天窗口" else "没有匹配的普通窗口",
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )
         } else {
-            filtered.forEach { conversation ->
+            coast.forEach { conversation ->
                 ConversationRow(
                     conversation = conversation,
                     selected = conversation.id == activeConversationId && !featureActive,
@@ -268,6 +273,50 @@ fun ConversationList(
                     onRename = onRenameConversation,
                     onDelete = onDeleteConversation
                 )
+            }
+        }
+
+        Spacer(Modifier.height(5.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { rikkaExpanded = !rikkaExpanded }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "RikkaHub",
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                if (showRikka) "⌃" else "⌄",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        if (showRikka) {
+            if (rikka.isEmpty()) {
+                Text(
+                    "还没有导入 RikkaHub 窗口",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                rikka.forEach { conversation ->
+                    ConversationRow(
+                        conversation = conversation,
+                        selected = conversation.id == activeConversationId && !featureActive,
+                        onClick = { onSelectConversation(conversation.id) },
+                        onRename = onRenameConversation,
+                        onDelete = onDeleteConversation
+                    )
+                }
             }
         }
     }
