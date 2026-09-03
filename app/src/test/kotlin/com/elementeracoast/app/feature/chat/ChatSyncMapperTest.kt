@@ -75,7 +75,7 @@ class ChatSyncMapperTest {
     }
 
     @Test
-    fun importedRikkaHistoryStaysVisibleButNeverEntersProviderContext() {
+    fun importedRikkaHistoryStaysVisibleAndParticipatesInItsOwnRecentContext() {
         val archived = RemoteTurn(
             id = "rikka-turn",
             user = RemoteUserBranch(
@@ -110,7 +110,48 @@ class ChatSyncMapperTest {
 
         assertTrue(ui.any { it.text == "RikkaHub 旧问题" })
         assertTrue(ui.any { it.text == "RikkaHub 旧回复" })
-        assertEquals(listOf("回到海岸后的新问题"), context.map { it.content })
+        assertEquals(
+            listOf("RikkaHub 旧问题", "RikkaHub 旧回复", "回到海岸后的新问题"),
+            context.map { it.content }
+        )
+    }
+
+    @Test
+    fun importedContextIsBoundedToRecentMessagesInsteadOfInjectingTheWholeArchive() {
+        val importedTurns = (0 until 10).map { index ->
+            RemoteTurn(
+                id = "rikka-$index",
+                user = RemoteUserBranch(
+                    variants = listOf(
+                        RemoteVariant(
+                            id = "u-$index",
+                            content = "旧问题 $index",
+                            createdAt = "2026-08-01T00:00:00Z",
+                            messageSource = "rikkahub"
+                        )
+                    )
+                ),
+                assistant = RemoteAssistantBranches(
+                    activeByUserVariant = mapOf("0" to 0),
+                    variantsByUserVariant = mapOf(
+                        "0" to listOf(
+                            RemoteVariant(
+                                id = "a-$index",
+                                content = "旧回复 $index",
+                                createdAt = "2026-08-01T00:00:10Z",
+                                messageSource = "rikkahub"
+                            )
+                        )
+                    )
+                )
+            )
+        }
+        val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = importedTurns), "新的海岸消息")
+        val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId)
+
+        assertEquals(15, context.size)
+        assertEquals("旧问题 3", context.first().content)
+        assertEquals("新的海岸消息", context.last().content)
     }
 
     @Test

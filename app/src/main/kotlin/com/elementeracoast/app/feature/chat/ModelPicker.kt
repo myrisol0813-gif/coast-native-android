@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.elementeracoast.app.core.model.modelDisplayName
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,7 +53,11 @@ fun ModelQuickPicker(
 ) {
     var query by remember { mutableStateOf("") }
     val filtered = remember(models, query) {
-        models.filter { query.isBlank() || it.contains(query, ignoreCase = true) }
+        models.filter { model ->
+            query.isBlank()
+                || model.contains(query, ignoreCase = true)
+                || modelDisplayName(model).contains(query, ignoreCase = true)
+        }
     }
 
     ModalBottomSheet(
@@ -136,7 +141,7 @@ fun ModelQuickPicker(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                model,
+                                modelDisplayName(model),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,

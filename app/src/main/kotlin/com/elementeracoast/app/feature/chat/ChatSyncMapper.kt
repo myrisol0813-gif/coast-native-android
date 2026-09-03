@@ -18,6 +18,7 @@ import java.util.UUID
 
 object ChatSyncMapper {
     private const val MAX_TURNS = 400
+    private const val MAX_CONTEXT_MESSAGES = 16
 
     data class AppendedUser(val history: RemoteHistory, val turnId: String)
 
@@ -103,24 +104,34 @@ object ChatSyncMapper {
         return history.copy(updatedAt = Instant.now().toString(), turns = turns)
     }
 
-    /** Build provider context through the selected target user turn, never after it. */
-    fun contextMessages(history: RemoteHistory, targetTurnId: String): List<RemoteChatMessage> = buildList {
-        for (turn in history.turns) {
-            val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
-            val user = turn.user.variants.getOrNull(userIndex)
-            if (user != null && user.content.isNotBlank() && !user.hidden && user.messageSource != "rikkahub") {
-                add(RemoteChatMessage("user", user.content))
+    /**
+     * Build the current conversation's recent provider context through the target user turn.
+     * RikkaHub archive messages are allowed here because they belong to this conversation,
+     * but the result is bounded to the same recent-window budget used by Coast chat.
+     */
+    fun contextMessages(history: RemoteHistory, targetTurnId: String): List<RemoteChatMessage> {
+        val messages = buildList {
+            for (turn in history.turns) {
+                val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
+                val user = turn.user.variants.getOrNull(userIndex)
+                if (user != null && user.content.isNotBlank() && !user.hidden) {
+                    add(RemoteChatMessage("user", user.content))
+                }
+                if (turn.id == targetTurnId) break
+
+                val key = userIndex.toString()
+                val assistants = turn.assistant.variantsByUserVariant[key].orEmpty()
+                val assistantIndex = (turn.assistant.activeByUserVariant[key] ?: 0)
+                    .coerceIn(0, (assistants.size - 1).coerceAtLeast(0))
+                val assistant = assistants.getOrNull(assistantIndex)
+                if (assistant != null && assistant.content.isNotBlank()) {
+                    add(RemoteChatMessage("assistant", assistant.content))
+                }
             }
-            if (turn.id == targetTurnId) break
-            val key = userIndex.toString()
-            val assistants = turn.assistant.variantsByUserVariant[key].orEmpty()
-            val assistantIndex = (turn.assistant.activeByUserVariant[key] ?: 0)
-                .coerceIn(0, (assistants.size - 1).coerceAtLeast(0))
-            val assistant = assistants.getOrNull(assistantIndex)
-            if (assistant != null && assistant.content.isNotBlank() && assistant.messageSource != "rikkahub") {
-                add(RemoteChatMessage("assistant", assistant.content))
-            }
-        }
+        }.takeLast(MAX_CONTEXT_MESSAGES).toMutableList()
+
+        while (messages.firstOrNull()?.role == "assistant") messages.removeAt(0)
+        return messages
     }
 
     fun toUi(history: RemoteHistory): List<ChatMessage> = buildList {

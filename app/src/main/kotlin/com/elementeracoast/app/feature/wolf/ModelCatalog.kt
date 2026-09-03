@@ -1,5 +1,7 @@
 package com.elementeracoast.app.feature.wolf
 
+import com.elementeracoast.app.core.model.modelDisplayName
+
 enum class ModelSeries(val title: String) {
     O("o 系列"),
     Gpt4("GPT-4 系列"),
@@ -11,7 +13,7 @@ enum class ModelSeries(val title: String) {
 
 data class LocalModelCatalogItem(
     val id: String,
-    val displayName: String = id.substringAfterLast('/'),
+    val displayName: String = modelDisplayName(id),
     val series: ModelSeries = classifyModelSeries(id)
 )
 

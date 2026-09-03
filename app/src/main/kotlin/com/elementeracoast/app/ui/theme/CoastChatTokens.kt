@@ -7,7 +7,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 object CoastChatTokens {
-    val TopBarHeight = 52.dp
+    val TopBarHeight = 48.dp
     val TopBarHorizontalPadding = 4.dp
     val TopBarTitleSize = 18.sp
     val TopBarModelSize = 15.sp
@@ -69,12 +69,12 @@ object CoastChatTokens {
     val DogtalkSaveTextSize = 12.sp
 
     val ComposerHorizontalPadding = 12.dp
-    val ComposerVerticalPadding = 8.dp
+    val ComposerVerticalPadding = 4.dp
     val ComposerTouchTarget = 48.dp
     val ComposerVisualButton = 42.dp
     val ComposerActionGlyph = 20.dp
     val ComposerPlusGlyph = 22.dp
-    val ComposerPillMinHeight = 48.dp
+    val ComposerPillMinHeight = 44.dp
     val ComposerPillMaxHeight = 132.dp
     val ComposerPillRadius = 25.dp
     val ComposerPillStartPadding = 16.dp
