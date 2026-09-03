@@ -1,4 +1,4 @@
-# Snow Letter / 雪地来信 v0.2b clean paper skin
+# Snow Letter / 雪地来信 v0.2c clean paper skin
 
 Scope: APK / Native visual clothing only.
 
@@ -9,7 +9,7 @@ This pass does not change backend wiring, navigation structure, message actions,
 - Keeps the `SnowLetter` wardrobe preset and the theme debug sliders.
 - Keeps the Snow Letter direction as a template-skin system rather than a dead full-screen screenshot.
 - Treats the selected mockups as layout and skin references.
-- Draws the Snow Letter page frame as a real Compose template: torn paper edge, paperclip, postage mark, and a low snow-road base.
+- Draws the Snow Letter page frame as a real Compose template: torn paper edge and a light paperclip mark.
 - Draws message bubbles, composer field, action buttons, turn-desk strips, and dogtalk surfaces as Snow Letter paper UI shells while preserving their original behavior.
 - Keeps feature pages inside a shared Snow Letter page sheet through `SnowLetterFeatureScaffold`.
 
@@ -27,6 +27,18 @@ This correction intentionally removes those noisy details while preserving the p
 - Kept torn-paper shapes, paper fills, edges, shadows, corner tape, paperclip, postage block, and snow-road base.
 
 Small animals and paw marks should come back only as selected clean sticker assets, not as blurry or rough placeholder canvas drawings.
+
+## v0.2c surface cleanup
+
+Further device testing showed that the default chat background should stay cleaner, and the turn desk / dogtalk strips still showed a middle white band.
+
+This correction keeps the successful torn-paper UI direction but cleans the remaining template artifacts:
+
+- Removed the code-drawn postage rectangle from the page background.
+- Removed the bottom snow-wave base from the page background.
+- Kept the full-page torn paper outline and the light paperclip mark.
+- Made Snow Letter status, dogtalk, field, and composer surfaces use more solid paper fills instead of translucent fills that could reveal inner rectangular bands.
+- Unified status-card, dogtalk-card, dogtalk-field, and composer-field paper colors/edges/shadows from the theme surface layer instead of patching individual business screens.
 
 ## Asset cleanup policy
 
