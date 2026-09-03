@@ -19,8 +19,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 27
-        versionName = "0.1.25-context-themes-33"
+        versionCode = 28
+        versionName = "0.1.26-dogtalk-title-34"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
