@@ -48,7 +48,9 @@ data class RemoteConversation(
     val title: String = "新聊天",
     @SerialName("room_type") val roomType: String = "main",
     @SerialName("created_at") val createdAt: String? = null,
-    @SerialName("updated_at") val updatedAt: String? = null
+    @SerialName("updated_at") val updatedAt: String? = null,
+    val source: String = "coast",
+    @SerialName("source_window_id") val sourceWindowId: String? = null
 )
 
 @Serializable
