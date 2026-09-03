@@ -19,8 +19,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 28
-        versionName = "0.1.26-dogtalk-title-34"
+        versionCode = 29
+        versionName = "0.1.27-rikkahub-import-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
