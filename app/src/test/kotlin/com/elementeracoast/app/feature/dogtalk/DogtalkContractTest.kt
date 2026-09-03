@@ -8,13 +8,13 @@ import org.junit.Test
 
 class DogtalkContractTest {
     @Test
-    fun dogtalkUiStateKeepsFourEditableContractFieldsPlusRemoteId() {
+    fun dogtalkUiStateKeepsExactlyFourEditableContractFields() {
         val instanceFields = DogtalkUiState::class.java.declaredFields
             .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
             .map { it.name }
             .toSet()
 
-        assertEquals(setOf("id", "body", "trueCore", "weather", "readMode"), instanceFields)
+        assertEquals(setOf("body", "trueCore", "weather", "readMode"), instanceFields)
         assertEquals(listOf("body", "true_core", "weather", "read_mode"), DogtalkContractFields)
     }
 
