@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.R
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.RoomType
+import com.elementeracoast.app.core.model.modelDisplayName
 import com.elementeracoast.app.ui.icons.CoastChatIcons
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 
@@ -99,7 +100,7 @@ internal fun CoastTopBar(
                         )
                         Spacer(Modifier.width(CoastChatTokens.TopBarModelGap))
                         Text(
-                            state.currentModel,
+                            modelDisplayName(state.currentModel),
                             modifier = Modifier.widthIn(max = CoastChatTokens.TopBarModelMaxWidth),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium.copy(
