@@ -1,5 +1,6 @@
 package com.elementeracoast.app.core.remote
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -120,7 +121,9 @@ data class RemoteCustomInstructionsResponse(
 @Serializable
 data class RemoteCustomInstructionsPutRequest(
     val content: String,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     @SerialName("updated_by") val updatedBy: String = "xiaohan",
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val source: String = "Native 手动编辑"
 )
 
@@ -172,8 +175,11 @@ data class RemoteWorldbookEntryResponse(
 @Serializable
 data class RemoteWorldbookMatchRequest(
     val input: String,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val surface: String = "main_chat",
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     @SerialName("allowed_scopes") val allowedScopes: List<String> = listOf("owner", "both"),
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val limit: Int = 6
 )
 
