@@ -75,6 +75,83 @@ class ChatSyncMapperTest {
     }
 
     @Test
+    fun importedRikkaHistoryStaysVisibleButNeverEntersProviderContext() {
+        val archived = RemoteTurn(
+            id = "rikka-turn",
+            user = RemoteUserBranch(
+                variants = listOf(
+                    RemoteVariant(
+                        id = "rikka-user",
+                        content = "RikkaHub 旧问题",
+                        createdAt = "2026-08-01T00:00:00Z",
+                        messageSource = "rikkahub"
+                    )
+                )
+            ),
+            assistant = RemoteAssistantBranches(
+                activeByUserVariant = mapOf("0" to 0),
+                variantsByUserVariant = mapOf(
+                    "0" to listOf(
+                        RemoteVariant(
+                            id = "rikka-assistant",
+                            content = "RikkaHub 旧回复",
+                            createdAt = "2026-08-01T00:00:10Z",
+                            modelId = "old-model",
+                            messageSource = "rikkahub"
+                        )
+                    )
+                )
+            )
+        )
+        val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = listOf(archived)), "回到海岸后的新问题")
+
+        val ui = ChatSyncMapper.toUi(appended.history)
+        val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId)
+
+        assertTrue(ui.any { it.text == "RikkaHub 旧问题" })
+        assertTrue(ui.any { it.text == "RikkaHub 旧回复" })
+        assertEquals(listOf("回到海岸后的新问题"), context.map { it.content })
+    }
+
+    @Test
+    fun appendUserDoesNotTruncateA192TurnImportedArchive() {
+        val importedTurns = (0 until 192).map { index ->
+            RemoteTurn(
+                id = "rikka-$index",
+                user = RemoteUserBranch(
+                    variants = listOf(
+                        RemoteVariant(
+                            id = "u-$index",
+                            content = "旧问题 $index",
+                            createdAt = "2026-08-01T00:00:00Z",
+                            messageSource = "rikkahub"
+                        )
+                    )
+                ),
+                assistant = RemoteAssistantBranches(
+                    activeByUserVariant = mapOf("0" to 0),
+                    variantsByUserVariant = mapOf(
+                        "0" to listOf(
+                            RemoteVariant(
+                                id = "a-$index",
+                                content = "旧回复 $index",
+                                createdAt = "2026-08-01T00:00:10Z",
+                                messageSource = "rikkahub"
+                            )
+                        )
+                    )
+                )
+            )
+        }
+
+        val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = importedTurns), "新的海岸消息")
+
+        assertEquals(193, appended.history.turns.size)
+        assertEquals("rikka-0", appended.history.turns.first().id)
+        assertEquals(appended.turnId, appended.history.turns.last().id)
+    }
+
+    @Test
     fun userFailureIsVisibleAndCanBeClearedWithoutCreatingAnotherTurn() {
         val appended = ChatSyncMapper.appendUser(RemoteHistory(), "不要重复我")
         val failed = ChatSyncMapper.markUserFailure(appended.history, appended.turnId, "network: offline")
