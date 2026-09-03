@@ -98,17 +98,11 @@ internal fun WorldbookScreen(
                         Text(if (entry.enabled) "停用" else "启用", modifier = Modifier.clickable {
                             scope.launch {
                                 runCatching { repository.saveWorldbook(entry.copy(enabled = !entry.enabled)) }
+                                    .onSuccess { onSnackbar(if (entry.enabled) "词条已停用" else "词条已启用") }
                                     .onFailure { onSnackbar(it.message ?: "世界书状态更新失败") }
                             }
                         }, color = MaterialTheme.colorScheme.primary)
                         Text("编辑", modifier = Modifier.clickable { editing = entry }, color = MaterialTheme.colorScheme.primary)
-                        Text("删除", modifier = Modifier.clickable {
-                            scope.launch {
-                                runCatching { repository.deleteWorldbook(entry.id) }
-                                    .onSuccess { onSnackbar("词条已从海岸删除") }
-                                    .onFailure { onSnackbar(it.message ?: "删除世界书词条失败") }
-                            }
-                        }, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
