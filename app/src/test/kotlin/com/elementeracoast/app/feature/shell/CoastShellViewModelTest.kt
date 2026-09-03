@@ -194,7 +194,7 @@ class CoastShellViewModelTest {
     }
 
     @Test
-    fun localVariantViewingChangesCacheOnlyAndDoesNotPersistFakeSuccess() {
+    fun variantSelectionPersistsCanonicalActiveBranch() {
         val fixture = Fixture()
         val existing = fixture.conversations.seed(RoomType.Main, "分支窗口")
         val first = ChatSyncMapper.appendUser(RemoteHistory(conversationId = existing.id), "问题")
@@ -208,7 +208,8 @@ class CoastShellViewModelTest {
         vm.handleMessageAction(MessageAction.SelectVariant(assistant.id, 0))
 
         assertEquals("版本一", vm.state.value.messages.first { it.role == MessageRole.Assistant }.text)
-        assertEquals(beforePersist, fixture.chat.persistCalls)
+        assertEquals(beforePersist + 1, fixture.chat.persistCalls)
+        assertEquals(0, fixture.chat.histories[existing.id]?.turns?.single()?.assistant?.activeByUserVariant?.get("0"))
     }
 
     private class Fixture {
