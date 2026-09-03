@@ -193,8 +193,8 @@ fun CoastThemePreset.palette(): CoastThemePalette = when (this) {
 private fun readableOn(color: Color): Color = if (color.luminance() > .52f) Color(0xFF25242A) else Color.White
 
 fun CoastThemePalette.toColorScheme(): ColorScheme {
-    val builder = if (isLight) ::lightColorScheme else ::darkColorScheme
-    return builder(
+    val base = if (isLight) lightColorScheme() else darkColorScheme()
+    return base.copy(
         primary = primary,
         onPrimary = readableOn(primary),
         primaryContainer = card,
