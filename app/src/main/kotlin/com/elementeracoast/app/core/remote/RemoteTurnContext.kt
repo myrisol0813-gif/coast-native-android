@@ -14,11 +14,14 @@ data class RemoteDeskSlip(
     @SerialName("related_memory") val relatedMemory: RemoteDeskMemory = RemoteDeskMemory(),
     val worldbook: RemoteDeskWorldbook = RemoteDeskWorldbook(),
     val dogtalk: RemoteDeskDogtalk = RemoteDeskDogtalk(),
-    val workbench: RemoteDeskWorkbench = RemoteDeskWorkbench()
+    val workbench: RemoteDeskWorkbench = RemoteDeskWorkbench(),
+    @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide()
 )
 
 @Serializable
 data class RemoteDeskCurrentMessage(
+    val label: String = "当前消息",
+    val description: String = "",
     val status: String = "未递给",
     val delivered: Boolean = false,
     val content: String = ""
@@ -26,14 +29,19 @@ data class RemoteDeskCurrentMessage(
 
 @Serializable
 data class RemoteDeskRecentContext(
-    val status: String = "0 轮",
+    val label: String = "最近上下文",
+    val description: String = "",
+    val status: String = "未递给",
+    @SerialName("status_detail") val statusDetail: String = "",
     val turns: Int = 0,
     val messages: List<RemoteChatMessage> = emptyList()
 )
 
 @Serializable
 data class RemoteDeskCustomInstructions(
-    val status: String = "未填写",
+    val label: String = "核心自定义",
+    val description: String = "",
+    val status: String = "未递给",
     val delivered: Boolean = false,
     val length: Int = 0,
     val content: String = ""
@@ -41,18 +49,24 @@ data class RemoteDeskCustomInstructions(
 
 @Serializable
 data class RemoteDeskThinkingSoil(
-    val status: String = "未填写",
+    val label: String = "思维壤",
+    val description: String = "",
+    val status: String = "未递给",
     val delivered: Boolean = false,
     val context: String = "",
     @SerialName("current_text") val currentText: String = "",
     @SerialName("hand_seeds") val handSeeds: List<String> = emptyList(),
     @SerialName("hand_seeds_count") val handSeedsCount: Int = 0,
-    @SerialName("pocket_candidates_count") val pocketCandidatesCount: Int = 0
+    @SerialName("pocket_candidates_count") val pocketCandidatesCount: Int = 0,
+    @SerialName("pocket_candidates_status") val pocketCandidatesStatus: String = "未递入"
 )
 
 @Serializable
 data class RemoteDeskMemory(
-    val status: String = "0 条",
+    val label: String = "相关记忆",
+    val description: String = "",
+    val status: String = "未命中",
+    @SerialName("confirmation_status") val confirmationStatus: String = "",
     val count: Int = 0,
     val items: List<RemoteDeskMemoryItem> = emptyList()
 )
@@ -76,6 +90,8 @@ data class RemoteDeskMemoryItem(
 
 @Serializable
 data class RemoteDeskWorldbook(
+    val label: String = "世界书",
+    val description: String = "",
     val status: String = "未命中",
     @SerialName("matched_count") val matchedCount: Int = 0,
     @SerialName("delivered_count") val deliveredCount: Int = 0,
@@ -94,6 +110,8 @@ data class RemoteDeskWorldbookItem(
 
 @Serializable
 data class RemoteDeskDogtalk(
+    val label: String = "神秘狗话",
+    val description: String = "",
     val status: String = "未递给",
     val delivered: Boolean = false,
     val context: String = ""
@@ -101,7 +119,9 @@ data class RemoteDeskDogtalk(
 
 @Serializable
 data class RemoteDeskWorkbench(
-    val status: String = "未动用",
+    val label: String = "工作台 / 工具回执",
+    val description: String = "",
+    val status: String = "未递给",
     @SerialName("prompt_delivered") val promptDelivered: Boolean = false,
     val prompt: String = "",
     val labels: Map<String, String> = emptyMap(),
@@ -111,6 +131,15 @@ data class RemoteDeskWorkbench(
     @SerialName("side_tools") val sideTools: List<RemoteDeskTool> = emptyList(),
     val furniture: List<String> = emptyList(),
     @SerialName("tool_results") val toolResults: List<RemoteDeskToolResult> = emptyList()
+)
+
+@Serializable
+data class RemoteDeskExternalTide(
+    val label: String = "外来潮汐",
+    val description: String = "",
+    val status: String = "未递给",
+    val delivered: Boolean = false,
+    val content: String = "本轮没有递入外部材料。"
 )
 
 @Serializable
