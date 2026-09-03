@@ -21,6 +21,11 @@ class WolfStore(private val persistence: LocalPersistence) {
         it.copy(appearance = it.appearance.copy(theme = theme))
     }
 
+    fun cycleTheme() {
+        val current = _state.value.appearance.theme
+        setTheme(CoastThemePreset.entries[(current.ordinal + 1) % CoastThemePreset.entries.size])
+    }
+
     fun setUserBubble(hex: String) = update {
         it.copy(appearance = it.appearance.copy(userBubbleHex = sanitizeHex(hex)))
     }
