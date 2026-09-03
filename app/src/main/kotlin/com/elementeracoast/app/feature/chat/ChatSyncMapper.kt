@@ -17,6 +17,8 @@ import java.time.Instant
 import java.util.UUID
 
 object ChatSyncMapper {
+    private const val MAX_TURNS = 400
+
     data class AppendedUser(val history: RemoteHistory, val turnId: String)
 
     fun appendUser(history: RemoteHistory, text: String): AppendedUser {
@@ -37,7 +39,7 @@ object ChatSyncMapper {
             )
         )
         return AppendedUser(
-            history.copy(version = 4, updatedAt = now, turns = (history.turns + turn).takeLast(100)),
+            history.copy(version = 4, updatedAt = now, turns = (history.turns + turn).takeLast(MAX_TURNS)),
             turnId
         )
     }
@@ -106,14 +108,18 @@ object ChatSyncMapper {
         for (turn in history.turns) {
             val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
             val user = turn.user.variants.getOrNull(userIndex)
-            if (user != null && user.content.isNotBlank() && !user.hidden) add(RemoteChatMessage("user", user.content))
+            if (user != null && user.content.isNotBlank() && !user.hidden && user.messageSource != "rikkahub") {
+                add(RemoteChatMessage("user", user.content))
+            }
             if (turn.id == targetTurnId) break
             val key = userIndex.toString()
             val assistants = turn.assistant.variantsByUserVariant[key].orEmpty()
             val assistantIndex = (turn.assistant.activeByUserVariant[key] ?: 0)
                 .coerceIn(0, (assistants.size - 1).coerceAtLeast(0))
             val assistant = assistants.getOrNull(assistantIndex)
-            if (assistant != null && assistant.content.isNotBlank()) add(RemoteChatMessage("assistant", assistant.content))
+            if (assistant != null && assistant.content.isNotBlank() && assistant.messageSource != "rikkahub") {
+                add(RemoteChatMessage("assistant", assistant.content))
+            }
         }
     }
 

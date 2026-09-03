@@ -3,7 +3,9 @@ package com.elementeracoast.app.core.model
 data class ConversationSummary(
     val id: String,
     val title: String,
-    val roomType: RoomType
+    val roomType: RoomType,
+    val source: String = "coast",
+    val sourceWindowId: String? = null
 )
 
 fun filterConversations(

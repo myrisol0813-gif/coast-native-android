@@ -59,6 +59,8 @@ class DefaultConversationRepository(
     private fun toSummary(value: RemoteConversation): ConversationSummary = ConversationSummary(
         id = value.id,
         title = value.title,
-        roomType = RoomType.fromWire(value.roomType)
+        roomType = RoomType.fromWire(value.roomType),
+        source = value.source,
+        sourceWindowId = value.sourceWindowId
     )
 }
