@@ -27,6 +27,7 @@ import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
+import com.elementeracoast.app.ui.theme.CoastThemePreset
 import kotlinx.coroutines.launch
 
 @Composable
@@ -40,7 +41,7 @@ fun MainShell(
     onNewConversation: () -> Unit,
     onRenameConversation: (String, String) -> Unit,
     onDeleteConversation: (String) -> Unit,
-    onCycleTheme: () -> Unit,
+    onSelectTheme: (CoastThemePreset) -> Unit,
     onOpenFeature: (FeatureDestination) -> Unit,
     onBackToChat: () -> Unit,
     onRefresh: () -> Unit,
@@ -62,6 +63,7 @@ fun MainShell(
     val snackbar = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var openPendingMemoryOnLanding by remember { mutableStateOf(false) }
+    var showThemeWardrobe by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.snackbarMessage) {
         val message = state.snackbarMessage ?: return@LaunchedEffect
@@ -86,7 +88,7 @@ fun MainShell(
                 onRenameConversation = onRenameConversation,
                 onDeleteConversation = onDeleteConversation,
                 onOpenFeature = { destination -> closeDrawerThen { onOpenFeature(destination) } },
-                onCycleTheme = onCycleTheme
+                onCycleTheme = { closeDrawerThen { showThemeWardrobe = true } }
             )
         }
     ) {
@@ -152,5 +154,12 @@ fun MainShell(
 
     if (state.showModelPicker && state.activeFeature == null) {
         ModelQuickPicker(state.models, state.currentModel, onSelectModel, onDismissModels)
+    }
+    if (showThemeWardrobe) {
+        ThemeWardrobeSheet(
+            current = state.theme,
+            onSelect = onSelectTheme,
+            onDismiss = { showThemeWardrobe = false }
+        )
     }
 }
