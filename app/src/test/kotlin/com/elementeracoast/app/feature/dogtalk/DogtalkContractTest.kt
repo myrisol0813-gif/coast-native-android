@@ -8,13 +8,13 @@ import org.junit.Test
 
 class DogtalkContractTest {
     @Test
-    fun dogtalkUiStateHasExactlyFourContractFields() {
+    fun dogtalkUiStateKeepsFourEditableContractFieldsPlusRemoteId() {
         val instanceFields = DogtalkUiState::class.java.declaredFields
             .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
             .map { it.name }
             .toSet()
 
-        assertEquals(setOf("body", "trueCore", "weather", "readMode"), instanceFields)
+        assertEquals(setOf("id", "body", "trueCore", "weather", "readMode"), instanceFields)
         assertEquals(listOf("body", "true_core", "weather", "read_mode"), DogtalkContractFields)
     }
 
@@ -29,6 +29,10 @@ class DogtalkContractTest {
             DogtalkReadMode.entries.map { it.label }
         )
         assertEquals(
+            listOf("keep_private", "when_confused", "read_now"),
+            DogtalkReadMode.entries.map { it.wireValue }
+        )
+        assertEquals(
             listOf(DogtalkReadMode.KeepPrivate, DogtalkReadMode.WhenConfused, DogtalkReadMode.ReadNow),
             DogtalkReadMode.entries
         )
@@ -39,6 +43,7 @@ class DogtalkContractTest {
         assertEquals(DogtalkScope.Main, DogtalkScope.from(RoomType.Main))
         assertEquals(DogtalkScope.Radio, DogtalkScope.from(RoomType.Radio))
         assertEquals(DogtalkScope.Lighthouse, DogtalkScope.from(RoomType.Lighthouse))
+        assertEquals(listOf("conversation", "radio", "lighthouse"), DogtalkScope.entries.map { it.wireValue })
         assertEquals(3, DogtalkScope.entries.size)
     }
 
@@ -46,5 +51,6 @@ class DogtalkContractTest {
     fun privateAndDormantSemanticsStayOutOfCurrentModelSubmission() {
         assertTrue(DogtalkReadMode.KeepPrivate.futureSemantics.contains("不给模型看"))
         assertTrue(DogtalkReadMode.WhenConfused.futureSemantics.contains("不会提交给模型"))
+        assertTrue(DogtalkReadMode.ReadNow.futureSemantics.contains("下一次发送一次"))
     }
 }
