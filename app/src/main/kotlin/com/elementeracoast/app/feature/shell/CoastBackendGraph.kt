@@ -39,9 +39,10 @@ data class CoastBackendGraph(
             val api = CoastApiClient(config, http)
             val cache = RemoteCacheStore(persistence)
             val memoryRemote = MemoryRemoteDataSource(config, http)
+            val titleRemote = ConversationTitleRemoteDataSource(config, http)
             return CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
-                conversations = DefaultConversationRepository(api, cache),
+                conversations = DefaultConversationRepository(api, cache, titleRemote),
                 profile = DefaultProfileRepository(api, cache),
                 chat = DefaultChatRepository(api, cache),
                 thoughtSoil = DefaultThoughtSoilRepository(api),
