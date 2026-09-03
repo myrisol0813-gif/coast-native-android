@@ -26,7 +26,12 @@ import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyProfileImageField
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DailySnapshot
+import com.elementeracoast.app.feature.memory.CustomInstructions
+import com.elementeracoast.app.feature.memory.MemoryEntry
+import com.elementeracoast.app.feature.memory.MemoryRepository
+import com.elementeracoast.app.feature.memory.MemorySnapshot
 import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
+import com.elementeracoast.app.feature.memory.WorldbookEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -195,6 +200,7 @@ class CoastShellViewModelTest {
         val chat = FakeChatRepository()
         val thoughtSoil = FakeThoughtSoilRepository()
         val daily = FakeDailyRepository()
+        val memory = FakeMemoryRepository()
         val persistence = MemoryLocalPersistence()
 
         fun vm(): CoastShellViewModel = CoastShellViewModel(
@@ -205,7 +211,8 @@ class CoastShellViewModelTest {
                 profile = profile,
                 chat = chat,
                 thoughtSoil = thoughtSoil,
-                daily = daily
+                daily = daily,
+                memory = memory
             ),
             workDispatcher = Dispatchers.Unconfined
         )
@@ -296,6 +303,26 @@ class CoastShellViewModelTest {
         override suspend fun updateProfile(field: DailyProfileImageField, dataUrl: String): DailyProfile = unsupported()
 
         private fun <T> unsupported(): T = throw UnsupportedOperationException("Daily mutation is not used by shell tests")
+    }
+
+    private class FakeMemoryRepository : MemoryRepository {
+        private val state = MutableStateFlow(MemorySnapshot())
+        override val snapshot: StateFlow<MemorySnapshot> = state
+        override fun cachedSnapshot(): MemorySnapshot = state.value
+        override suspend fun refresh(conversationId: String) = Unit
+        override suspend fun refreshEntries() = Unit
+        override suspend fun refreshPockets(conversationId: String) = Unit
+        override suspend fun refreshWorldbook() = Unit
+        override suspend fun refreshInstructions() = Unit
+        override suspend fun saveEntry(entry: MemoryEntry): MemoryEntry = unsupported()
+        override suspend fun deleteEntry(id: String) = unsupported<Unit>()
+        override suspend fun resolvePocket(id: String, action: String, tag: String?) = unsupported<Unit>()
+        override suspend fun saveWorldbook(entry: WorldbookEntry): WorldbookEntry = unsupported()
+        override suspend fun deleteWorldbook(id: String) = unsupported<Unit>()
+        override suspend fun testWorldbook(input: String): List<WorldbookEntry> = unsupported()
+        override suspend fun saveInstructions(content: String): CustomInstructions = unsupported()
+
+        private fun <T> unsupported(): T = throw UnsupportedOperationException("Memory mutation is not used by shell tests")
     }
 
     private class FakeThoughtSoilRepository : ThoughtSoilRepository {
