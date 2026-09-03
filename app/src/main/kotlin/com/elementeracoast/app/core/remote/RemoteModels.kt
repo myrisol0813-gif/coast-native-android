@@ -112,6 +112,7 @@ data class RemoteVariant(
     @SerialName("model_id") val modelId: String? = null,
     @SerialName("finish_reason") val finishReason: String? = null,
     @SerialName("generation_source") val generationSource: String? = null,
+    @SerialName("message_source") val messageSource: String? = null,
     @SerialName("display_author") val displayAuthor: String? = null,
     @SerialName("errorDetail") val errorDetail: String? = null,
     @SerialName("furniture_runs") val furnitureRuns: List<RemoteFurnitureRun> = emptyList(),
