@@ -60,3 +60,12 @@ data class MemorySnapshot(
     val worldbook: List<WorldbookEntry> = emptyList(),
     val customInstructions: CustomInstructions = CustomInstructions()
 )
+
+internal val canonicalMemoryTags = listOf(
+    "关系",
+    "历史锚点",
+    "偏好",
+    "人物档案",
+    "海岸世界观",
+    "工程技术"
+)
