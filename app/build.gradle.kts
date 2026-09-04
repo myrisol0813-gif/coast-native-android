@@ -19,8 +19,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 31
-        versionName = "0.1.29-snow-letter-02e"
+        versionCode = 33
+        versionName = "0.1.31-snow-letter-clean"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
