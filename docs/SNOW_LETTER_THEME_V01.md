@@ -1,4 +1,4 @@
-# Snow Letter / 雪地来信 v0.2d global paper pass
+# Snow Letter / 雪地来信 v0.2e sticker infrastructure
 
 Scope: APK / Native visual clothing only.
 
@@ -10,7 +10,7 @@ This pass does not change backend wiring, navigation structure, message actions,
 - Keeps the Snow Letter direction as a template-skin system rather than a dead full-screen screenshot.
 - Treats the selected mockups as layout and skin references.
 - Draws the Snow Letter page frame as a real Compose template: torn paper edge and a light paperclip mark.
-- Draws message bubbles, composer field, action buttons, turn-desk strips, and dogtalk surfaces as Snow Letter paper UI shells while preserving their original behavior.
+- Draws message bubbles, composer field, action buttons, turn-desk strips, dogtalk surfaces, and selected feature entry cards as Snow Letter paper UI shells while preserving their original behavior.
 - Keeps feature pages inside a shared Snow Letter page sheet through `SnowLetterFeatureScaffold`.
 
 ## v0.2b clean-paper correction
@@ -50,6 +50,19 @@ This pass starts applying the same Snow Letter surface language to feature entry
 - Applied `SnowLetterSurface` to Wolf Den home rows while preserving profile, appearance, records, model box, settings, diagnostics, and update click behavior.
 - Did not modify repositories, API clients, persistence, backend wiring, routing, or data models.
 
+## v0.2e sticker infrastructure
+
+This pass adds the thin decoration layer needed before real sticker assets are introduced.
+
+- Added `SnowLetterStickerAnchor` in the theme layer.
+- Added four semantic sticker slots: message top-right, composer top-right, empty-state bottom-right, and feature-corner top-right.
+- Centralized sticker size, offset, opacity multiplier, and z-order in the theme layer instead of hard-coding them inside feature screens.
+- Sticker opacity follows the existing Snow Letter decoration-opacity wardrobe slider; no new settings path is added.
+- Decorative sticker anchors clear semantics and do not add click behavior by themselves.
+- No real sticker image assets are attached in this pass, so device visuals should remain unchanged from the approved v0.2d paper baseline.
+
+Future feature screens should request a semantic sticker slot instead of locally inventing `offset`, `size`, or opacity values. Actual wolf, snake, pen, envelope, or paw assets belong in the dedicated sticker asset pass.
+
 ## Asset cleanup policy
 
 The previous real-asset pass proved that image resources can enter the APK, but also showed that several exported mockup fragments were the wrong layer for production UI because they became blurry or over-stretched when used as generic surfaces.
@@ -60,10 +73,10 @@ Wrong-direction large assets should not be kept as unused backups. Keep only ass
 
 - Real UI remains Compose UI.
 - The Snow Letter theme replaces visual shells, not behavior.
-- Feature files should not contain hard-coded Snow Letter decoration logic beyond choosing the shared theme wrapper/surface role.
-- No images were generated for this correction pass.
+- Feature files should not contain hard-coded Snow Letter decoration logic beyond choosing shared theme wrappers, surface roles, or semantic sticker slots.
+- No images were generated for this infrastructure pass.
 - No backend, API, persistence, navigation, or room routing logic is changed.
 
 ## Next visual pass
 
-After the global paper pass builds and runs on device, continue with per-screen detail cards that still use plain local styling. Then reintroduce only approved clean stickers, such as a small animal peeking over a message or a selected background image, through a dedicated asset pass.
+After the sticker infrastructure branch builds cleanly, import only approved clean sticker assets and attach them sparingly through `SnowLetterStickerAnchor`. Start with a few deliberate placements instead of filling every page.
