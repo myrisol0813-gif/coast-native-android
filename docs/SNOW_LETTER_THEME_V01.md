@@ -63,6 +63,16 @@ This pass adds the thin decoration layer needed before real sticker assets are i
 
 Future feature screens should request a semantic sticker slot instead of locally inventing `offset`, `size`, or opacity values. Actual wolf, snake, pen, envelope, or paw assets belong in the dedicated sticker asset pass.
 
+## Native export version discipline
+
+Every APK that is intentionally exported for device testing or handoff must first move the Native app version forward.
+
+- Increment `versionCode` for each new distributable APK.
+- Update `versionName` so the artifact name describes the current Native milestone instead of reusing an older feature name.
+- Check the version before downloading or handing off a workflow artifact.
+- Do not export a newer visual pass under an older APK version label.
+- Current Snow Letter v0.2e export target: `versionCode = 31`, `versionName = 0.1.29-snow-letter-02e`.
+
 ## Asset cleanup policy
 
 The previous real-asset pass proved that image resources can enter the APK, but also showed that several exported mockup fragments were the wrong layer for production UI because they became blurry or over-stretched when used as generic surfaces.
