@@ -30,10 +30,6 @@ import com.elementeracoast.app.BuildConfig
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
-import com.elementeracoast.app.ui.theme.SnowLetterSticker
-import com.elementeracoast.app.ui.theme.SnowLetterStickerAnchor
-import com.elementeracoast.app.ui.theme.SnowLetterStickerAsset
-import com.elementeracoast.app.ui.theme.SnowLetterStickerSlot
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
@@ -97,36 +93,29 @@ private fun WolfHome(
     onOpen: (WolfDestination) -> Unit,
     onUpdate: () -> Unit
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 26.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                Text("小寒侧", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
-                Spacer(Modifier.height(6.dp))
-            }
-            items(WolfDestination.entries) { destination ->
-                val subtitle = when (destination) {
-                    WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
-                    WolfDestination.Appearance -> "${state.appearance.theme.label} · 用户气泡 · 重点色"
-                    WolfDestination.ModelBox -> "当前：${model.substringAfterLast('/').take(32)}"
-                    else -> destination.subtitle
-                }
-                WolfRow(destination.title, subtitle) { onOpen(destination) }
-            }
-            item {
-                WolfRow(
-                    title = "版本与更新",
-                    subtitle = "当前版本：${BuildConfig.VERSION_NAME}",
-                    onClick = onUpdate
-                )
-            }
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = 26.dp, vertical = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text("小寒侧", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(6.dp))
         }
-
-        SnowLetterStickerAnchor(slot = SnowLetterStickerSlot.FeatureCornerTopRight) {
-            SnowLetterSticker(asset = SnowLetterStickerAsset.WolfMark)
+        items(WolfDestination.entries) { destination ->
+            val subtitle = when (destination) {
+                WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
+                WolfDestination.Appearance -> "${state.appearance.theme.label} · 用户气泡 · 重点色"
+                WolfDestination.ModelBox -> "当前：${model.substringAfterLast('/').take(32)}"
+                else -> destination.subtitle
+            }
+            WolfRow(destination.title, subtitle) { onOpen(destination) }
+        }
+        item {
+            WolfRow(
+                title = "版本与更新",
+                subtitle = "当前版本：${BuildConfig.VERSION_NAME}",
+                onClick = onUpdate
+            )
         }
     }
 }
