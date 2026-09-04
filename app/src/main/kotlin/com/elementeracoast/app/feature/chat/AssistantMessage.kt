@@ -53,7 +53,6 @@ internal fun AssistantMessage(
         Spacer(Modifier.width(CoastChatTokens.AssistantAvatarGap))
         Column(modifier = Modifier.weight(1f)) {
             SnowLetterSurface(
-                modifier = Modifier.fillMaxWidth(),
                 role = SnowLetterSurfaceRole.AssistantBubble,
                 fallbackColor = Color.Transparent,
                 fallbackShape = RoundedCornerShape(20.dp)
@@ -65,7 +64,6 @@ internal fun AssistantMessage(
                             isStreamingTail -> message.text + " ▍"
                             else -> message.text
                         },
-                        modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = CoastChatTokens.ChatBodySize,
