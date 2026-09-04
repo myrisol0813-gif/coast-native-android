@@ -69,6 +69,18 @@ object ChatSyncMapper {
         return history.copy(updatedAt = Instant.now().toString(), turns = turns)
     }
 
+    /** Stable for one pending generation; changes when the branch already contains another assistant variant. */
+    fun nextAssistantVariantId(history: RemoteHistory, turnId: String): String {
+        val turn = history.turns.firstOrNull { it.id == turnId }
+        val userIndex = turn?.user?.active?.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0)) ?: 0
+        val existingCount = turn?.assistant?.variantsByUserVariant?.get(userIndex.toString()).orEmpty().size
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest("$turnId:$userIndex:$existingCount".toByteArray())
+            .take(12)
+            .joinToString("") { "%02x".format(it) }
+        return "assistant_variant_native_$digest"
+    }
+
     fun appendAssistant(
         history: RemoteHistory,
         turnId: String,
@@ -77,14 +89,15 @@ object ChatSyncMapper {
         finishReason: String,
         errorDetail: String = "",
         furnitureRuns: List<RemoteFurnitureRun> = emptyList(),
-        deskSlip: RemoteDeskSlip? = null
+        deskSlip: RemoteDeskSlip? = null,
+        assistantVariantId: String = nextAssistantVariantId(history, turnId)
     ): RemoteHistory {
         val turns = history.turns.map { turn ->
             if (turn.id != turnId) return@map turn
             val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
             val key = userIndex.toString()
             val list = turn.assistant.variantsByUserVariant[key].orEmpty() + RemoteVariant(
-                id = "assistant_variant_${UUID.randomUUID()}",
+                id = assistantVariantId,
                 content = content,
                 createdAt = Instant.now().toString(),
                 modelId = modelId,
@@ -108,6 +121,7 @@ object ChatSyncMapper {
      * Build the current conversation's recent provider context through the target user turn.
      * RikkaHub archive messages are allowed here because they belong to this conversation,
      * but the result is bounded to the same recent-window budget used by Coast chat.
+     * Model metadata is deliberately absent: context is role/content only.
      */
     fun contextMessages(history: RemoteHistory, targetTurnId: String): List<RemoteChatMessage> {
         val messages = buildList {
@@ -146,6 +160,7 @@ object ChatSyncMapper {
                         role = MessageRole.User,
                         text = user.content,
                         turnId = turn.id,
+                        remoteVariantId = user.id,
                         errorDetail = user.errorDetail,
                         variantIndex = userIndex,
                         variantCount = userVariants.size.coerceAtLeast(1),
@@ -166,6 +181,7 @@ object ChatSyncMapper {
                         role = MessageRole.Assistant,
                         text = assistant.content,
                         turnId = turn.id,
+                        remoteVariantId = assistant.id,
                         modelId = assistant.modelId,
                         generationSource = assistant.generationSource,
                         liked = assistant.liked,
