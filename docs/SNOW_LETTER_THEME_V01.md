@@ -1,4 +1,4 @@
-# Snow Letter / 雪地来信 v0.2c clean paper skin
+# Snow Letter / 雪地来信 v0.2d global paper pass
 
 Scope: APK / Native visual clothing only.
 
@@ -40,6 +40,16 @@ This correction keeps the successful torn-paper UI direction but cleans the rema
 - Made Snow Letter status, dogtalk, field, and composer surfaces use more solid paper fills instead of translucent fills that could reveal inner rectangular bands.
 - Unified status-card, dogtalk-card, dogtalk-field, and composer-field paper colors/edges/shadows from the theme surface layer instead of patching individual business screens.
 
+## v0.2d global paper pass
+
+This pass starts applying the same Snow Letter surface language to feature entry cards instead of leaving ordinary Material cards inside Snow Letter pages.
+
+- Applied `SnowLetterSurface` to Daily landing cards while preserving the existing navigation destinations and click behavior.
+- Applied `SnowLetterSurface` to Memory tabs, retrieval card, retrieval search field, and pending-pocket card while preserving tab selection, filtering, menus, and query editing.
+- Applied `SnowLetterSurface` to the Serpent Desk home tool card while preserving the existing action-log navigation.
+- Applied `SnowLetterSurface` to Wolf Den home rows while preserving profile, appearance, records, model box, settings, diagnostics, and update click behavior.
+- Did not modify repositories, API clients, persistence, backend wiring, routing, or data models.
+
 ## Asset cleanup policy
 
 The previous real-asset pass proved that image resources can enter the APK, but also showed that several exported mockup fragments were the wrong layer for production UI because they became blurry or over-stretched when used as generic surfaces.
@@ -56,4 +66,4 @@ Wrong-direction large assets should not be kept as unused backups. Keep only ass
 
 ## Next visual pass
 
-After the clean-paper branch builds and runs on device, tune per-component sizing and attach the same torn-paper skin to individual feature-list cards where those screens still use their own plain Card components. Then reintroduce only approved clean stickers, such as a small animal peeking over a message or a selected background image, through a dedicated asset pass.
+After the global paper pass builds and runs on device, continue with per-screen detail cards that still use plain local styling. Then reintroduce only approved clean stickers, such as a small animal peeking over a message or a selected background image, through a dedicated asset pass.
