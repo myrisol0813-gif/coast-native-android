@@ -31,12 +31,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.feature.shell.FeaturePageTopBar
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 import kotlinx.coroutines.launch
 
 internal data class DailyLandingItem(val title: String, val subtitle: String)
@@ -151,17 +152,28 @@ private fun DailyHome(onOpen: (DailyPage) -> Unit, onFutureWidgets: () -> Unit) 
 @Composable
 private fun DailyHomeCard(item: DailyLandingItem, icon: ImageVector, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
-    Row(
-        modifier = Modifier.fillMaxWidth().shadow(2.dp, shape, clip = false).background(MaterialTheme.colorScheme.surfaceVariant, shape).clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 22.dp),
-        verticalAlignment = Alignment.CenterVertically
+    SnowLetterSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = shape
     ) {
-        Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
-        }
-        Spacer(Modifier.size(16.dp))
-        Column {
-            Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(item.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+            }
+            Spacer(Modifier.size(16.dp))
+            Column {
+                Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(item.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
