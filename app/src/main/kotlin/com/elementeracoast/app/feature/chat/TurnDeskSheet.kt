@@ -14,7 +14,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +28,7 @@ import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.model.TurnDeskSection
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import com.elementeracoast.app.ui.theme.snowLetterSheetContainerColor
 
 @Composable
 internal fun TurnDeskStatusStrip(
@@ -72,7 +72,10 @@ internal fun TurnDeskBottomSheet(
     onDismiss: () -> Unit
 ) {
     var expanded by remember(receipt) { mutableStateOf<Set<Int>>(emptySet()) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = snowLetterSheetContainerColor()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
