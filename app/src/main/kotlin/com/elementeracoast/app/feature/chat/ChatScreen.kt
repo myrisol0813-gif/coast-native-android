@@ -3,10 +3,8 @@ package com.elementeracoast.app.feature.chat
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
@@ -29,10 +27,6 @@ import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
 import com.elementeracoast.app.ui.theme.SnowLetterChatScaffold
-import com.elementeracoast.app.ui.theme.SnowLetterSticker
-import com.elementeracoast.app.ui.theme.SnowLetterStickerAnchor
-import com.elementeracoast.app.ui.theme.SnowLetterStickerAsset
-import com.elementeracoast.app.ui.theme.SnowLetterStickerSlot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -101,20 +95,15 @@ fun ChatWindow(
                 onNotice = onPlaceholder
             )
             HorizontalDivider(color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
-            Box(modifier = Modifier.fillMaxWidth()) {
-                CoastComposer(
-                    value = input,
-                    onValueChange = { input = it },
-                    isStreaming = state.isStreaming,
-                    enabled = !state.historyLoading,
-                    onSend = { val outgoing = input; input = ""; onSend(outgoing) },
-                    onStop = onStop,
-                    onPlaceholder = onPlaceholder
-                )
-                SnowLetterStickerAnchor(slot = SnowLetterStickerSlot.ComposerTopRight) {
-                    SnowLetterSticker(asset = SnowLetterStickerAsset.PaperPencil)
-                }
-            }
+            CoastComposer(
+                value = input,
+                onValueChange = { input = it },
+                isStreaming = state.isStreaming,
+                enabled = !state.historyLoading,
+                onSend = { val outgoing = input; input = ""; onSend(outgoing) },
+                onStop = onStop,
+                onPlaceholder = onPlaceholder
+            )
         }
     }
 
