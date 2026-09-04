@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,8 +76,8 @@ fun snowLetterInnerPadding(role: SnowLetterSurfaceRole): PaddingValues =
         PaddingValues(0.dp)
     } else {
         when (role) {
-            SnowLetterSurfaceRole.AssistantBubble -> PaddingValues(horizontal = 20.dp, vertical = 18.dp)
-            SnowLetterSurfaceRole.UserBubble -> PaddingValues(horizontal = 14.dp, vertical = 11.dp)
+            SnowLetterSurfaceRole.AssistantBubble -> PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            SnowLetterSurfaceRole.UserBubble -> PaddingValues(horizontal = 2.dp, vertical = 1.dp)
             SnowLetterSurfaceRole.ComposerField -> PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             SnowLetterSurfaceRole.ComposerButton -> PaddingValues(0.dp)
             SnowLetterSurfaceRole.ActionButton -> PaddingValues(0.dp)
@@ -84,6 +85,14 @@ fun snowLetterInnerPadding(role: SnowLetterSurfaceRole): PaddingValues =
             SnowLetterSurfaceRole.DogtalkCard -> PaddingValues(horizontal = 4.dp, vertical = 2.dp)
             SnowLetterSurfaceRole.DogtalkField -> PaddingValues(horizontal = 4.dp, vertical = 2.dp)
         }
+    }
+
+@Composable
+fun snowLetterSheetContainerColor(): Color =
+    if (LocalCoastAppearance.current.preset.usesSnowLetterDecorations()) {
+        Color(0xFFF2F7FB)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerLow
     }
 
 private fun Modifier.optionalShadow(elevation: Dp, shape: Shape): Modifier =
