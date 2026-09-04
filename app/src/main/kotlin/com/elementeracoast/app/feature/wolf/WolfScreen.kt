@@ -1,6 +1,5 @@
 package com.elementeracoast.app.feature.wolf
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +30,8 @@ import com.elementeracoast.app.BuildConfig
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
 @Composable
 fun WolfScreen(
@@ -121,18 +122,26 @@ private fun WolfHome(
 
 @Composable
 internal fun WolfRow(title: String, subtitle: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(22.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 19.dp, vertical = 18.dp),
-        verticalAlignment = Alignment.CenterVertically
+    SnowLetterSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = RoundedCornerShape(22.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(3.dp))
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 19.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(3.dp))
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+            Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text("›", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
