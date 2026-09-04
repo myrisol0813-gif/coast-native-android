@@ -1,18 +1,29 @@
 package com.elementeracoast.app.ui.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.elementeracoast.app.R
 
 /**
  * Stable decorative anchor points for Snow Letter sticker assets.
@@ -27,6 +38,18 @@ enum class SnowLetterStickerSlot {
     FeatureCornerTopRight
 }
 
+/**
+ * Curated repository-owned assets that are safe to place through Snow Letter.
+ *
+ * Keep this list intentionally small. Real illustration PNG/WebP assets belong
+ * in Android resources and should be added here rather than referenced directly
+ * from feature screens.
+ */
+enum class SnowLetterStickerAsset {
+    PaperPencil,
+    WolfMark
+}
+
 @Immutable
 private data class SnowLetterStickerSpec(
     val alignment: Alignment,
@@ -35,6 +58,13 @@ private data class SnowLetterStickerSpec(
     val size: Dp,
     val alphaMultiplier: Float,
     val zIndex: Float
+)
+
+@Immutable
+private data class SnowLetterStickerAssetSpec(
+    val drawableRes: Int,
+    val rotationZ: Float,
+    val contentPadding: Dp
 )
 
 private fun stickerSpec(slot: SnowLetterStickerSlot): SnowLetterStickerSpec = when (slot) {
@@ -66,10 +96,60 @@ private fun stickerSpec(slot: SnowLetterStickerSlot): SnowLetterStickerSpec = wh
         alignment = Alignment.TopEnd,
         offsetX = (-12).dp,
         offsetY = 10.dp,
-        size = 62.dp,
-        alphaMultiplier = .88f,
+        size = 56.dp,
+        alphaMultiplier = .84f,
         zIndex = 1f
     )
+}
+
+private fun stickerAssetSpec(asset: SnowLetterStickerAsset): SnowLetterStickerAssetSpec = when (asset) {
+    SnowLetterStickerAsset.PaperPencil -> SnowLetterStickerAssetSpec(
+        drawableRes = R.drawable.ic_coast_new_chat,
+        rotationZ = -5f,
+        contentPadding = 8.dp
+    )
+    SnowLetterStickerAsset.WolfMark -> SnowLetterStickerAssetSpec(
+        drawableRes = R.drawable.ic_coast_wolf,
+        rotationZ = 4f,
+        contentPadding = 7.dp
+    )
+}
+
+/**
+ * Draws one repository-owned visual as a restrained paper sticker.
+ *
+ * Feature screens never reference drawable resources directly. When the final
+ * Snow Letter illustration pack is imported, only this mapping needs to change.
+ */
+@Composable
+fun SnowLetterSticker(
+    asset: SnowLetterStickerAsset,
+    modifier: Modifier = Modifier
+) {
+    val spec = stickerAssetSpec(asset)
+    val shape = RoundedCornerShape(if (asset == SnowLetterStickerAsset.PaperPencil) 12.dp else 16.dp)
+    val tint = when (asset) {
+        SnowLetterStickerAsset.PaperPencil -> MaterialTheme.colorScheme.primary.copy(alpha = .88f)
+        SnowLetterStickerAsset.WolfMark -> MaterialTheme.colorScheme.onSurface.copy(alpha = .78f)
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .graphicsLayer(rotationZ = spec.rotationZ)
+            .shadow(elevation = 1.5.dp, shape = shape, clip = false)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = .96f), shape)
+            .border(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .28f), shape)
+            .padding(spec.contentPadding),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(spec.drawableRes),
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 /**
