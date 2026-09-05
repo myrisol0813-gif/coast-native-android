@@ -149,6 +149,7 @@ data class RemoteChatRequest(
     @SerialName("local_date") val localDate: String,
     @SerialName("local_datetime") val localDateTime: String,
     val settings: Map<String, String> = emptyMap(),
+    @SerialName("cross_window") val crossWindow: RemoteCrossWindowRequest? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val stream: Boolean = true,
     @SerialName("client_info") val clientInfo: String = "native_android"
