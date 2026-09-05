@@ -5,7 +5,7 @@ import org.junit.Test
 
 class SerpentDeskSurfaceTest {
     @Test
-    fun deskExposesDevHandsBesideTheExistingActionLog() {
+    fun deskExposesDevHandsObserverBesideTheExistingActionLog() {
         val items = serpentDeskItems()
         assertEquals(2, items.size)
         assertEquals(
@@ -13,10 +13,10 @@ class SerpentDeskSurfaceTest {
             items.map { it.tool }
         )
         assertEquals(
-            listOf("海岸施工台", "小蛇行动日志"),
+            listOf("海岸开发手", "小蛇行动日志"),
             items.map { it.title }
         )
-        assertEquals("GitHub · CI / APK · Notion · 小狼窝更新", items.first().subtitle)
+        assertEquals("模型随身工具 · 自检 · 脚印 · 版本 / APK", items.first().subtitle)
         assertEquals("普通海岸工具调用 · 房间 · 脱敏摘要", items.last().subtitle)
     }
 }
