@@ -1,0 +1,92 @@
+name: Temporary cross-window Native wiring
+
+on:
+  push:
+    branches: [feature/coast-dogtalk-crosswindow-01]
+    paths: [.github/workflows/temp-crosswindow-wire-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coast-dogtalk-crosswindow-01
+      - name: Apply one-shot structural wiring
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def patch(path, replacements):
+              p = Path(path)
+              text = p.read_text()
+              for old, new in replacements:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{path}: expected one anchor, found {count}: {old[:80]!r}')
+                  text = text.replace(old, new, 1)
+              p.write_text(text)
+
+          vm = 'app/src/main/kotlin/com/elementeracoast/app/feature/shell/CoastShellViewModel.kt'
+          patch(vm, [
+              ('import com.elementeracoast.app.core.model.ConversationSummary\n', 'import com.elementeracoast.app.core.model.ConversationSummary\nimport com.elementeracoast.app.core.model.CrossWindowRequest\n'),
+              ('import com.elementeracoast.app.feature.dogtalk.DogtalkRepository\n', 'import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository\nimport com.elementeracoast.app.feature.dogtalk.CrossWindowUiState\nimport com.elementeracoast.app.feature.dogtalk.DogtalkRepository\n'),
+              ('    private val _state = MutableStateFlow(CoastShellState())\n    val state: StateFlow<CoastShellState> = _state.asStateFlow()\n', '    private val _state = MutableStateFlow(CoastShellState())\n    val state: StateFlow<CoastShellState> = _state.asStateFlow()\n    private val _crossWindow = MutableStateFlow(CrossWindowUiState())\n    val crossWindow: StateFlow<CrossWindowUiState> = _crossWindow.asStateFlow()\n'),
+              ('    val dogtalk: DogtalkRepository get() = backend.dogtalk\n', '    val dogtalk: DogtalkRepository get() = backend.dogtalk\n    val crossWindowRepository: CrossWindowRepository get() = backend.crossWindow\n'),
+              ('    fun logLocalAction(actionKey: String, label: String, summary: String) {\n        logAction(actionKey, label, summary)\n    }\n\n    fun sendMessage(text: String) {', '    fun logLocalAction(actionKey: String, label: String, summary: String) {\n        logAction(actionKey, label, summary)\n    }\n\n    fun updateCrossWindow(value: CrossWindowUiState) {\n        _crossWindow.value = value\n    }\n\n    fun sendMessage(text: String) {'),
+              ('                if (conversation.roomType == RoomType.Lighthouse) {\n                    showHistory(conversationId, persistedUser)\n                    _state.update { it.copy(snackbarMessage = "灯塔来信已写入海岸；这里按房间规则不触发模型回复") }\n                    return@launch\n                }\n                generateTurn(conversationId, persistedUser, appended.turnId, _state.value.currentModel)', '                if (conversation.roomType == RoomType.Lighthouse) {\n                    resetCrossWindow()\n                    showHistory(conversationId, persistedUser)\n                    _state.update { it.copy(snackbarMessage = "灯塔来信已写入海岸；这里按房间规则不触发模型回复") }\n                    return@launch\n                }\n                generateTurn(\n                    conversationId,\n                    persistedUser,\n                    appended.turnId,\n                    _state.value.currentModel,\n                    consumeCrossWindowRequest()\n                )'),
+              ('    private suspend fun generateTurn(\n        conversationId: String,\n        history: RemoteHistory,\n        turnId: String,\n        modelId: String\n    ) {', '    private suspend fun generateTurn(\n        conversationId: String,\n        history: RemoteHistory,\n        turnId: String,\n        modelId: String,\n        crossWindowRequest: CrossWindowRequest\n    ) {'),
+              ('                local.wolf.state.value.basic.recentTurns,\n                local.wolf.state.value.basic.contextBudget\n            ).collect { progress ->', '                local.wolf.state.value.basic.recentTurns,\n                local.wolf.state.value.basic.contextBudget,\n                crossWindowRequest\n            ).collect { progress ->'),
+              ('                generateTurn(conversationId, persisted, turnId, model)\n', '                generateTurn(conversationId, persisted, turnId, model, consumeCrossWindowRequest())\n'),
+              ('                generateTurn(conversationId, persisted, turnId, model)\n', '                generateTurn(conversationId, persisted, turnId, model, consumeCrossWindowRequest())\n'),
+              ('                generateTurn(conversationId, history, turnId, model)\n', '                generateTurn(conversationId, history, turnId, model, consumeCrossWindowRequest())\n'),
+              ('    private fun activateCachedConversation(conversation: ConversationSummary) {\n        persistence.put(KEY_CURRENT_CONVERSATION, conversation.id)\n', '    private fun activateCachedConversation(conversation: ConversationSummary) {\n        resetCrossWindow()\n        persistence.put(KEY_CURRENT_CONVERSATION, conversation.id)\n'),
+              ('    private fun openRoomLanding(roomType: RoomType) {\n        require(roomType in RoomType.entries)\n', '    private fun openRoomLanding(roomType: RoomType) {\n        require(roomType in RoomType.entries)\n        resetCrossWindow()\n'),
+              ('    private suspend fun <T> remoteOrNull(label: String, block: suspend () -> T): T? = try {', '    private fun consumeCrossWindowRequest(): CrossWindowRequest {\n        val request = _crossWindow.value.request()\n        _crossWindow.value = CrossWindowUiState()\n        return request\n    }\n\n    private fun resetCrossWindow() {\n        _crossWindow.value = CrossWindowUiState()\n    }\n\n    private suspend fun <T> remoteOrNull(label: String, block: suspend () -> T): T? = try {'),
+          ])
+
+          patch('app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatScreen.kt', [
+              ('import com.elementeracoast.app.feature.dogtalk.DogtalkCard\n', 'import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository\nimport com.elementeracoast.app.feature.dogtalk.CrossWindowUiState\nimport com.elementeracoast.app.feature.dogtalk.DogtalkCard\n'),
+              ('    state: CoastShellState,\n    dogtalk: DogtalkRepository,\n', '    state: CoastShellState,\n    dogtalk: DogtalkRepository,\n    crossWindowRepository: CrossWindowRepository,\n    crossWindow: CrossWindowUiState,\n    onCrossWindowChange: (CrossWindowUiState) -> Unit,\n'),
+              ('                repository = dogtalk,\n                historyLoading = state.historyLoading,', '                repository = dogtalk,\n                crossWindowRepository = crossWindowRepository,\n                crossWindow = crossWindow,\n                onCrossWindowChange = onCrossWindowChange,\n                historyLoading = state.historyLoading,'),
+          ])
+
+          patch('app/src/main/kotlin/com/elementeracoast/app/feature/shell/MainShell.kt', [
+              ('import com.elementeracoast.app.feature.dogtalk.DogtalkRepository\n', 'import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository\nimport com.elementeracoast.app.feature.dogtalk.CrossWindowUiState\nimport com.elementeracoast.app.feature.dogtalk.DogtalkRepository\n'),
+              ('    memory: MemoryRepository,\n    dogtalk: DogtalkRepository,\n', '    memory: MemoryRepository,\n    dogtalk: DogtalkRepository,\n    crossWindowRepository: CrossWindowRepository,\n    crossWindow: CrossWindowUiState,\n    onCrossWindowChange: (CrossWindowUiState) -> Unit,\n'),
+              ('                            state = state,\n                            dogtalk = dogtalk,\n', '                            state = state,\n                            dogtalk = dogtalk,\n                            crossWindowRepository = crossWindowRepository,\n                            crossWindow = crossWindow,\n                            onCrossWindowChange = onCrossWindowChange,\n'),
+          ])
+
+          patch('app/src/main/kotlin/com/elementeracoast/app/MainActivity.kt', [
+              ('            val state by vm.state.collectAsState()\n            val wolf by vm.local.wolf.state.collectAsState()\n', '            val state by vm.state.collectAsState()\n            val crossWindow by vm.crossWindow.collectAsState()\n            val wolf by vm.local.wolf.state.collectAsState()\n'),
+              ('                        dogtalk = vm.dogtalk,\n', '                        dogtalk = vm.dogtalk,\n                        crossWindowRepository = vm.crossWindowRepository,\n                        crossWindow = crossWindow,\n                        onCrossWindowChange = vm::updateCrossWindow,\n'),
+          ])
+
+          test = 'app/src/test/kotlin/com/elementeracoast/app/feature/shell/CoastShellViewModelTest.kt'
+          patch(test, [
+              ('import com.elementeracoast.app.core.model.MessageAction\n', 'import com.elementeracoast.app.core.model.CrossWindowLimits\nimport com.elementeracoast.app.core.model.CrossWindowMode\nimport com.elementeracoast.app.core.model.CrossWindowRequest\nimport com.elementeracoast.app.core.model.CrossWindowSource\nimport com.elementeracoast.app.core.model.CrossWindowSourceSnapshot\nimport com.elementeracoast.app.core.model.MessageAction\n'),
+              ('import com.elementeracoast.app.feature.dogtalk.DogtalkRepository\n', 'import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository\nimport com.elementeracoast.app.feature.dogtalk.CrossWindowSelectionUi\nimport com.elementeracoast.app.feature.dogtalk.CrossWindowUiState\nimport com.elementeracoast.app.feature.dogtalk.DogtalkRepository\n'),
+              ('    @Test\n    fun lighthouseFirstSendPersistsUserTurnWithoutModelGeneration() {', '    @Test\n    fun crossWindowSelectionIsForwardedOnceAndThenResets() {\n        val fixture = Fixture()\n        fixture.conversations.seed(RoomType.Main, "主聊天")\n        val vm = fixture.vm()\n        val source = CrossWindowSource(\n            conversationId = "other-window",\n            title = "旧窗口",\n            roomType = "main",\n            source = "coast",\n            sourceWindowId = null,\n            updatedAt = null,\n            messageCount = 8,\n            turnCount = 4,\n            readable = true,\n            disabledReason = ""\n        )\n        vm.updateCrossWindow(\n            CrossWindowUiState(\n                mode = CrossWindowMode.Manual,\n                sources = listOf(source),\n                selections = mapOf("other-window" to CrossWindowSelectionUi(checked = true, turns = 4)),\n                limits = CrossWindowLimits(4, 20, 40, 6000, 24000)\n            )\n        )\n\n        vm.sendMessage("请带上另一窗")\n\n        assertEquals(CrossWindowMode.Manual, fixture.chat.lastCrossWindow.mode)\n        assertEquals("other-window", fixture.chat.lastCrossWindow.sources.single().conversationId)\n        assertEquals(4, fixture.chat.lastCrossWindow.sources.single().turns)\n        assertEquals(CrossWindowMode.Off, vm.crossWindow.value.mode)\n\n        vm.sendMessage("下一轮不要偷读")\n        assertEquals(CrossWindowMode.Off, fixture.chat.lastCrossWindow.mode)\n    }\n\n    @Test\n    fun lighthouseFirstSendPersistsUserTurnWithoutModelGeneration() {'),
+              ('        val dogtalk = FakeDogtalkRepository()\n        val persistence = MemoryLocalPersistence()\n', '        val dogtalk = FakeDogtalkRepository()\n        val crossWindow = FakeCrossWindowRepository()\n        val persistence = MemoryLocalPersistence()\n'),
+              ('                memory = memory,\n                dogtalk = dogtalk\n', '                memory = memory,\n                dogtalk = dogtalk,\n                crossWindow = crossWindow\n'),
+              ('    private class FakeThoughtSoilRepository : ThoughtSoilRepository {', '    private class FakeCrossWindowRepository : CrossWindowRepository {\n        override suspend fun sources(currentConversationId: String) = CrossWindowSourceSnapshot(\n            description = "跨窗口测试",\n            limits = CrossWindowLimits(4, 20, 40, 6000, 24000),\n            sources = emptyList()\n        )\n    }\n\n    private class FakeThoughtSoilRepository : ThoughtSoilRepository {'),
+              ('        var lastContextBudget = 0\n', '        var lastContextBudget = 0\n        var lastCrossWindow = CrossWindowRequest()\n'),
+              ('            recentTurns: Int,\n            contextBudget: Int\n        ): Flow<ChatProgress> = flow {', '            recentTurns: Int,\n            contextBudget: Int,\n            crossWindow: CrossWindowRequest\n        ): Flow<ChatProgress> = flow {'),
+              ('            lastContextBudget = contextBudget\n', '            lastContextBudget = contextBudget\n            lastCrossWindow = crossWindow\n'),
+          ])
+
+          patch('app/build.gradle.kts', [
+              ('        versionCode = 40\n        versionName = "0.1.38-snow-letter-context-cap-fix"\n', '        versionCode = 41\n        versionName = "0.1.39-dogtalk-crosswindow-01"\n'),
+          ])
+          PY
+
+          git rm .github/workflows/temp-crosswindow-wire-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app
+          git commit -m "Wire Native cross-window selection through chat turns"
+          git push origin HEAD:feature/coast-dogtalk-crosswindow-01
