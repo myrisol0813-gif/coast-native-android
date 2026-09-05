@@ -14,6 +14,7 @@ data class RemoteDeskSlip(
     @SerialName("related_memory") val relatedMemory: RemoteDeskMemory = RemoteDeskMemory(),
     val worldbook: RemoteDeskWorldbook = RemoteDeskWorldbook(),
     val dogtalk: RemoteDeskDogtalk = RemoteDeskDogtalk(),
+    @SerialName("cross_window") val crossWindow: RemoteDeskCrossWindow = RemoteDeskCrossWindow(),
     val workbench: RemoteDeskWorkbench = RemoteDeskWorkbench(),
     @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide()
 )
@@ -110,11 +111,46 @@ data class RemoteDeskWorldbookItem(
 
 @Serializable
 data class RemoteDeskDogtalk(
-    val label: String = "神秘狗话",
+    val label: String = "狗话",
     val description: String = "",
     val status: String = "未递给",
     val delivered: Boolean = false,
     val context: String = ""
+)
+
+@Serializable
+data class RemoteDeskCrossWindow(
+    val label: String = "跨窗口取信",
+    val description: String = "",
+    val status: String = "未递给",
+    val mode: String = "off",
+    val delivered: Boolean = false,
+    @SerialName("window_count") val windowCount: Int = 0,
+    @SerialName("total_requested_turns") val totalRequestedTurns: Int = 0,
+    @SerialName("total_delivered_turns") val totalDeliveredTurns: Int = 0,
+    val trimmed: Boolean = false,
+    @SerialName("trim_reason") val trimReason: String = "",
+    val sources: List<RemoteDeskCrossWindowSource> = emptyList(),
+    val messages: List<RemoteDeskCrossWindowMessages> = emptyList(),
+    val error: String = ""
+)
+
+@Serializable
+data class RemoteDeskCrossWindowSource(
+    @SerialName("conversation_id") val conversationId: String = "",
+    val title: String = "",
+    @SerialName("room_type") val roomType: String = "main",
+    val source: String = "coast",
+    @SerialName("source_window_id") val sourceWindowId: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("requested_turns") val requestedTurns: Int = 0,
+    @SerialName("delivered_turns") val deliveredTurns: Int = 0
+)
+
+@Serializable
+data class RemoteDeskCrossWindowMessages(
+    @SerialName("conversation_id") val conversationId: String = "",
+    val messages: List<RemoteChatMessage> = emptyList()
 )
 
 @Serializable
