@@ -41,6 +41,18 @@ object CoastChatTokens {
     val MessageActionTopGap = 10.dp
     val StreamingGap = 5.dp
 
+    val MetadataTopGap = 8.dp
+    val MetadataRadius = 14.dp
+    val MetadataHorizontalPadding = 12.dp
+    val MetadataVerticalPadding = 10.dp
+    val MetadataSectionGap = 9.dp
+    val MetadataRowGap = 4.dp
+    val MetadataTitleSize = 12.sp
+    val MetadataBodySize = 12.sp
+    val MetadataRawMaxHeight = 280.dp
+    val MetadataDeskHorizontalPadding = 16.dp
+    val MetadataDeskVerticalPadding = 8.dp
+
     val DogtalkHorizontalPadding = 0.dp
     val DogtalkOuterVerticalPadding = 4.dp
     val DogtalkRadius = 16.dp

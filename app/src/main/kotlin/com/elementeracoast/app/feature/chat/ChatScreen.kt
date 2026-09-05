@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -43,16 +44,24 @@ fun ChatWindow(
 ) {
     var input by rememberSaveable(state.activeConversationId) { mutableStateOf("") }
     var avatarDialogOpen by rememberSaveable { mutableStateOf(false) }
-    var editingMessage by androidx.compose.runtime.remember { mutableStateOf<ChatMessage?>(null) }
+    var editingMessage by remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
     var deskOpen by rememberSaveable { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val metadataSource = remember(context.applicationContext) {
+        ModelMetadataRemoteDataSource.production(context.applicationContext)
+    }
     val avatarSource = state.myriAvatarDataUrl
     val persistedDeskReceipt = state.messages.lastOrNull()
         ?.takeIf { it.role == MessageRole.Assistant }
         ?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
+    val latestModelEchoMessageId = state.messages.lastOrNull {
+        it.role == MessageRole.Assistant &&
+            it.generationSource in setOf("chat", "landing") &&
+            !it.remoteVariantId.isNullOrBlank()
+    }?.remoteVariantId
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
         value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
@@ -67,6 +76,7 @@ fun ChatWindow(
                 isStreaming = state.isStreaming,
                 streamingMessageId = state.streamingMessageId,
                 avatarBitmap = avatarBitmap,
+                metadataSource = metadataSource,
                 onAvatarClick = { avatarDialogOpen = true },
                 onCopy = { message ->
                     clipboard.setText(AnnotatedString(message.text))
@@ -85,6 +95,13 @@ fun ChatWindow(
                 modifier = Modifier.weight(1f)
             )
 
+            latestModelEchoMessageId?.let { messageId ->
+                ModelMetadataDeskStatusStrip(
+                    conversationId = state.activeConversationId,
+                    messageId = messageId,
+                    source = metadataSource
+                )
+            }
             deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
             DogtalkCard(
                 scope = DogtalkScope.from(state.activeRoomType),

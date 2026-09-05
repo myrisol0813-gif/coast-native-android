@@ -34,6 +34,7 @@ internal fun ChatTimeline(
     isStreaming: Boolean,
     streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
+    metadataSource: ModelMetadataRemoteDataSource,
     onAvatarClick: () -> Unit,
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
@@ -98,6 +99,22 @@ internal fun ChatTimeline(
                         onAction = onAction,
                         onFootprint = onFootprint
                     )
+                    val remoteMessageId = message.remoteVariantId
+                    if (
+                        message.role == MessageRole.Assistant &&
+                        !streamingTail &&
+                        message.generationSource in setOf("chat", "landing") &&
+                        !remoteMessageId.isNullOrBlank()
+                    ) {
+                        ModelMetadataTraceCard(
+                            conversationId = conversationId,
+                            messageId = remoteMessageId,
+                            source = metadataSource,
+                            modifier = Modifier.padding(
+                                start = CoastChatTokens.AssistantAvatarSize + CoastChatTokens.AssistantAvatarGap
+                            )
+                        )
+                    }
                 }
             }
         }
