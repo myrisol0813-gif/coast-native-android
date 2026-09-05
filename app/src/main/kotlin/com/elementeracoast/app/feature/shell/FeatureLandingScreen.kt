@@ -71,6 +71,7 @@ internal fun FeatureLandingScreen(
                 store = services.islandLetter,
                 conversationId = shellState.activeConversationId,
                 modelName = shellState.currentModel,
+                recentTurns = { services.wolf.state.value.basic.recentTurns },
                 onBack = onBackToChat,
                 onRefreshCoast = onRefresh,
                 onSnackbar = onPlaceholder
