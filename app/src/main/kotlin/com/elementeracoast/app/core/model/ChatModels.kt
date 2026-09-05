@@ -24,6 +24,7 @@ data class ChatMessage(
     val role: MessageRole,
     val text: String,
     val turnId: String? = null,
+    val remoteVariantId: String? = null,
     val modelId: String? = null,
     val generationSource: String? = null,
     val liked: Boolean = false,

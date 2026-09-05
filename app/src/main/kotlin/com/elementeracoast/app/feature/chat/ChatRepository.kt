@@ -10,6 +10,7 @@ import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteHistory
+import com.elementeracoast.app.core.remote.RemoteMessageModelMetadataResponse
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -35,6 +36,17 @@ interface ChatRepository {
     fun cachedHistory(conversationId: String): RemoteHistory?
     suspend fun loadHistory(conversationId: String): RemoteHistory
     suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory
+    suspend fun modelMetadata(
+        conversationId: String,
+        messageId: String,
+        includeRaw: Boolean = false
+    ): RemoteMessageModelMetadataResponse = RemoteMessageModelMetadataResponse(
+        ok = true,
+        conversationId = conversationId,
+        messageId = messageId,
+        status = "not_returned",
+        sanitized = true
+    )
     fun streamReply(conversationId: String, historyWithUser: RemoteHistory, turnId: String, modelId: String): Flow<ChatProgress>
     fun failedHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, error: CoastApiException, partialContent: String = ""): RemoteHistory
     fun cancelledHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, partialContent: String): RemoteHistory
@@ -45,6 +57,7 @@ interface ChatRepository {
 class DefaultChatRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore,
+    private val metadataRemote: ModelMetadataRemoteDataSource? = null,
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 ) : ChatRepository {
     override fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
@@ -54,6 +67,13 @@ class DefaultChatRepository(
 
     override suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory =
         api.putHistory(conversationId, history).also { cache.putHistory(conversationId, it) }
+
+    override suspend fun modelMetadata(
+        conversationId: String,
+        messageId: String,
+        includeRaw: Boolean
+    ): RemoteMessageModelMetadataResponse = metadataRemote?.get(conversationId, messageId, includeRaw)
+        ?: super<ChatRepository>.modelMetadata(conversationId, messageId, includeRaw)
 
     override fun streamReply(
         conversationId: String,
@@ -67,9 +87,11 @@ class DefaultChatRepository(
         var furnitureRuns = emptyList<RemoteFurnitureRun>()
         var deskSlip: RemoteDeskSlip? = null
         var done = false
+        val assistantVariantId = ChatSyncMapper.nextAssistantVariantId(historyWithUser, turnId)
         val request = RemoteChatRequest(
             conversationId = conversationId,
             sourceTurnId = turnId,
+            messageId = assistantVariantId,
             model = modelId,
             messages = ChatSyncMapper.contextMessages(historyWithUser, turnId),
             localDate = LocalDate.now().toString(),
@@ -118,7 +140,8 @@ class DefaultChatRepository(
             modelId = actualModel,
             finishReason = finishReason,
             furnitureRuns = furnitureRuns,
-            deskSlip = deskSlip
+            deskSlip = deskSlip,
+            assistantVariantId = assistantVariantId
         )
         val saved = persistHistory(conversationId, completed)
         emit(ChatProgress.Completed(saved, actualModel, finishReason, deskSlip?.let(TurnDeskMapper::toUi)))
@@ -138,7 +161,8 @@ class DefaultChatRepository(
             content = partialContent,
             modelId = modelId,
             finishReason = "error",
-            errorDetail = "${error.type}: ${error.message}"
+            errorDetail = "${error.type}: ${error.message}",
+            assistantVariantId = ChatSyncMapper.nextAssistantVariantId(historyWithUser, turnId)
         )
     }
 
@@ -154,7 +178,8 @@ class DefaultChatRepository(
             turnId = turnId,
             content = partialContent,
             modelId = modelId,
-            finishReason = "cancelled"
+            finishReason = "cancelled",
+            assistantVariantId = ChatSyncMapper.nextAssistantVariantId(historyWithUser, turnId)
         )
     }
 
