@@ -91,6 +91,7 @@ class CoastShellViewModelTest {
         val fixture = Fixture()
         fixture.conversations.seed(RoomType.Main, "主聊天")
         val vm = fixture.vm()
+        vm.local.wolf.updateBasic { it.copy(recentTurns = 13) }
 
         vm.openRoomType(RoomType.Radio)
         assertEquals("", vm.state.value.activeConversationId)
@@ -106,6 +107,7 @@ class CoastShellViewModelTest {
         assertEquals("电波测试", state.messages.first().text)
         assertEquals("真实流回复", state.messages.last().text)
         assertEquals(1, fixture.chat.streamCalls)
+        assertEquals(13, fixture.chat.lastRecentTurns)
     }
 
     @Test
@@ -409,6 +411,7 @@ class CoastShellViewModelTest {
         var streamCalls = 0
         var persistCalls = 0
         var failStream = false
+        var lastRecentTurns = 0
 
         override fun cachedHistory(conversationId: String) = histories[conversationId]
 
@@ -426,9 +429,11 @@ class CoastShellViewModelTest {
             conversationId: String,
             historyWithUser: RemoteHistory,
             turnId: String,
-            modelId: String
+            modelId: String,
+            recentTurns: Int
         ): Flow<ChatProgress> = flow {
             streamCalls += 1
+            lastRecentTurns = recentTurns
             if (failStream) throw CoastApiException(
                 CoastApiErrorKind.Network,
                 "network_unreachable",
