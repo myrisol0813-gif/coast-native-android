@@ -60,7 +60,7 @@ class WolfStore(private val persistence: LocalPersistence) {
                 accentHex = sanitizeHex(persistence.get(KEY_ACCENT))
             ),
             basic = BasicSettings(
-                recentTurns = int(KEY_RECENT_TURNS, 8),
+                recentTurns = readRecentTurns(persistence),
                 contextBudget = int(KEY_CONTEXT_BUDGET, 6000),
                 outputLength = persistence.get(KEY_OUTPUT_LENGTH, "auto"),
                 maxOutputTokens = int(KEY_MAX_OUTPUT, 8000),
@@ -131,5 +131,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         private const val KEY_WORLDBOOK_ENABLED = ROOT + "worldbookEnabled"
         private const val KEY_WORLDBOOK_LIMIT = ROOT + "worldbookLimit"
         private const val KEY_MEMORY_LIMIT = ROOT + "memoryLimit"
+
+        internal fun readRecentTurns(persistence: LocalPersistence): Int =
+            (persistence.get(KEY_RECENT_TURNS, "8").toIntOrNull() ?: 8).coerceIn(1, 20)
     }
 }
