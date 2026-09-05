@@ -3,6 +3,7 @@ package com.elementeracoast.app.feature.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -302,11 +302,11 @@ internal fun ModelMetadataDeskStatusStrip(
             .padding(
                 horizontal = CoastChatTokens.MetadataDeskHorizontalPadding,
                 vertical = CoastChatTokens.MetadataDeskVerticalPadding
-            )
+            ),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             "模型回波",
-            modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold
@@ -335,16 +335,15 @@ private fun MetadataSectionTitle(title: String) {
 @Composable
 private fun MetadataRow(label: String, value: String) {
     if (value.isBlank()) return
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = CoastChatTokens.MetadataRowGap / 2f)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = CoastChatTokens.MetadataRowGap / 2f)) {
         Text(
             label,
-            modifier = Modifier.weight(.34f),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.MetadataBodySize)
         )
         Text(
             value,
-            modifier = Modifier.weight(.66f),
+            modifier = Modifier.padding(top = CoastChatTokens.MetadataRowGap / 2f),
             color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodySmall.copy(fontSize = CoastChatTokens.MetadataBodySize)
         )
