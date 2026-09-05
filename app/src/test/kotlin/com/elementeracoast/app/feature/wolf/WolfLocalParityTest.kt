@@ -36,13 +36,26 @@ class WolfLocalParityTest {
         store.setTheme(CoastThemePreset.BlushMyri)
         store.setUserBubble("#f5e8ee")
         store.setAccent("#ec4899")
-        store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
+        store.updateBasic { it.copy(recentTurns = 13, memoryLimit = 5, outputLength = "long") }
         val reloaded = WolfStore(persistence).state.value
         assertEquals("Kryo", reloaded.profile.nickname)
         assertEquals(CoastThemePreset.BlushMyri, reloaded.appearance.theme)
         assertEquals("#f5e8ee", reloaded.appearance.userBubbleHex)
+        assertEquals(13, reloaded.basic.recentTurns)
+        assertEquals(13, WolfStore.readRecentTurns(persistence))
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
+    }
+
+    @Test fun recentTurnsReaderUsesDefaultAndClampsPersistedValues() {
+        val persistence = MemoryLocalPersistence()
+        assertEquals(8, WolfStore.readRecentTurns(persistence))
+        persistence.put("wolf.recentTurns", "0")
+        assertEquals(1, WolfStore.readRecentTurns(persistence))
+        persistence.put("wolf.recentTurns", "99")
+        assertEquals(20, WolfStore.readRecentTurns(persistence))
+        persistence.put("wolf.recentTurns", "abc")
+        assertEquals(8, WolfStore.readRecentTurns(persistence))
     }
 
     @Test fun legacyThreeModeThemeReadsIntoPresetWardrobeOnce() {
