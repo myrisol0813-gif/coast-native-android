@@ -14,6 +14,8 @@ import com.elementeracoast.app.feature.chat.DefaultChatRepository
 import com.elementeracoast.app.feature.chat.ModelMetadataRemoteDataSource
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DefaultDailyRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
+import com.elementeracoast.app.feature.dogtalk.DefaultCrossWindowRepository
 import com.elementeracoast.app.feature.dogtalk.DefaultDogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.DefaultMemoryRepository
@@ -30,7 +32,8 @@ data class CoastBackendGraph(
     val thoughtSoil: ThoughtSoilRepository,
     val daily: DailyRepository,
     val memory: MemoryRepository,
-    val dogtalk: DogtalkRepository
+    val dogtalk: DogtalkRepository,
+    val crossWindow: CrossWindowRepository
 ) {
     companion object {
         fun production(context: Context, persistence: LocalPersistence): CoastBackendGraph {
@@ -50,7 +53,8 @@ data class CoastBackendGraph(
                 thoughtSoil = DefaultThoughtSoilRepository(api),
                 daily = DefaultDailyRepository(api, cache),
                 memory = DefaultMemoryRepository(memoryRemote, cache),
-                dogtalk = DefaultDogtalkRepository(config, http)
+                dogtalk = DefaultDogtalkRepository(config, http),
+                crossWindow = DefaultCrossWindowRepository(config, http)
             )
         }
     }
