@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -24,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
 
 @Composable
 internal fun AssistantMessage(
@@ -46,23 +52,30 @@ internal fun AssistantMessage(
         AssistantAvatar(avatarBitmap, onAvatarClick)
         Spacer(Modifier.width(CoastChatTokens.AssistantAvatarGap))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = when {
-                    message.text.isEmpty() && isStreamingTail -> "•••"
-                    isStreamingTail -> message.text + " ▍"
-                    else -> message.text
-                },
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = CoastChatTokens.ChatBodySize,
-                    lineHeight = CoastChatTokens.ChatBodyLineHeight,
-                    fontWeight = FontWeight.Normal
-                )
-            )
-            message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
-                Spacer(Modifier.height(5.dp))
-                Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            SnowLetterSurface(
+                role = SnowLetterSurfaceRole.AssistantBubble,
+                fallbackColor = Color.Transparent,
+                fallbackShape = RoundedCornerShape(20.dp)
+            ) {
+                Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
+                    Text(
+                        text = when {
+                            message.text.isEmpty() && isStreamingTail -> "•••"
+                            isStreamingTail -> message.text + " ▍"
+                            else -> message.text
+                        },
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = CoastChatTokens.ChatBodySize,
+                            lineHeight = CoastChatTokens.ChatBodyLineHeight,
+                            fontWeight = FontWeight.Normal
+                        )
+                    )
+                    message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
+                        Spacer(Modifier.height(5.dp))
+                        Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow {

@@ -18,7 +18,8 @@ data class RemoteProfile(
     @SerialName("assistant_avatar_dataurl") val assistantAvatarDataUrl: String = "",
     @SerialName("current_chat_model") val currentChatModel: String = "",
     @SerialName("current_image_model") val currentImageModel: String = "",
-    @SerialName("model_box") val modelBox: RemoteModelBox = RemoteModelBox()
+    @SerialName("model_box") val modelBox: RemoteModelBox = RemoteModelBox(),
+    @SerialName("recent_turns") val recentTurns: Int = 8
 )
 
 @Serializable
@@ -39,6 +40,7 @@ data class RemoteDailyProfile(
     @SerialName("xiaohan_avatar_dataurl") val xiaohanAvatarDataUrl: String = "",
     @SerialName("myri_avatar_dataurl") val myriAvatarDataUrl: String = "",
     @SerialName("moment_cover_dataurl") val momentCoverDataUrl: String = "",
+    @SerialName("myri_display_name") val myriDisplayName: String = "Myri",
     @SerialName("updated_at") val updatedAt: String? = null
 )
 
@@ -151,6 +153,28 @@ data class RemoteChatRequest(
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val stream: Boolean = true,
     @SerialName("client_info") val clientInfo: String = "native_android"
+)
+
+@Serializable
+data class RemoteLandingLetterRequest(
+    @SerialName("conversation_id") val conversationId: String,
+    val model: String,
+    @SerialName("letter_text") val letterText: String,
+    @SerialName("local_date") val localDate: String,
+    @SerialName("local_datetime") val localDateTime: String,
+    val settings: Map<String, String> = emptyMap(),
+    @SerialName("client_info") val clientInfo: String = "native_android"
+)
+
+@Serializable
+data class RemoteLandingLetterResponse(
+    val ok: Boolean = false,
+    val assistant: RemoteVariant? = null,
+    val conversation: RemoteConversation? = null,
+    val history: RemoteHistory? = null,
+    val model: String = "",
+    val usage: RemoteModelUsage? = null,
+    @SerialName("finish_reason") val finishReason: String? = null
 )
 
 @Serializable

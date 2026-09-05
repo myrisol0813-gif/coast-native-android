@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.elementeracoast.app.ui.theme.CoastChatTokens
 
 @Composable
 fun FeaturePageTopBar(
@@ -34,14 +35,19 @@ fun FeaturePageTopBar(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     secondaryActionLabel: String? = null,
-    onSecondaryAction: (() -> Unit)? = null
+    onSecondaryAction: (() -> Unit)? = null,
+    compact: Boolean = false
 ) {
+    val minHeight = if (compact) CoastChatTokens.TopBarHeight else 54.dp
+    val horizontalPadding = if (compact) CoastChatTokens.TopBarHorizontalPadding else 8.dp
+    val verticalPadding = if (compact) 0.dp else 4.dp
+    val backSize = if (compact) 38.dp else 40.dp
     Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         Row(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = minHeight).padding(horizontal = horizontalPadding, vertical = verticalPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+            IconButton(onClick = onBack, modifier = Modifier.size(backSize)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(4.dp))

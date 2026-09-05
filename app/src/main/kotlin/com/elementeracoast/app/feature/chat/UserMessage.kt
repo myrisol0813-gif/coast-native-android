@@ -1,6 +1,5 @@
 package com.elementeracoast.app.feature.chat
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,13 +20,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import com.elementeracoast.app.ui.theme.LocalCoastAppearance
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
 
 @Composable
 internal fun UserMessage(
@@ -43,22 +44,28 @@ internal fun UserMessage(
             Spacer(Modifier.weight(1f))
             Column(modifier = Modifier.widthIn(max = maxBubble), horizontalAlignment = Alignment.End) {
                 val bubbleShape = RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
-                Text(
-                    text = message.text,
-                    modifier = Modifier
-                        .shadow(2.dp, bubbleShape, clip = false)
-                        .background(customBubble ?: MaterialTheme.colorScheme.surfaceVariant, bubbleShape)
-                        .padding(
-                            horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
-                            vertical = CoastChatTokens.UserBubbleVerticalPadding
-                        ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = CoastChatTokens.ChatBodySize,
-                        lineHeight = CoastChatTokens.UserBodyLineHeight,
-                        fontWeight = FontWeight.Normal
+                SnowLetterSurface(
+                    role = SnowLetterSurfaceRole.UserBubble,
+                    fallbackColor = customBubble ?: MaterialTheme.colorScheme.surfaceVariant,
+                    fallbackShape = bubbleShape,
+                    fallbackElevation = 2.dp
+                ) {
+                    Text(
+                        text = message.text,
+                        modifier = Modifier
+                            .padding(snowLetterInnerPadding(SnowLetterSurfaceRole.UserBubble))
+                            .padding(
+                                horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
+                                vertical = CoastChatTokens.UserBubbleVerticalPadding
+                            ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = CoastChatTokens.ChatBodySize,
+                            lineHeight = CoastChatTokens.UserBodyLineHeight,
+                            fontWeight = FontWeight.Normal
+                        )
                     )
-                )
+                }
                 if (!message.errorDetail.isNullOrBlank()) {
                     Spacer(Modifier.height(5.dp))
                     Text(

@@ -9,6 +9,7 @@ data class RemoteDailyComment(
     val author: String = "xiaohan",
     val text: String = "",
     @SerialName("model_id") val modelId: String? = null,
+    val usage: RemoteModelUsage? = null,
     @SerialName("created_at") val createdAt: String = ""
 )
 
@@ -125,7 +126,8 @@ data class RemoteDailyDiaryPatchRequest(
 data class RemoteDailyProfilePatch(
     @SerialName("xiaohan_avatar_dataurl") val xiaohanAvatarDataUrl: String? = null,
     @SerialName("myri_avatar_dataurl") val myriAvatarDataUrl: String? = null,
-    @SerialName("moment_cover_dataurl") val momentCoverDataUrl: String? = null
+    @SerialName("moment_cover_dataurl") val momentCoverDataUrl: String? = null,
+    @SerialName("myri_display_name") val myriDisplayName: String? = null
 )
 
 @Serializable

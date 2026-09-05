@@ -104,8 +104,10 @@ internal fun DailyField(
 internal fun DailyIdentityBar(
     profileUri: String,
     myriUri: String,
+    myriLabel: String,
     onProfileClick: () -> Unit,
-    onMyriClick: () -> Unit
+    onMyriAvatarClick: () -> Unit,
+    onMyriNameClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -115,8 +117,15 @@ internal fun DailyIdentityBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        DailyIdentityChip("小寒", profileUri, "寒", Modifier.weight(1f), onProfileClick)
-        DailyIdentityChip("Myri", myriUri, "M", Modifier.weight(1f), onMyriClick)
+        DailyIdentityChip("小寒", profileUri, "寒", Modifier.weight(1f), onProfileClick, onProfileClick)
+        DailyIdentityChip(
+            myriLabel.ifBlank { "Myri" },
+            myriUri,
+            "M",
+            Modifier.weight(1f),
+            onMyriAvatarClick,
+            onMyriNameClick
+        )
     }
 }
 
@@ -126,15 +135,23 @@ private fun DailyIdentityChip(
     uri: String,
     fallback: String,
     modifier: Modifier,
-    onClick: () -> Unit
+    onAvatarClick: () -> Unit,
+    onLabelClick: () -> Unit
 ) {
     Row(
-        modifier = modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 5.dp),
+        modifier = modifier.clip(RoundedCornerShape(14.dp)).padding(horizontal = 8.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        DailyMiniAvatar(uri, fallback)
+        Box(modifier = Modifier.clickable(onClick = onAvatarClick)) {
+            DailyMiniAvatar(uri, fallback)
+        }
         Spacer(Modifier.width(8.dp))
-        Text(label, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+        Text(
+            label,
+            modifier = Modifier.clickable(onClick = onLabelClick).padding(vertical = 4.dp),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
     }
 }
 

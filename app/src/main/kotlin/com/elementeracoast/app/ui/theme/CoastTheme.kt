@@ -54,6 +54,7 @@ fun CoastTheme(
 
     CompositionLocalProvider(
         LocalCoastAppearance provides CoastAppearance(
+            preset = preset,
             palette = palette,
             userBubbleColor = parseCoastHex(userBubbleHex)
         )
