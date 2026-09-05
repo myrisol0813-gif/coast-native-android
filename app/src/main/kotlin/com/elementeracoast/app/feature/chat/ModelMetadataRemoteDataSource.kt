@@ -1,8 +1,11 @@
 package com.elementeracoast.app.feature.chat
 
+import android.content.Context
+import com.elementeracoast.app.core.auth.AndroidKeystoreAuthStore
 import com.elementeracoast.app.core.network.CoastApiConfig
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
+import com.elementeracoast.app.core.network.CoastHttpClient
 import com.elementeracoast.app.core.remote.RemoteMessageModelMetadataResponse
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -77,4 +80,14 @@ class ModelMetadataRemoteDataSource(
     }
 
     private fun query(value: String) = java.net.URLEncoder.encode(value, Charsets.UTF_8.name())
+
+    companion object {
+        fun production(context: Context): ModelMetadataRemoteDataSource {
+            val appContext = context.applicationContext
+            val config = CoastApiConfig.production()
+            val authStore = AndroidKeystoreAuthStore(appContext)
+            val http = CoastHttpClient(config, authStore).client
+            return ModelMetadataRemoteDataSource(config, http)
+        }
+    }
 }
