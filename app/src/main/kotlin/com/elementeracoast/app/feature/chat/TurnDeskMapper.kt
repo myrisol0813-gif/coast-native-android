@@ -3,6 +3,7 @@ package com.elementeracoast.app.feature.chat
 import com.elementeracoast.app.core.model.TurnDeskDetail
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.model.TurnDeskSection
+import com.elementeracoast.app.core.remote.RemoteDeskCrossWindowSource
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteDeskTool
 
@@ -83,10 +84,36 @@ internal object TurnDeskMapper {
                 }
             ),
             section(
-                title = value.dogtalk.label.ifBlank { "神秘狗话" },
+                title = value.dogtalk.label.ifBlank { "狗话" },
                 status = value.dogtalk.status,
                 description = value.dogtalk.description,
                 details = if (value.dogtalk.delivered) detail("实际递给模型", value.dogtalk.context) else emptyList()
+            ),
+            section(
+                title = value.crossWindow.label.ifBlank { "跨窗口取信" },
+                status = withDetail(
+                    value.crossWindow.status,
+                    if (value.crossWindow.windowCount > 0) "${value.crossWindow.windowCount}窗 · 实际 ${value.crossWindow.totalDeliveredTurns}轮" else ""
+                ),
+                description = value.crossWindow.description,
+                details = buildList {
+                    value.crossWindow.sources.forEach { source ->
+                        add(TurnDeskDetail(
+                            crossWindowSourceLabel(source),
+                            if (source.requestedTurns == source.deliveredTurns) "${source.deliveredTurns}轮" else "请求 ${source.requestedTurns}轮，实际 ${source.deliveredTurns}轮"
+                        ))
+                    }
+                    if (value.crossWindow.trimReason.isNotBlank()) add(TurnDeskDetail("裁剪原因", value.crossWindow.trimReason))
+                    if (value.crossWindow.error.isNotBlank()) add(TurnDeskDetail("读取错误", value.crossWindow.error))
+                    val sourceById = value.crossWindow.sources.associateBy { it.conversationId }
+                    value.crossWindow.messages.forEach { group ->
+                        val source = sourceById[group.conversationId]
+                        val label = source?.let(::crossWindowSourceLabel).orEmpty().ifBlank { "来源窗口" }
+                        group.messages.forEach { message ->
+                            add(TurnDeskDetail("$label · ${if (message.role == "assistant") "Myri" else "用户"}", message.content))
+                        }
+                    }
+                }
             ),
             section(
                 title = value.workbench.label.ifBlank { "工作台 / 工具回执" },
@@ -121,6 +148,13 @@ internal object TurnDeskMapper {
             )
         )
     )
+
+    private fun crossWindowSourceLabel(source: RemoteDeskCrossWindowSource): String = when {
+        source.source == "rikkahub" -> "【Rikka】${source.title}"
+        source.roomType == "radio" -> "电波｜${source.title}"
+        source.roomType == "lighthouse" -> "灯塔｜${source.title}"
+        else -> "主聊天｜${source.title}"
+    }
 
     private fun section(
         title: String,
