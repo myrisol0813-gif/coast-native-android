@@ -4,6 +4,11 @@ import com.elementeracoast.app.core.auth.AuthRepository
 import com.elementeracoast.app.core.auth.AuthSession
 import com.elementeracoast.app.core.auth.SessionRestoreResult
 import com.elementeracoast.app.core.local.MemoryLocalPersistence
+import com.elementeracoast.app.core.model.CrossWindowLimits
+import com.elementeracoast.app.core.model.CrossWindowMode
+import com.elementeracoast.app.core.model.CrossWindowRequest
+import com.elementeracoast.app.core.model.CrossWindowSource
+import com.elementeracoast.app.core.model.CrossWindowSourceSnapshot
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.RoomType
@@ -26,6 +31,9 @@ import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyProfileImageField
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DailySnapshot
+import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowSelectionUi
+import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
 import com.elementeracoast.app.feature.dogtalk.DogtalkUiState
@@ -108,6 +116,43 @@ class CoastShellViewModelTest {
         assertEquals("真实流回复", state.messages.last().text)
         assertEquals(1, fixture.chat.streamCalls)
         assertEquals(13, fixture.chat.lastRecentTurns)
+    }
+
+    @Test
+    fun crossWindowSelectionIsForwardedOnceAndThenResets() {
+        val fixture = Fixture()
+        fixture.conversations.seed(RoomType.Main, "主聊天")
+        val vm = fixture.vm()
+        val source = CrossWindowSource(
+            conversationId = "other-window",
+            title = "旧窗口",
+            roomType = "main",
+            source = "coast",
+            sourceWindowId = null,
+            updatedAt = null,
+            messageCount = 8,
+            turnCount = 4,
+            readable = true,
+            disabledReason = ""
+        )
+        vm.updateCrossWindow(
+            CrossWindowUiState(
+                mode = CrossWindowMode.Manual,
+                sources = listOf(source),
+                selections = mapOf("other-window" to CrossWindowSelectionUi(checked = true, turns = 4)),
+                limits = CrossWindowLimits(4, 20, 40, 6000, 24000)
+            )
+        )
+
+        vm.sendMessage("请带上另一窗")
+
+        assertEquals(CrossWindowMode.Manual, fixture.chat.lastCrossWindow.mode)
+        assertEquals("other-window", fixture.chat.lastCrossWindow.sources.single().conversationId)
+        assertEquals(4, fixture.chat.lastCrossWindow.sources.single().turns)
+        assertEquals(CrossWindowMode.Off, vm.crossWindow.value.mode)
+
+        vm.sendMessage("下一轮不要偷读")
+        assertEquals(CrossWindowMode.Off, fixture.chat.lastCrossWindow.mode)
     }
 
     @Test
@@ -223,6 +268,7 @@ class CoastShellViewModelTest {
         val daily = FakeDailyRepository()
         val memory = FakeMemoryRepository()
         val dogtalk = FakeDogtalkRepository()
+        val crossWindow = FakeCrossWindowRepository()
         val persistence = MemoryLocalPersistence()
 
         fun vm(): CoastShellViewModel = CoastShellViewModel(
@@ -235,7 +281,8 @@ class CoastShellViewModelTest {
                 thoughtSoil = thoughtSoil,
                 daily = daily,
                 memory = memory,
-                dogtalk = dogtalk
+                dogtalk = dogtalk,
+                crossWindow = crossWindow
             ),
             workDispatcher = Dispatchers.Unconfined
         )
@@ -380,6 +427,14 @@ class CoastShellViewModelTest {
         private fun key(scope: DogtalkScope, conversationId: String): String = "$scope:$conversationId"
     }
 
+    private class FakeCrossWindowRepository : CrossWindowRepository {
+        override suspend fun sources(currentConversationId: String) = CrossWindowSourceSnapshot(
+            description = "跨窗口测试",
+            limits = CrossWindowLimits(4, 20, 40, 6000, 24000),
+            sources = emptyList()
+        )
+    }
+
     private class FakeThoughtSoilRepository : ThoughtSoilRepository {
         var organizeCalls = 0
 
@@ -413,6 +468,7 @@ class CoastShellViewModelTest {
         var failStream = false
         var lastRecentTurns = 0
         var lastContextBudget = 0
+        var lastCrossWindow = CrossWindowRequest()
 
         override fun cachedHistory(conversationId: String) = histories[conversationId]
 
@@ -432,11 +488,13 @@ class CoastShellViewModelTest {
             turnId: String,
             modelId: String,
             recentTurns: Int,
-            contextBudget: Int
+            contextBudget: Int,
+            crossWindow: CrossWindowRequest
         ): Flow<ChatProgress> = flow {
             streamCalls += 1
             lastRecentTurns = recentTurns
             lastContextBudget = contextBudget
+            lastCrossWindow = crossWindow
             if (failStream) throw CoastApiException(
                 CoastApiErrorKind.Network,
                 "network_unreachable",

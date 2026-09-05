@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: CoastShellViewModel = viewModel(factory = CoastShellViewModel.factory(applicationContext))
             val state by vm.state.collectAsState()
+            val crossWindow by vm.crossWindow.collectAsState()
             val wolf by vm.local.wolf.state.collectAsState()
             LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
 
@@ -41,6 +42,9 @@ class MainActivity : ComponentActivity() {
                         daily = vm.daily,
                         memory = vm.memory,
                         dogtalk = vm.dogtalk,
+                        crossWindowRepository = vm.crossWindowRepository,
+                        crossWindow = crossWindow,
+                        onCrossWindowChange = vm::updateCrossWindow,
                         onOpenRoomType = vm::openRoomType,
                         onSelectConversation = vm::selectConversation,
                         onNewConversation = vm::newConversation,

@@ -28,6 +28,8 @@ import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
 import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.ui.theme.CoastThemePreset
@@ -42,6 +44,9 @@ fun MainShell(
     daily: DailyRepository,
     memory: MemoryRepository,
     dogtalk: DogtalkRepository,
+    crossWindowRepository: CrossWindowRepository,
+    crossWindow: CrossWindowUiState,
+    onCrossWindowChange: (CrossWindowUiState) -> Unit,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
     onNewConversation: () -> Unit,
@@ -141,6 +146,9 @@ fun MainShell(
                         ChatWindow(
                             state = state,
                             dogtalk = dogtalk,
+                            crossWindowRepository = crossWindowRepository,
+                            crossWindow = crossWindow,
+                            onCrossWindowChange = onCrossWindowChange,
                             onSend = onSend,
                             onStop = onStop,
                             onMessageAction = onMessageAction,

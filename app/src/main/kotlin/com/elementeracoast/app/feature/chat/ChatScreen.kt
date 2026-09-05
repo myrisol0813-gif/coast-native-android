@@ -24,6 +24,8 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
+import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
@@ -35,6 +37,9 @@ import kotlinx.coroutines.withContext
 fun ChatWindow(
     state: CoastShellState,
     dogtalk: DogtalkRepository,
+    crossWindowRepository: CrossWindowRepository,
+    crossWindow: CrossWindowUiState,
+    onCrossWindowChange: (CrossWindowUiState) -> Unit,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
@@ -95,6 +100,9 @@ fun ChatWindow(
                 scope = DogtalkScope.from(state.activeRoomType),
                 conversationId = state.activeConversationId,
                 repository = dogtalk,
+                crossWindowRepository = crossWindowRepository,
+                crossWindow = crossWindow,
+                onCrossWindowChange = onCrossWindowChange,
                 historyLoading = state.historyLoading,
                 isStreaming = state.isStreaming,
                 onNotice = onPlaceholder
