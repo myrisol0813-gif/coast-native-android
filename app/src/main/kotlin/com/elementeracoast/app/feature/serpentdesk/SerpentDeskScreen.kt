@@ -41,8 +41,8 @@ internal data class SerpentDeskItem(
 internal fun serpentDeskItems(): List<SerpentDeskItem> = listOf(
     SerpentDeskItem(
         tool = SerpentDeskTool.DevHands,
-        title = "海岸施工台",
-        subtitle = "GitHub · CI / APK · Notion · 小狼窝更新"
+        title = "海岸开发手",
+        subtitle = "模型随身工具 · 自检 · 脚印 · 版本 / APK"
     ),
     SerpentDeskItem(
         tool = SerpentDeskTool.ActionLog,
