@@ -107,15 +107,21 @@ private fun WolfHome(
             Text("小寒侧", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
         }
-        items(WolfDestination.entries) { destination ->
+        items(WolfDestination.entries.filterNot { it == WolfDestination.Update }) { destination ->
             val subtitle = when (destination) {
                 WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
                 WolfDestination.Appearance -> "${state.appearance.theme.label} · 用户气泡 · 重点色"
                 WolfDestination.ModelBox -> "当前：${model.substringAfterLast('/').take(32)}"
-                WolfDestination.Update -> "当前 Native：${BuildConfig.VERSION_NAME}"
+                WolfDestination.Update -> destination.subtitle
                 else -> destination.subtitle
             }
             WolfRow(destination.title, subtitle) { onOpen(destination) }
+        }
+        item {
+            WolfRow(
+                title = "版本与更新",
+                subtitle = "当前 Native：${BuildConfig.VERSION_NAME}"
+            ) { onOpen(WolfDestination.Update) }
         }
     }
 }
