@@ -96,7 +96,7 @@ class WolfStore(private val persistence: LocalPersistence) {
     }
 
     private fun BasicSettings.normalized() = copy(
-        recentTurns = recentTurns.coerceIn(2, 12),
+        recentTurns = recentTurns.coerceIn(1, 20),
         contextBudget = contextBudget.coerceIn(2000, 12000),
         outputLength = outputLength.takeIf { it in setOf("auto", "short", "long") } ?: "auto",
         maxOutputTokens = maxOutputTokens.coerceIn(64, 65536),
