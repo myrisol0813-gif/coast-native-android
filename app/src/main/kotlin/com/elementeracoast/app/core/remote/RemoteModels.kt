@@ -142,7 +142,7 @@ data class RemoteChatMessage(val role: String, val content: String)
 data class RemoteChatRequest(
     @SerialName("conversation_id") val conversationId: String,
     @SerialName("source_turn_id") val sourceTurnId: String,
-    @SerialName("message_id") val messageId: String,
+    @SerialName("message_id") val messageId: String = "",
     val model: String,
     val messages: List<RemoteChatMessage>,
     @SerialName("local_date") val localDate: String,
