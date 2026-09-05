@@ -106,6 +106,12 @@ internal fun ChatTimeline(
                         message.generationSource in setOf("chat", "landing") &&
                         !remoteMessageId.isNullOrBlank()
                     ) {
+                        ModelUsageFooter(
+                            conversationId = conversationId,
+                            messageId = remoteMessageId,
+                            source = metadataSource,
+                            modifier = Modifier.align(Alignment.End).padding(top = 1.dp)
+                        )
                         ModelMetadataTraceCard(
                             conversationId = conversationId,
                             messageId = remoteMessageId,
