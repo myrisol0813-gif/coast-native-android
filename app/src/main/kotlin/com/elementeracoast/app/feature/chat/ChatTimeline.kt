@@ -103,7 +103,7 @@ internal fun ChatTimeline(
                     if (
                         message.role == MessageRole.Assistant &&
                         !streamingTail &&
-                        message.generationSource == "chat" &&
+                        message.generationSource in setOf("chat", "landing") &&
                         !remoteMessageId.isNullOrBlank()
                     ) {
                         ModelMetadataTraceCard(
