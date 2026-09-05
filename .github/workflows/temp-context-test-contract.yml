@@ -21,24 +21,12 @@ jobs:
           from pathlib import Path
           p = Path('app/src/test/kotlin/com/elementeracoast/app/feature/shell/CoastShellViewModelTest.kt')
           text = p.read_text()
-          text = text.replace('''        var lastRecentTurns = 0
-''', '''        var lastRecentTurns = 0
-        var lastContextBudget = 0
-''', 1)
-          text = text.replace('''            modelId: String,
-            recentTurns: Int
-        ): Flow<ChatProgress> = flow {
-            streamCalls += 1
-            lastRecentTurns = recentTurns
-''', '''            modelId: String,
-            recentTurns: Int,
-            contextBudget: Int
-        ): Flow<ChatProgress> = flow {
-            streamCalls += 1
-            lastRecentTurns = recentTurns
-            lastContextBudget = contextBudget
-''', 1)
-          p.write_text(text)
+          text = text.replace("        var lastRecentTurns = 0\n", "        var lastRecentTurns = 0\n        var lastContextBudget = 0\n", 1)
+          old = "            modelId: String,\n            recentTurns: Int\n        ): Flow<ChatProgress> = flow {\n            streamCalls += 1\n            lastRecentTurns = recentTurns\n"
+          new = "            modelId: String,\n            recentTurns: Int,\n            contextBudget: Int\n        ): Flow<ChatProgress> = flow {\n            streamCalls += 1\n            lastRecentTurns = recentTurns\n            lastContextBudget = contextBudget\n"
+          if old not in text:
+              raise SystemExit('expected FakeChatRepository signature not found')
+          p.write_text(text.replace(old, new, 1))
           PY
       - name: Commit exact test patch
         run: |
