@@ -636,7 +636,14 @@ class CoastShellViewModel(
             )
         }
         try {
-            backend.chat.streamReply(conversationId, cleared, turnId, modelId, local.wolf.state.value.basic.recentTurns).collect { progress ->
+            backend.chat.streamReply(
+                conversationId,
+                cleared,
+                turnId,
+                modelId,
+                local.wolf.state.value.basic.recentTurns,
+                local.wolf.state.value.basic.contextBudget
+            ).collect { progress ->
                 when (progress) {
                     is ChatProgress.Delta -> {
                         partial += progress.text

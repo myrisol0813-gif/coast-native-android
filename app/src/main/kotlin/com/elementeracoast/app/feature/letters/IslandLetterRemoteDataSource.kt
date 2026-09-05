@@ -45,7 +45,8 @@ class IslandLetterRemoteDataSource(
         conversationId: String,
         modelName: String,
         text: String,
-        recentTurns: Int
+        recentTurns: Int,
+        contextBudget: Int
     ): IslandLetterReceipt = withContext(Dispatchers.IO) {
         val cleanConversation = conversationId.trim()
         val cleanModel = modelName.trim()
@@ -71,7 +72,10 @@ class IslandLetterRemoteDataSource(
             letterText = cleanText,
             localDate = LocalDate.now().toString(),
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
-            settings = mapOf("recentTurns" to recentTurns.coerceIn(1, 20).toString())
+            settings = mapOf(
+                "recentTurns" to recentTurns.coerceAtLeast(1).toString(),
+                "contextBudget" to contextBudget.coerceAtLeast(1800).toString()
+            )
         )
         val body = json.encodeToString(RemoteLandingLetterRequest.serializer(), payload).toRequestBody(JSON_MEDIA)
         val request = Request.Builder().url(config.url("/api/chat/landing-letter")).post(body).build()

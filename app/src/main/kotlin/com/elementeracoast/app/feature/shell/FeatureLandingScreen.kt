@@ -72,6 +72,7 @@ internal fun FeatureLandingScreen(
                 conversationId = shellState.activeConversationId,
                 modelName = shellState.currentModel,
                 recentTurns = services.wolf.state.value.basic.recentTurns,
+                contextBudget = services.wolf.state.value.basic.contextBudget,
                 onBack = onBackToChat,
                 onRefreshCoast = onRefresh,
                 onSnackbar = onPlaceholder

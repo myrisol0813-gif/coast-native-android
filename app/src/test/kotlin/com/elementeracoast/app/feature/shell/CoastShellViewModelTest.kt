@@ -412,6 +412,7 @@ class CoastShellViewModelTest {
         var persistCalls = 0
         var failStream = false
         var lastRecentTurns = 0
+        var lastContextBudget = 0
 
         override fun cachedHistory(conversationId: String) = histories[conversationId]
 
@@ -430,10 +431,12 @@ class CoastShellViewModelTest {
             historyWithUser: RemoteHistory,
             turnId: String,
             modelId: String,
-            recentTurns: Int
+            recentTurns: Int,
+            contextBudget: Int
         ): Flow<ChatProgress> = flow {
             streamCalls += 1
             lastRecentTurns = recentTurns
+            lastContextBudget = contextBudget
             if (failStream) throw CoastApiException(
                 CoastApiErrorKind.Network,
                 "network_unreachable",
