@@ -59,7 +59,9 @@ fun ChatWindow(
         ?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
     val latestModelEchoMessageId = state.messages.lastOrNull {
-        it.role == MessageRole.Assistant && it.generationSource == "chat" && !it.remoteVariantId.isNullOrBlank()
+        it.role == MessageRole.Assistant &&
+            it.generationSource in setOf("chat", "landing") &&
+            !it.remoteVariantId.isNullOrBlank()
     }?.remoteVariantId
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
