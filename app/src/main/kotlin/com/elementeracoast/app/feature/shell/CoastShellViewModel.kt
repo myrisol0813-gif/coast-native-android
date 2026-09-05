@@ -620,7 +620,7 @@ class CoastShellViewModel(
     ) {
         var partial = ""
         val cleared = backend.chat.clearFailure(history, turnId)
-        val titleUserText = ChatSyncMapper.contextMessages(cleared, turnId)
+        val titleUserText = ChatSyncMapper.contextMessages(cleared, turnId, local.wolf.state.value.basic.recentTurns)
             .lastOrNull { it.role == "user" }
             ?.content
             .orEmpty()

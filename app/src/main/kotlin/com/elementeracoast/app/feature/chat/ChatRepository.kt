@@ -96,17 +96,18 @@ class DefaultChatRepository(
         var furnitureRuns = emptyList<RemoteFurnitureRun>()
         var deskSlip: RemoteDeskSlip? = null
         var done = false
+        val normalizedRecentTurns = recentTurns.coerceAtLeast(1)
         val assistantVariantId = ChatSyncMapper.nextAssistantVariantId(historyWithUser, turnId)
         val request = RemoteChatRequest(
             conversationId = conversationId,
             sourceTurnId = turnId,
             messageId = assistantVariantId,
             model = modelId,
-            messages = ChatSyncMapper.contextMessages(historyWithUser, turnId),
+            messages = ChatSyncMapper.contextMessages(historyWithUser, turnId, normalizedRecentTurns),
             localDate = LocalDate.now().toString(),
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
             settings = mapOf(
-                "recentTurns" to recentTurns.coerceAtLeast(1).toString(),
+                "recentTurns" to normalizedRecentTurns.toString(),
                 "contextBudget" to contextBudget.coerceAtLeast(1800).toString()
             ),
             stream = true

@@ -17,9 +17,6 @@ import java.time.Instant
 import java.util.UUID
 
 object ChatSyncMapper {
-    private const val MAX_TURNS = 400
-    private const val MAX_CONTEXT_MESSAGES = 16
-
     data class AppendedUser(val history: RemoteHistory, val turnId: String)
 
     fun appendUser(history: RemoteHistory, text: String): AppendedUser {
@@ -40,7 +37,7 @@ object ChatSyncMapper {
             )
         )
         return AppendedUser(
-            history.copy(version = 4, updatedAt = now, turns = (history.turns + turn).takeLast(MAX_TURNS)),
+            history.copy(version = 4, updatedAt = now, turns = history.turns + turn),
             turnId
         )
     }
@@ -118,12 +115,13 @@ object ChatSyncMapper {
     }
 
     /**
-     * Build the current conversation's recent provider context through the target user turn.
-     * RikkaHub archive messages are allowed here because they belong to this conversation,
-     * but the result is bounded to the same recent-window budget used by Coast chat.
+     * Build the current conversation's provider preflight through the target user turn.
+     * The only message-count limit is the user's local recent-turn setting; there is no
+     * additional Native ceiling. The backend then applies the same recent-turn setting,
+     * the user-selected token budget, and the provider/model context-window constraints.
      * Model metadata is deliberately absent: context is role/content only.
      */
-    fun contextMessages(history: RemoteHistory, targetTurnId: String): List<RemoteChatMessage> {
+    fun contextMessages(history: RemoteHistory, targetTurnId: String, recentTurns: Int): List<RemoteChatMessage> {
         val messages = buildList {
             for (turn in history.turns) {
                 val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
@@ -142,10 +140,15 @@ object ChatSyncMapper {
                     add(RemoteChatMessage("assistant", assistant.content))
                 }
             }
-        }.takeLast(MAX_CONTEXT_MESSAGES).toMutableList()
-
-        while (messages.firstOrNull()?.role == "assistant") messages.removeAt(0)
-        return messages
+        }
+        val requestedMessages = recentTurns.coerceAtLeast(1).toLong() * 2L
+        val recent = if (requestedMessages >= messages.size.toLong()) {
+            messages.toMutableList()
+        } else {
+            messages.takeLast(requestedMessages.toInt()).toMutableList()
+        }
+        while (recent.firstOrNull()?.role == "assistant") recent.removeAt(0)
+        return recent
     }
 
     fun toUi(history: RemoteHistory): List<ChatMessage> = buildList {
