@@ -4,6 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 data class CoastAppearance(
+    val preset: CoastThemePreset = CoastThemePreset.CoastDefault,
     val palette: CoastThemePalette = CoastThemePreset.CoastDefault.palette(),
     val userBubbleColor: Color? = null
 )

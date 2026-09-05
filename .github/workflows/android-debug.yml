@@ -27,6 +27,26 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Read app version
+        id: app_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_code=$(sed -nE 's/^[[:space:]]*versionCode = ([0-9]+)[[:space:]]*$/\1/p' app/build.gradle.kts | head -n 1)
+          version_name=$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)"[[:space:]]*$/\1/p' app/build.gradle.kts | head -n 1)
+          test -n "$version_code"
+          test -n "$version_name"
+          [[ "$version_code" =~ ^[0-9]+$ ]]
+          [[ "$version_name" =~ ^[A-Za-z0-9._-]+$ ]]
+          {
+            echo "COAST_VERSION_CODE=$version_code"
+            echo "COAST_VERSION_NAME=$version_name"
+          } >> "$GITHUB_ENV"
+          {
+            echo "version_code=$version_code"
+            echo "version_name=$version_name"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Configure stable Android signing when secrets exist
         shell: bash
         env:
@@ -119,8 +139,8 @@ jobs:
           grep -q 'android:icon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/ic_launcher_coast"' app/src/main/AndroidManifest.xml
           grep -q 'applicationId = "com.elementeracoast.app"' app/build.gradle.kts
-          grep -q 'versionCode = 30' app/build.gradle.kts
-          grep -q 'versionName = "0.1.28-message-actions-context-02"' app/build.gradle.kts
+          grep -Fq "versionCode = ${COAST_VERSION_CODE}" app/build.gradle.kts
+          grep -Fq "versionName = \"${COAST_VERSION_NAME}\"" app/build.gradle.kts
           grep -q 'COAST_API_BASE_URL' app/build.gradle.kts
           grep -q 'https://app.elementeracoast.com' app/build.gradle.kts
           grep -q '__Host-coast_session' "$auth/AuthStore.kt"
@@ -284,18 +304,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifact
-          apk=artifact/CoastGPT-native-message-actions-context-02-0.1.28-debug.apk
+          apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
-          printf 'versionName=0.1.28-message-actions-context-02\nversionCode=30\napplicationId=com.elementeracoast.app\n' >> artifact/BUILD_INFO.txt
+          printf 'versionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CoastGPT-native-message-actions-context-02-0.1.28-debug
+          name: CoastGPT-native-${{ steps.app_version.outputs.version_name }}-debug
           path: |
-            artifact/CoastGPT-native-message-actions-context-02-0.1.28-debug.apk
+            artifact/CoastGPT-native-${{ steps.app_version.outputs.version_name }}-debug.apk
             artifact/SHA256SUMS.txt
             artifact/BUILD_INFO.txt
           if-no-files-found: error

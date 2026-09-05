@@ -335,6 +335,7 @@ class CoastShellViewModelTest {
         override suspend fun patchDiary(id: String, date: String, weather: String, mood: String, tags: List<String>, text: String): DailyDiary = unsupported()
         override suspend fun deleteDiary(id: String) = unsupported<Unit>()
         override suspend fun updateProfile(field: DailyProfileImageField, dataUrl: String): DailyProfile = unsupported()
+        override suspend fun updateMyriDisplayName(value: String): DailyProfile = unsupported()
 
         private fun <T> unsupported(): T = throw UnsupportedOperationException("Daily mutation is not used by shell tests")
     }

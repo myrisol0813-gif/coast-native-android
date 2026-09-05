@@ -3,12 +3,10 @@ package com.elementeracoast.app.feature.chat
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +27,7 @@ import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
+import com.elementeracoast.app.ui.theme.SnowLetterChatScaffold
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -58,69 +57,59 @@ fun ChatWindow(
         ?.takeIf { it.role == MessageRole.Assistant }
         ?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
-    val latestModelEchoMessageId = state.messages.lastOrNull {
-        it.role == MessageRole.Assistant &&
-            it.generationSource in setOf("chat", "landing") &&
-            !it.remoteVariantId.isNullOrBlank()
-    }?.remoteVariantId
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
         value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).imePadding()) {
-        ChatTimeline(
-            conversationId = state.activeConversationId,
-            messages = state.messages,
-            thoughtSoil = state.thoughtSoil,
-            isStreaming = state.isStreaming,
-            streamingMessageId = state.streamingMessageId,
-            avatarBitmap = avatarBitmap,
-            metadataSource = metadataSource,
-            onAvatarClick = { avatarDialogOpen = true },
-            onCopy = { message ->
-                clipboard.setText(AnnotatedString(message.text))
-                onMessageAction(MessageAction.Copy(message.id))
-                onPlaceholder("已复制")
-            },
-            onEdit = { message -> editingMessage = message },
-            onAction = onMessageAction,
-            onFootprint = { message ->
-                val model = message.modelId ?: "未知模型"
-                val source = message.generationSource ?: "unknown"
-                onPlaceholder("生成足迹：$model · $source")
-            },
-            onOpenActionLog = onOpenActionLog,
-            onOpenThoughtSoil = { if (state.thoughtSoil != null) soilOpen = true },
-            modifier = Modifier.weight(1f)
-        )
-
-        latestModelEchoMessageId?.let { messageId ->
-            ModelMetadataDeskStatusStrip(
+    SnowLetterChatScaffold(modifier = Modifier.fillMaxSize().imePadding()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            ChatTimeline(
                 conversationId = state.activeConversationId,
-                messageId = messageId,
-                source = metadataSource
+                messages = state.messages,
+                thoughtSoil = state.thoughtSoil,
+                isStreaming = state.isStreaming,
+                streamingMessageId = state.streamingMessageId,
+                avatarBitmap = avatarBitmap,
+                metadataSource = metadataSource,
+                onAvatarClick = { avatarDialogOpen = true },
+                onCopy = { message ->
+                    clipboard.setText(AnnotatedString(message.text))
+                    onMessageAction(MessageAction.Copy(message.id))
+                    onPlaceholder("已复制")
+                },
+                onEdit = { message -> editingMessage = message },
+                onAction = onMessageAction,
+                onFootprint = { message ->
+                    val model = message.modelId ?: "未知模型"
+                    val source = message.generationSource ?: "unknown"
+                    onPlaceholder("生成足迹：$model · $source")
+                },
+                onOpenActionLog = onOpenActionLog,
+                onOpenThoughtSoil = { if (state.thoughtSoil != null) soilOpen = true },
+                modifier = Modifier.weight(1f)
+            )
+
+            deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
+            DogtalkCard(
+                scope = DogtalkScope.from(state.activeRoomType),
+                conversationId = state.activeConversationId,
+                repository = dogtalk,
+                historyLoading = state.historyLoading,
+                isStreaming = state.isStreaming,
+                onNotice = onPlaceholder
+            )
+            HorizontalDivider(color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+            CoastComposer(
+                value = input,
+                onValueChange = { input = it },
+                isStreaming = state.isStreaming,
+                enabled = !state.historyLoading,
+                onSend = { val outgoing = input; input = ""; onSend(outgoing) },
+                onStop = onStop,
+                onPlaceholder = onPlaceholder
             )
         }
-        deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
-        DogtalkCard(
-            scope = DogtalkScope.from(state.activeRoomType),
-            conversationId = state.activeConversationId,
-            repository = dogtalk,
-            historyLoading = state.historyLoading,
-            isStreaming = state.isStreaming,
-            onNotice = onPlaceholder
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
-        CoastComposer(
-            value = input,
-            onValueChange = { input = it },
-            isStreaming = state.isStreaming,
-            enabled = !state.historyLoading,
-            onSend = { val outgoing = input; input = ""; onSend(outgoing) },
-            onStop = onStop,
-            onPlaceholder = onPlaceholder
-        )
     }
 
     val soil = state.thoughtSoil

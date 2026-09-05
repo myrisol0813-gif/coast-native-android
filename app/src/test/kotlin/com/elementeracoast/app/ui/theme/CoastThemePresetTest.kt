@@ -6,11 +6,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CoastThemePresetTest {
-    @Test fun wardrobeContainsTwelveNamedPresetsWithDefaultFirst() {
-        assertEquals(12, CoastThemePreset.entries.size)
+    @Test fun wardrobeContainsThirteenNamedPresetsWithDefaultFirst() {
+        assertEquals(13, CoastThemePreset.entries.size)
         assertEquals(CoastThemePreset.CoastDefault, CoastThemePreset.entries.first())
         assertEquals(
-            listOf("默认海岸", "深蓝旧金", "粉嫩 Myri", "白狼雪野", "火烧云", "极光夜航", "像素电子宠物", "苏式旧纸", "极简海雾", "美式卡通", "草地绿洲", "紫色梦潮"),
+            listOf(
+                "默认海岸",
+                "深蓝旧金",
+                "粉嫩 Myri",
+                "白狼雪野",
+                "雪地来信",
+                "火烧云",
+                "极光夜航",
+                "像素电子宠物",
+                "苏式旧纸",
+                "极简海雾",
+                "美式卡通",
+                "草地绿洲",
+                "紫色梦潮"
+            ),
             CoastThemePreset.entries.map { it.label }
         )
     }
@@ -20,6 +34,7 @@ class CoastThemePresetTest {
         assertEquals(CoastThemePreset.AuroraNight, CoastThemePreset.fromStored("Dark"))
         assertEquals(CoastThemePreset.DeepBlueGold, CoastThemePreset.fromStored("Gold"))
         assertEquals(CoastThemePreset.BlushMyri, CoastThemePreset.fromStored("BlushMyri"))
+        assertEquals(CoastThemePreset.SnowLetter, CoastThemePreset.fromStored("SnowLetter"))
         assertEquals(CoastThemePreset.CoastDefault, CoastThemePreset.fromStored("unknown"))
     }
 

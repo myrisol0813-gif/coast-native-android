@@ -1,6 +1,5 @@
 package com.elementeracoast.app.feature.serpentdesk
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,11 +23,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.feature.actionlog.ActionLogScreen
 import com.elementeracoast.app.feature.actionlog.ActionLogStore
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
 internal enum class SerpentDeskTool { ActionLog }
 
@@ -89,34 +89,39 @@ private fun SerpentDeskHome(onOpenTool: (SerpentDeskTool) -> Unit) {
 
 @Composable
 private fun SerpentDeskItemCard(item: SerpentDeskItem, onOpenTool: (SerpentDeskTool) -> Unit) {
-    val shape = RoundedCornerShape(22.dp)
-    Row(
+    SnowLetterSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(2.dp, shape, clip = false)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .clickable { onOpenTool(item.tool) }
-            .padding(horizontal = 18.dp, vertical = 18.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable { onOpenTool(item.tool) },
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = RoundedCornerShape(22.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                item.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                item.subtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    item.subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
             )
         }
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp)
-        )
     }
 }
 

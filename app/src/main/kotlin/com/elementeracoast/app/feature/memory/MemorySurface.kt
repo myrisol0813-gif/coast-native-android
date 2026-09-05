@@ -29,11 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
 enum class MemoryTab(val title: String) {
     Memory("记忆库"), Seed("种子库"), Worldbook("世界书"), Instructions("自定义指令")
@@ -48,23 +49,28 @@ enum class MemoryFilterKind(val label: String, val allLabel: String, val emptyLa
 
 @Composable
 fun MemoryTabs(active: MemoryTab, onSelect: (MemoryTab) -> Unit) {
-    val shape = RoundedCornerShape(22.dp)
-    Column(
+    SnowLetterSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp, vertical = 14.dp)
-            .shadow(2.dp, shape, clip = false)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .padding(7.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 28.dp, vertical = 14.dp),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = RoundedCornerShape(22.dp)
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            MemoryTabCell(MemoryTab.Memory, active, Modifier.weight(1f), onSelect)
-            MemoryTabCell(MemoryTab.Seed, active, Modifier.weight(1f), onSelect)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            MemoryTabCell(MemoryTab.Worldbook, active, Modifier.weight(1f), onSelect)
-            MemoryTabCell(MemoryTab.Instructions, active, Modifier.weight(1f), onSelect)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(7.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MemoryTabCell(MemoryTab.Memory, active, Modifier.weight(1f), onSelect)
+                MemoryTabCell(MemoryTab.Seed, active, Modifier.weight(1f), onSelect)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MemoryTabCell(MemoryTab.Worldbook, active, Modifier.weight(1f), onSelect)
+                MemoryTabCell(MemoryTab.Instructions, active, Modifier.weight(1f), onSelect)
+            }
         }
     }
 }
@@ -74,7 +80,7 @@ private fun MemoryTabCell(tab: MemoryTab, active: MemoryTab, modifier: Modifier,
     val selected = tab == active
     Column(
         modifier = modifier
-            .background(if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+            .background(if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .42f), RoundedCornerShape(16.dp))
             .clickable { onSelect(tab) }
             .padding(vertical = 13.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -100,79 +106,90 @@ fun MemoryRetrievalCard(
 ) {
     var kindMenu by remember { mutableStateOf(false) }
     var valueMenu by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(22.dp)
 
-    Column(
+    SnowLetterSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 28.dp)
-            .shadow(2.dp, shape, clip = false)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .padding(horizontal = 20.dp, vertical = 17.dp)
+            .padding(horizontal = 28.dp),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = RoundedCornerShape(22.dp)
     ) {
-        Text("检索", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Text("搜索", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(6.dp))
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(17.dp))
-                .padding(horizontal = 14.dp, vertical = 13.dp),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            decorationBox = { inner ->
-                if (query.isBlank()) Text("搜索标题、核心、使用时机或勿误用", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                inner()
-            }
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 17.dp)
         ) {
-            Box(modifier = Modifier.weight(.34f)) {
-                FilterChip(
-                    label = filterKind.label,
-                    emphasized = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { kindMenu = true }
+            Text("检索", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text("搜索", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(6.dp))
+            SnowLetterSurface(
+                modifier = Modifier.fillMaxWidth(),
+                role = SnowLetterSurfaceRole.DogtalkField,
+                fallbackColor = MaterialTheme.colorScheme.surface,
+                fallbackShape = RoundedCornerShape(17.dp)
+            ) {
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { inner ->
+                        if (query.isBlank()) Text("搜索标题、核心、使用时机或勿误用", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        inner()
+                    }
                 )
-                DropdownMenu(expanded = kindMenu, onDismissRequest = { kindMenu = false }) {
-                    MemoryFilterKind.entries.forEach { kind ->
-                        DropdownMenuItem(
-                            text = { Text(kind.label) },
-                            onClick = {
-                                kindMenu = false
-                                onFilterKindChange(kind)
-                                onFilterValueChange("")
-                            }
-                        )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.weight(.34f)) {
+                    FilterChip(
+                        label = filterKind.label,
+                        emphasized = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { kindMenu = true }
+                    )
+                    DropdownMenu(expanded = kindMenu, onDismissRequest = { kindMenu = false }) {
+                        MemoryFilterKind.entries.forEach { kind ->
+                            DropdownMenuItem(
+                                text = { Text(kind.label) },
+                                onClick = {
+                                    kindMenu = false
+                                    onFilterKindChange(kind)
+                                    onFilterValueChange("")
+                                }
+                            )
+                        }
                     }
                 }
-            }
-            Box(modifier = Modifier.weight(.66f)) {
-                FilterChip(
-                    label = filterValue.ifBlank { filterKind.allLabel },
-                    emphasized = false,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { valueMenu = true }
-                )
-                DropdownMenu(expanded = valueMenu, onDismissRequest = { valueMenu = false }) {
-                    DropdownMenuItem(text = { Text(filterKind.allLabel) }, onClick = { valueMenu = false; onFilterValueChange("") })
-                    if (values.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text(filterKind.emptyLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                            onClick = {},
-                            enabled = false
-                        )
-                    } else {
-                        values.forEach { value ->
-                            DropdownMenuItem(text = { Text(value) }, onClick = { valueMenu = false; onFilterValueChange(value) })
+                Box(modifier = Modifier.weight(.66f)) {
+                    FilterChip(
+                        label = filterValue.ifBlank { filterKind.allLabel },
+                        emphasized = false,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { valueMenu = true }
+                    )
+                    DropdownMenu(expanded = valueMenu, onDismissRequest = { valueMenu = false }) {
+                        DropdownMenuItem(text = { Text(filterKind.allLabel) }, onClick = { valueMenu = false; onFilterValueChange("") })
+                        if (values.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text(filterKind.emptyLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                onClick = {},
+                                enabled = false
+                            )
+                        } else {
+                            values.forEach { value ->
+                                DropdownMenuItem(text = { Text(value) }, onClick = { valueMenu = false; onFilterValueChange(value) })
+                            }
                         }
                     }
                 }
@@ -220,17 +237,22 @@ private fun FilterChip(
 
 @Composable
 fun MemoryPendingCard(count: Int, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(21.dp)
-    Column(
+    SnowLetterSurface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 28.dp)
-            .shadow(2.dp, shape, clip = false)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 17.dp)
+            .clickable(onClick = onClick),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = RoundedCornerShape(21.dp)
     ) {
-        Text("待确认袋 · $count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("只有确认后才会进入记忆库或种子库。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 17.dp)
+        ) {
+            Text("待确认袋 · $count", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("只有确认后才会进入记忆库或种子库。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

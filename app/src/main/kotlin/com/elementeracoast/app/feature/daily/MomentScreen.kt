@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.elementeracoast.app.core.model.modelDisplayName
 import com.elementeracoast.app.core.network.CoastApiException
 import java.time.Instant
 import java.time.LocalDate
@@ -61,6 +62,7 @@ internal fun MomentScreen(
     var commenting by remember { mutableStateOf<DailyMoment?>(null) }
     var editing by remember { mutableStateOf<DailyMoment?>(null) }
     var deleting by remember { mutableStateOf<DailyMoment?>(null) }
+    var editingMyriName by remember { mutableStateOf(false) }
     var myriBusyId by remember { mutableStateOf<String?>(null) }
 
     fun reportFailure(label: String, error: Throwable) {
@@ -112,8 +114,10 @@ internal fun MomentScreen(
             DailyIdentityBar(
                 profileUri = snapshot.profile.xiaohanAvatarDataUrl,
                 myriUri = myriAvatarDataUrl,
+                myriLabel = snapshot.profile.myriDisplayName,
                 onProfileClick = { avatarPicker.launch(arrayOf("image/*")) },
-                onMyriClick = { myriPicker.launch(arrayOf("image/*")) }
+                onMyriAvatarClick = { myriPicker.launch(arrayOf("image/*")) },
+                onMyriNameClick = { editingMyriName = true }
             )
         }
         if (snapshot.moments.isEmpty()) {
@@ -129,12 +133,16 @@ internal fun MomentScreen(
         } else {
             items(snapshot.moments, key = { it.id }) { moment ->
                 val xiaohan = moment.isXiaohan
+                val editableMyriAuthor = moment.author == "api" || moment.author == "myri"
                 MomentCard(
                     moment = moment,
                     avatarUri = if (xiaohan) snapshot.profile.xiaohanAvatarDataUrl else myriAvatarDataUrl,
                     avatarFallback = if (xiaohan) "寒" else "M",
-                    authorLabel = moment.displayAuthor,
+                    authorLabel = momentAuthorLabel(moment, snapshot.profile.myriDisplayName),
+                    myriDisplayName = snapshot.profile.myriDisplayName,
+                    authorEditable = editableMyriAuthor,
                     myriCommentBusy = myriBusyId == moment.id,
+                    onEditMyriName = { editingMyriName = true },
                     onLike = {
                         scope.launch {
                             try { repository.setMomentLike(moment.id, !moment.liked) }
@@ -164,6 +172,24 @@ internal fun MomentScreen(
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
+    }
+
+    if (editingMyriName) {
+        MyriNameDialog(
+            initial = snapshot.profile.myriDisplayName,
+            onDismiss = { editingMyriName = false },
+            onSave = { raw ->
+                scope.launch {
+                    try {
+                        repository.updateMyriDisplayName(raw)
+                        editingMyriName = false
+                        onSnackbar("Myri 的碳硅圈名字已写回海岸")
+                    } catch (error: Throwable) {
+                        reportFailure("Myri 名字保存失败", error)
+                    }
+                }
+            }
+        )
     }
 
     commenting?.let { moment ->
@@ -263,19 +289,28 @@ private fun MomentCard(
     avatarUri: String,
     avatarFallback: String,
     authorLabel: String,
+    myriDisplayName: String,
+    authorEditable: Boolean,
     myriCommentBusy: Boolean,
+    onEditMyriName: () -> Unit,
     onLike: () -> Unit,
     onComment: () -> Unit,
     onMyriComment: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val modelUsage = momentModelUsage(moment)
     DailySurfaceCard {
         Row {
             DailyAvatar(avatarUri, avatarFallback)
             Spacer(Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(authorLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    authorLabel,
+                    modifier = if (authorEditable) Modifier.clickable(onClick = onEditMyriName).padding(vertical = 2.dp) else Modifier,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(moment.text, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Normal))
                 Spacer(Modifier.height(12.dp))
@@ -285,12 +320,14 @@ private fun MomentCard(
                     Spacer(Modifier.height(9.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         moment.comments.takeLast(5).forEach { comment ->
+                            val commentAuthor = if (comment.author == "xiaohan") "小寒" else myriDisplayName.ifBlank { "Myri" }
                             Text(
                                 text = buildAnnotatedString {
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(comment.authorLabel) }
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(commentAuthor) }
                                     append("：")
                                     append(comment.text)
                                 },
+                                modifier = if (comment.author != "xiaohan") Modifier.clickable(onClick = onEditMyriName) else Modifier,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal)
                             )
@@ -309,9 +346,47 @@ private fun MomentCard(
                     onEdit = onEdit,
                     onDelete = onDelete
                 )
+                if (modelUsage.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Text(
+                            modelUsage,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .68f),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Normal)
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private fun momentAuthorLabel(moment: DailyMoment, myriDisplayName: String): String = when {
+    moment.isXiaohan -> moment.displayAuthor.ifBlank { "小寒" }
+    moment.author == "api" || moment.author == "myri" -> myriDisplayName.ifBlank { "Myri" }
+    else -> moment.displayAuthor.ifBlank { moment.author }
+}
+
+private fun momentModelUsage(moment: DailyMoment): String {
+    val latestMyri = moment.comments.asReversed().firstOrNull {
+        it.author != "xiaohan" && !it.modelId.isNullOrBlank()
+    }
+    val model = latestMyri?.modelId?.takeIf(String::isNotBlank) ?: moment.modelLabel?.takeIf(String::isNotBlank) ?: return ""
+    val usage = latestMyri?.usage
+    val total = usage?.totalTokens
+    val tokenPart = when {
+        total != null -> "${compactTokens(total)} tokens"
+        usage?.promptTokens != null || usage?.completionTokens != null ->
+            "in ${compactTokens(usage?.promptTokens ?: 0)} / out ${compactTokens(usage?.completionTokens ?: 0)}"
+        else -> ""
+    }
+    return listOf(modelDisplayName(model), tokenPart).filter(String::isNotBlank).joinToString(" · ")
+}
+
+private fun compactTokens(value: Long): String = when {
+    value < 1_000 -> value.toString()
+    value < 10_000 -> String.format(java.util.Locale.US, "%.1fk", value / 1_000.0)
+    else -> "${value / 1_000}k"
 }
 
 private fun momentFooter(moment: DailyMoment): String {
@@ -321,6 +396,27 @@ private fun momentFooter(moment: DailyMoment): String {
     val date = runCatching { LocalDate.parse(moment.date).format(DateTimeFormatter.ofPattern("MM月dd日")) }.getOrDefault(moment.date)
     val likes = if (moment.likeCount > 0) " · ${moment.likeCount} 赞" else ""
     return (if (clock.isBlank()) date else "$date · $clock") + likes
+}
+
+@Composable
+private fun MyriNameDialog(initial: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var value by remember(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("碳硅圈里的名字") },
+        text = {
+            BasicTextField(
+                value = value,
+                onValueChange = { value = it.replace('\n', ' ').take(80) },
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp)).padding(12.dp),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                singleLine = true
+            )
+        },
+        confirmButton = { TextButton(onClick = { onSave(value.trim().ifBlank { "Myri" }) }) { Text("保存") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 @Composable

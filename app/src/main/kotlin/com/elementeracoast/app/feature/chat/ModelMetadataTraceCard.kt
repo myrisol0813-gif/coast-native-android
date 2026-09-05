@@ -3,9 +3,7 @@ package com.elementeracoast.app.feature.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -63,18 +61,33 @@ internal fun ModelMetadataTraceCard(
         loading = false
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth().padding(top = CoastChatTokens.MetadataTopGap)) {
         Text(
-            text = if (expanded) "⌃ 推理痕迹与模型回波" else "⌄ 推理痕迹与模型回波",
+            text = "推理痕迹与模型回波",
             modifier = Modifier
-                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (expanded) .68f else .50f),
+                    RoundedCornerShape(CoastChatTokens.MetadataRadius)
+                )
+                .border(
+                    width = androidx.compose.ui.unit.Dp.Hairline,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .72f),
+                    shape = RoundedCornerShape(CoastChatTokens.MetadataRadius)
+                )
                 .clickable { expanded = !expanded }
-                .padding(vertical = CoastChatTokens.MetadataTopGap),
+                .padding(
+                    horizontal = CoastChatTokens.MetadataHorizontalPadding,
+                    vertical = CoastChatTokens.MetadataTopGap
+                ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = CoastChatTokens.MetadataTitleSize)
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontSize = CoastChatTokens.MetadataTitleSize,
+                fontWeight = FontWeight.SemiBold
+            )
         )
         if (!expanded) return@Column
 
+        Spacer(Modifier.height(CoastChatTokens.MetadataRowGap))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -265,58 +278,6 @@ private fun RawMetadataSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
     )
-}
-
-@Composable
-internal fun ModelMetadataDeskStatusStrip(
-    conversationId: String,
-    messageId: String?,
-    source: ModelMetadataRemoteDataSource,
-    modifier: Modifier = Modifier
-) {
-    var status by remember(conversationId, messageId) { mutableStateOf("未返回") }
-    var sanitized by remember(conversationId, messageId) { mutableStateOf(false) }
-
-    LaunchedEffect(conversationId, messageId) {
-        if (messageId.isNullOrBlank()) {
-            status = "未返回"
-            sanitized = false
-            return@LaunchedEffect
-        }
-        status = "读取中"
-        runCatching { source.get(conversationId, messageId, includeRaw = false) }
-            .onSuccess {
-                status = statusLabel(it.status)
-                sanitized = it.sanitized
-            }
-            .onFailure {
-                status = "读取失败"
-                sanitized = false
-            }
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .42f))
-            .padding(
-                horizontal = CoastChatTokens.MetadataDeskHorizontalPadding,
-                vertical = CoastChatTokens.MetadataDeskVerticalPadding
-            ),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            "模型回波",
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            listOf(status, if (sanitized) "已脱敏" else "").filter(String::isNotBlank).joinToString(" · "),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
-    }
 }
 
 @Composable

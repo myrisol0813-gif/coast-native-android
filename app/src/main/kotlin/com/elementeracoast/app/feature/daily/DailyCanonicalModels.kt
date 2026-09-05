@@ -1,14 +1,21 @@
 package com.elementeracoast.app.feature.daily
 
+data class DailyUsage(
+    val promptTokens: Long? = null,
+    val completionTokens: Long? = null,
+    val reasoningTokens: Long? = null,
+    val cachedTokens: Long? = null,
+    val totalTokens: Long? = null
+)
+
 data class DailyComment(
     val id: String,
     val author: String,
     val text: String,
     val modelId: String? = null,
+    val usage: DailyUsage? = null,
     val createdAt: String = ""
-) {
-    val authorLabel: String get() = if (author == "xiaohan") "小寒" else "Myri"
-}
+)
 
 data class DailyMoment(
     val id: String,
@@ -48,6 +55,7 @@ data class DailyProfile(
     val xiaohanAvatarDataUrl: String = "",
     val myriAvatarDataUrl: String = "",
     val momentCoverDataUrl: String = "",
+    val myriDisplayName: String = "Myri",
     val updatedAt: String? = null
 )
 

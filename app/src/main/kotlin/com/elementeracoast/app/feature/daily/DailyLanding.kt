@@ -31,12 +31,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.feature.shell.FeaturePageTopBar
+import com.elementeracoast.app.ui.theme.SnowLetterSurface
+import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 import kotlinx.coroutines.launch
 
 internal data class DailyLandingItem(val title: String, val subtitle: String)
@@ -85,7 +86,8 @@ fun DailyLanding(
                 subtitle = "朋友圈与日记",
                 onBack = onBackToChat,
                 actionLabel = "刷新",
-                onAction = refreshAction
+                onAction = refreshAction,
+                compact = true
             )
             DailyPage.Moments -> FeaturePageTopBar(
                 title = "碳硅圈",
@@ -94,9 +96,15 @@ fun DailyLanding(
                 actionLabel = "+ 动态",
                 onAction = { page = DailyPage.MomentCompose },
                 secondaryActionLabel = "刷新",
-                onSecondaryAction = refreshAction
+                onSecondaryAction = refreshAction,
+                compact = true
             )
-            DailyPage.MomentCompose -> FeaturePageTopBar("写碳硅圈", "直接写入海岸正式条目", { page = DailyPage.Moments })
+            DailyPage.MomentCompose -> FeaturePageTopBar(
+                "写碳硅圈",
+                "直接写入海岸正式条目",
+                { page = DailyPage.Moments },
+                compact = true
+            )
             DailyPage.Diary -> FeaturePageTopBar(
                 title = "日记",
                 subtitle = "海岸里的正式纸页",
@@ -104,10 +112,21 @@ fun DailyLanding(
                 actionLabel = "+ 日记",
                 onAction = { page = DailyPage.DiaryCompose },
                 secondaryActionLabel = "刷新",
-                onSecondaryAction = refreshAction
+                onSecondaryAction = refreshAction,
+                compact = true
             )
-            DailyPage.DiaryCompose -> FeaturePageTopBar("写日记", "直接写入海岸正式日记", { page = DailyPage.Diary })
-            DailyPage.Pet -> FeaturePageTopBar("宠物系统", "休憩箱尚未展开", { page = DailyPage.Home })
+            DailyPage.DiaryCompose -> FeaturePageTopBar(
+                "写日记",
+                "直接写入海岸正式日记",
+                { page = DailyPage.Diary },
+                compact = true
+            )
+            DailyPage.Pet -> FeaturePageTopBar(
+                "宠物系统",
+                "休憩箱尚未展开",
+                { page = DailyPage.Home },
+                compact = true
+            )
         }
 
         Box(Modifier.weight(1f)) {
@@ -151,17 +170,28 @@ private fun DailyHome(onOpen: (DailyPage) -> Unit, onFutureWidgets: () -> Unit) 
 @Composable
 private fun DailyHomeCard(item: DailyLandingItem, icon: ImageVector, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
-    Row(
-        modifier = Modifier.fillMaxWidth().shadow(2.dp, shape, clip = false).background(MaterialTheme.colorScheme.surfaceVariant, shape).clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 22.dp),
-        verticalAlignment = Alignment.CenterVertically
+    SnowLetterSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+        fallbackShape = shape
     ) {
-        Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
-        }
-        Spacer(Modifier.size(16.dp))
-        Column {
-            Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(item.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+            }
+            Spacer(Modifier.size(16.dp))
+            Column {
+                Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(item.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

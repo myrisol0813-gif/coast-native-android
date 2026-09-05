@@ -11,11 +11,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.elementeracoast.app.core.model.ChatMessage
@@ -29,6 +31,8 @@ import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.ui.theme.CoastThemePreset
+import com.elementeracoast.app.ui.theme.LocalSnowLetterVisuals
+import com.elementeracoast.app.ui.theme.SnowLetterVisualSettings
 import kotlinx.coroutines.launch
 
 @Composable
@@ -66,6 +70,21 @@ fun MainShell(
     val coroutineScope = rememberCoroutineScope()
     var openPendingMemoryOnLanding by remember { mutableStateOf(false) }
     var showThemeWardrobe by remember { mutableStateOf(false) }
+    val defaultSnowLetterVisuals = remember { SnowLetterVisualSettings() }
+    var snowLetterBackgroundAlpha by rememberSaveable { mutableStateOf(defaultSnowLetterVisuals.chatBackgroundAlpha) }
+    var snowLetterDecorationAlpha by rememberSaveable { mutableStateOf(defaultSnowLetterVisuals.decorationAlpha) }
+    var snowLetterPaperTextureAlpha by rememberSaveable { mutableStateOf(defaultSnowLetterVisuals.paperTextureAlpha) }
+    val snowLetterVisuals = remember(
+        snowLetterBackgroundAlpha,
+        snowLetterDecorationAlpha,
+        snowLetterPaperTextureAlpha
+    ) {
+        SnowLetterVisualSettings(
+            chatBackgroundAlpha = snowLetterBackgroundAlpha,
+            decorationAlpha = snowLetterDecorationAlpha,
+            paperTextureAlpha = snowLetterPaperTextureAlpha
+        )
+    }
 
     LaunchedEffect(state.snackbarMessage) {
         val message = state.snackbarMessage ?: return@LaunchedEffect
@@ -78,91 +97,99 @@ fun MainShell(
         coroutineScope.launch { drawerState.close() }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = true,
-        drawerContent = {
-            CoastDrawer(
-                state = state,
-                onClose = { coroutineScope.launch { drawerState.close() } },
-                onOpenRoomType = { roomType -> closeDrawerThen { onOpenRoomType(roomType) } },
-                onSelectConversation = { id -> closeDrawerThen { onSelectConversation(id) } },
-                onRenameConversation = onRenameConversation,
-                onDeleteConversation = onDeleteConversation,
-                onOpenFeature = { destination -> closeDrawerThen { onOpenFeature(destination) } },
-                onCycleTheme = { closeDrawerThen { showThemeWardrobe = true } }
+    CompositionLocalProvider(LocalSnowLetterVisuals provides snowLetterVisuals) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = true,
+            drawerContent = {
+                CoastDrawer(
+                    state = state,
+                    onClose = { coroutineScope.launch { drawerState.close() } },
+                    onOpenRoomType = { roomType -> closeDrawerThen { onOpenRoomType(roomType) } },
+                    onSelectConversation = { id -> closeDrawerThen { onSelectConversation(id) } },
+                    onRenameConversation = onRenameConversation,
+                    onDeleteConversation = onDeleteConversation,
+                    onOpenFeature = { destination -> closeDrawerThen { onOpenFeature(destination) } },
+                    onCycleTheme = { closeDrawerThen { showThemeWardrobe = true } }
+                )
+            }
+        ) {
+            val ownsPageChrome = state.activeFeature == FeatureDestination.Memory ||
+                state.activeFeature == FeatureDestination.Daily ||
+                state.activeFeature == FeatureDestination.IslandLetter
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                containerColor = MaterialTheme.colorScheme.background,
+                snackbarHost = { SnackbarHost(snackbar) },
+                topBar = {
+                    if (!ownsPageChrome) {
+                        CoastTopBar(
+                            state = state,
+                            onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
+                            onBack = onBackToChat,
+                            onOpenModels = onOpenModels,
+                            onRefresh = onRefresh,
+                            onNewConversation = onNewConversation,
+                            onMore = { onOpenFeature(FeatureDestination.IslandLetter) }
+                        )
+                    }
+                }
+            ) { innerPadding ->
+                Box(Modifier.fillMaxSize().padding(innerPadding)) {
+                    val feature = state.activeFeature
+                    if (feature == null) {
+                        ChatWindow(
+                            state = state,
+                            dogtalk = dogtalk,
+                            onSend = onSend,
+                            onStop = onStop,
+                            onMessageAction = onMessageAction,
+                            onOpenActionLog = onOpenActionLog,
+                            onOpenPendingMemory = {
+                                openPendingMemoryOnLanding = true
+                                onOpenFeature(FeatureDestination.Memory)
+                            },
+                            onPlaceholder = onPlaceholder
+                        )
+                    } else {
+                        FeatureLandingScreen(
+                            feature = feature,
+                            shellState = state,
+                            services = services,
+                            daily = daily,
+                            memory = memory,
+                            openMemoryPending = openPendingMemoryOnLanding,
+                            onMemoryPendingConsumed = { openPendingMemoryOnLanding = false },
+                            messages = state.messages,
+                            onBackToChat = onBackToChat,
+                            onRefresh = onRefresh,
+                            onUpdateMyriAvatar = onUpdateMyriAvatar,
+                            onSelectModel = onSelectModel,
+                            onRefreshModels = onRefreshModels,
+                            onImportMessages = onImportMessages,
+                            onLocalActionLogged = onLocalActionLogged,
+                            onPlaceholder = onPlaceholder
+                        )
+                    }
+                }
+            }
+        }
+
+        if (state.showModelPicker && state.activeFeature == null) {
+            ModelQuickPicker(state.models, state.currentModel, onSelectModel, onDismissModels)
+        }
+        if (showThemeWardrobe) {
+            ThemeWardrobeSheet(
+                current = state.theme,
+                snowLetterVisuals = snowLetterVisuals,
+                onSnowLetterVisualsChange = { next ->
+                    snowLetterBackgroundAlpha = next.chatBackgroundAlpha
+                    snowLetterDecorationAlpha = next.decorationAlpha
+                    snowLetterPaperTextureAlpha = next.paperTextureAlpha
+                },
+                onSelect = onSelectTheme,
+                onDismiss = { showThemeWardrobe = false }
             )
         }
-    ) {
-        val ownsPageChrome = state.activeFeature == FeatureDestination.Memory ||
-            state.activeFeature == FeatureDestination.Daily ||
-            state.activeFeature == FeatureDestination.IslandLetter
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(snackbar) },
-            topBar = {
-                if (!ownsPageChrome) {
-                    CoastTopBar(
-                        state = state,
-                        onOpenDrawer = { coroutineScope.launch { drawerState.open() } },
-                        onBack = onBackToChat,
-                        onOpenModels = onOpenModels,
-                        onRefresh = onRefresh,
-                        onNewConversation = onNewConversation,
-                        onMore = { onOpenFeature(FeatureDestination.IslandLetter) }
-                    )
-                }
-            }
-        ) { innerPadding ->
-            Box(Modifier.fillMaxSize().padding(innerPadding)) {
-                val feature = state.activeFeature
-                if (feature == null) {
-                    ChatWindow(
-                        state = state,
-                        dogtalk = dogtalk,
-                        onSend = onSend,
-                        onStop = onStop,
-                        onMessageAction = onMessageAction,
-                        onOpenActionLog = onOpenActionLog,
-                        onOpenPendingMemory = {
-                            openPendingMemoryOnLanding = true
-                            onOpenFeature(FeatureDestination.Memory)
-                        },
-                        onPlaceholder = onPlaceholder
-                    )
-                } else {
-                    FeatureLandingScreen(
-                        feature = feature,
-                        shellState = state,
-                        services = services,
-                        daily = daily,
-                        memory = memory,
-                        openMemoryPending = openPendingMemoryOnLanding,
-                        onMemoryPendingConsumed = { openPendingMemoryOnLanding = false },
-                        messages = state.messages,
-                        onBackToChat = onBackToChat,
-                        onRefresh = onRefresh,
-                        onUpdateMyriAvatar = onUpdateMyriAvatar,
-                        onSelectModel = onSelectModel,
-                        onRefreshModels = onRefreshModels,
-                        onImportMessages = onImportMessages,
-                        onLocalActionLogged = onLocalActionLogged,
-                        onPlaceholder = onPlaceholder
-                    )
-                }
-            }
-        }
-    }
-
-    if (state.showModelPicker && state.activeFeature == null) {
-        ModelQuickPicker(state.models, state.currentModel, onSelectModel, onDismissModels)
-    }
-    if (showThemeWardrobe) {
-        ThemeWardrobeSheet(
-            current = state.theme,
-            onSelect = onSelectTheme,
-            onDismiss = { showThemeWardrobe = false }
-        )
     }
 }
