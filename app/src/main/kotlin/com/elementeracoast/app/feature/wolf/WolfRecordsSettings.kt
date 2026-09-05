@@ -17,21 +17,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun ChatRecordsScreen(
@@ -81,8 +90,6 @@ internal fun ChatRecordsScreen(
         }
         item {
             WolfRow("导入 JSON", "真实 history 写回本轮未接；暂不导入") {
-                // Keep the callback in the screen contract for the already-reviewed shell shape,
-                // but never call it until a real remote-history import policy exists.
                 @Suppress("UNUSED_EXPRESSION")
                 onImportMessages
                 onSnackbar("聊天记录导入暂未接后端；没有修改当前真实会话。")
@@ -99,14 +106,58 @@ internal fun ChatRecordsScreen(
 }
 
 @Composable
-internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore) {
+internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSnackbar: (String) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val remote = remember(context) { ProfileSettingsRemoteDataSource.production(context) }
+    var recentTurnsText by remember(settings.recentTurns) { mutableStateOf(settings.recentTurns.toString()) }
+
+    fun commitRecentTurns() {
+        val value = (recentTurnsText.toIntOrNull() ?: 8).coerceIn(1, 20)
+        recentTurnsText = value.toString()
+        if (value == settings.recentTurns) return
+        scope.launch {
+            try {
+                val profile = remote.putRecentTurns(value)
+                val applied = profile.recentTurns.coerceIn(1, 20)
+                store.updateBasic { it.copy(recentTurns = applied) }
+                recentTurnsText = applied.toString()
+                onSnackbar("最近聊天轮数已同步到海岸")
+            } catch (error: Throwable) {
+                recentTurnsText = settings.recentTurns.toString()
+                onSnackbar("最近聊天轮数保存失败：${error.message ?: "服务器没有完成保存。"}")
+            }
+        }
+    }
+
+    LaunchedEffect(remote) {
+        try {
+            val profile = remote.get()
+            store.updateBasic { it.copy(recentTurns = profile.recentTurns.coerceIn(1, 20)) }
+        } catch (error: Throwable) {
+            onSnackbar("最近聊天轮数同步失败：${error.message ?: "暂时无法读取海岸。"}")
+        }
+    }
+
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Text("基本设置", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item {
             SettingGroup("上下文舒服区间") {
-                ChoiceSet("最近聊天轮数", settings.recentTurns, listOf(2, 4, 8, 12)) { value ->
-                    store.updateBasic { it.copy(recentTurns = value) }
-                }
+                Text("最近聊天轮数", fontWeight = FontWeight.Medium)
+                OutlinedTextField(
+                    value = recentTurnsText,
+                    onValueChange = { raw ->
+                        recentTurnsText = raw.filter(Char::isDigit).take(2)
+                    },
+                    modifier = Modifier.fillMaxWidth().onFocusChanged { state ->
+                        if (!state.isFocused) commitRecentTurns()
+                    },
+                    suffix = { Text("轮") },
+                    supportingText = { Text("1–20；空值按 8。实际上下文仍受海岸 token budget 裁剪。") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { commitRecentTurns() })
+                )
                 ChoiceSet("舒服区间上沿", settings.contextBudget, listOf(2000, 6000, 12000)) { value ->
                     store.updateBasic { it.copy(contextBudget = value) }
                 }
@@ -147,7 +198,7 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore) {
         }
         item {
             Text(
-                "这些设置仍是 Native 本地偏好。本轮真实聊天由海岸后端组装上下文；尚未明确映射到后端的字段不会偷偷塞进请求。",
+                "最近聊天轮数由海岸 profile 跨 PWA / Native 共用；其余尚未明确映射到后端的 Native 偏好仍只保存在本机，不会偷偷塞进请求。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
