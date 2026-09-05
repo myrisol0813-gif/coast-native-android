@@ -34,6 +34,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ChatWindow(
     state: CoastShellState,
+    chatRepository: ChatRepository,
     dogtalk: DogtalkRepository,
     onSend: (String) -> Unit,
     onStop: () -> Unit,
@@ -54,6 +55,9 @@ fun ChatWindow(
         ?.takeIf { it.role == MessageRole.Assistant }
         ?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
+    val latestModelEchoMessageId = state.messages.lastOrNull {
+        it.role == MessageRole.Assistant && it.generationSource == "chat" && !it.remoteVariantId.isNullOrBlank()
+    }?.remoteVariantId
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
         value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
@@ -67,6 +71,7 @@ fun ChatWindow(
             isStreaming = state.isStreaming,
             streamingMessageId = state.streamingMessageId,
             avatarBitmap = avatarBitmap,
+            chatRepository = chatRepository,
             onAvatarClick = { avatarDialogOpen = true },
             onCopy = { message ->
                 clipboard.setText(AnnotatedString(message.text))
@@ -85,6 +90,13 @@ fun ChatWindow(
             modifier = Modifier.weight(1f)
         )
 
+        latestModelEchoMessageId?.let { messageId ->
+            ModelMetadataDeskStatusStrip(
+                conversationId = state.activeConversationId,
+                messageId = messageId,
+                repository = chatRepository
+            )
+        }
         deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
         DogtalkCard(
             scope = DogtalkScope.from(state.activeRoomType),
