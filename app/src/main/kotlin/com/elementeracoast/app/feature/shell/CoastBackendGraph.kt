@@ -23,6 +23,8 @@ import com.elementeracoast.app.feature.memory.DefaultThoughtSoilRepository
 import com.elementeracoast.app.feature.memory.MemoryRemoteDataSource
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
+import com.elementeracoast.app.feature.serpentdesk.DefaultDevHandsRepository
+import com.elementeracoast.app.feature.serpentdesk.DevHandsRepository
 
 data class CoastBackendGraph(
     val auth: AuthRepository,
@@ -33,7 +35,8 @@ data class CoastBackendGraph(
     val daily: DailyRepository,
     val memory: MemoryRepository,
     val dogtalk: DogtalkRepository,
-    val crossWindow: CrossWindowRepository
+    val crossWindow: CrossWindowRepository,
+    val devHands: DevHandsRepository? = null
 ) {
     companion object {
         fun production(context: Context, persistence: LocalPersistence): CoastBackendGraph {
@@ -54,7 +57,8 @@ data class CoastBackendGraph(
                 daily = DefaultDailyRepository(api, cache),
                 memory = DefaultMemoryRepository(memoryRemote, cache),
                 dogtalk = DefaultDogtalkRepository(config, http),
-                crossWindow = DefaultCrossWindowRepository(config, http)
+                crossWindow = DefaultCrossWindowRepository(config, http),
+                devHands = DefaultDevHandsRepository(config, http)
             )
         }
     }
