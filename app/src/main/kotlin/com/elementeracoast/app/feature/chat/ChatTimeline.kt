@@ -34,7 +34,7 @@ internal fun ChatTimeline(
     isStreaming: Boolean,
     streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
-    chatRepository: ChatRepository,
+    metadataSource: ModelMetadataRemoteDataSource,
     onAvatarClick: () -> Unit,
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
@@ -109,7 +109,7 @@ internal fun ChatTimeline(
                         ModelMetadataTraceCard(
                             conversationId = conversationId,
                             messageId = remoteMessageId,
-                            repository = chatRepository,
+                            source = metadataSource,
                             modifier = Modifier.padding(
                                 start = CoastChatTokens.AssistantAvatarSize + CoastChatTokens.AssistantAvatarGap
                             )
