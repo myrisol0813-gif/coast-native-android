@@ -11,6 +11,7 @@ import com.elementeracoast.app.core.remote.RemoteDailyMomentCreateRequest
 import com.elementeracoast.app.core.remote.RemoteDailyMomentPatchRequest
 import com.elementeracoast.app.core.remote.RemoteDailyProfile
 import com.elementeracoast.app.core.remote.RemoteDailyProfilePatch
+import com.elementeracoast.app.core.remote.RemoteModelUsage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,7 @@ interface DailyRepository {
     suspend fun patchDiary(id: String, date: String, weather: String, mood: String, tags: List<String>, text: String): DailyDiary
     suspend fun deleteDiary(id: String)
     suspend fun updateProfile(field: DailyProfileImageField, dataUrl: String): DailyProfile
+    suspend fun updateMyriDisplayName(value: String): DailyProfile
 }
 
 class DefaultDailyRepository(
@@ -133,6 +135,13 @@ class DefaultDailyRepository(
             DailyProfileImageField.MyriAvatar -> RemoteDailyProfilePatch(myriAvatarDataUrl = dataUrl)
             DailyProfileImageField.MomentCover -> RemoteDailyProfilePatch(momentCoverDataUrl = dataUrl)
         }
+        return persistProfilePatch(patch)
+    }
+
+    override suspend fun updateMyriDisplayName(value: String): DailyProfile =
+        persistProfilePatch(RemoteDailyProfilePatch(myriDisplayName = value.trim().ifBlank { "Myri" }.take(80)))
+
+    private suspend fun persistProfilePatch(patch: RemoteDailyProfilePatch): DailyProfile {
         val profile = api.putDailyProfile(patch)
         cache.putDailyProfile(profile)
         val mapped = DailyMapper.profile(profile)
@@ -169,7 +178,24 @@ class DefaultDailyRepository(
 }
 
 internal object DailyMapper {
-    fun comment(value: RemoteDailyComment) = DailyComment(value.id, value.author, value.text, value.modelId, value.createdAt)
+    fun usage(value: RemoteModelUsage?) = value?.let {
+        DailyUsage(
+            promptTokens = it.promptTokens,
+            completionTokens = it.completionTokens,
+            reasoningTokens = it.reasoningTokens,
+            cachedTokens = it.cachedTokens,
+            totalTokens = it.totalTokens
+        )
+    }
+
+    fun comment(value: RemoteDailyComment) = DailyComment(
+        id = value.id,
+        author = value.author,
+        text = value.text,
+        modelId = value.modelId,
+        usage = usage(value.usage),
+        createdAt = value.createdAt
+    )
 
     fun moment(value: RemoteDailyMoment) = DailyMoment(
         id = value.id,
@@ -207,6 +233,7 @@ internal object DailyMapper {
         xiaohanAvatarDataUrl = value.xiaohanAvatarDataUrl,
         myriAvatarDataUrl = value.myriAvatarDataUrl,
         momentCoverDataUrl = value.momentCoverDataUrl,
+        myriDisplayName = value.myriDisplayName.trim().ifBlank { "Myri" },
         updatedAt = value.updatedAt
     )
 }
