@@ -105,13 +105,24 @@ internal fun ChatRecordsScreen(
 @Composable
 internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSnackbar: (String) -> Unit) {
     var recentTurnsText by remember(settings.recentTurns) { mutableStateOf(settings.recentTurns.toString()) }
+    var contextBudgetText by remember(settings.contextBudget) { mutableStateOf(settings.contextBudget.toString()) }
 
     fun commitRecentTurns() {
-        val value = (recentTurnsText.toIntOrNull() ?: 8).coerceIn(1, 20)
+        val parsed = recentTurnsText.toIntOrNull()
+        val value = if (parsed != null && parsed >= 1) parsed else 8
         recentTurnsText = value.toString()
         if (value == settings.recentTurns) return
         store.updateBasic { it.copy(recentTurns = value) }
         onSnackbar("当前设备最近聊天轮数已设为 $value")
+    }
+
+    fun commitContextBudget() {
+        val parsed = contextBudgetText.toIntOrNull()
+        val value = if (parsed != null && parsed >= 1800) parsed else 6000
+        contextBudgetText = value.toString()
+        if (value == settings.contextBudget) return
+        store.updateBasic { it.copy(contextBudget = value) }
+        onSnackbar("当前设备上下文 token budget 已设为 $value")
     }
 
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -121,21 +132,29 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSn
                 Text("最近聊天轮数", fontWeight = FontWeight.Medium)
                 OutlinedTextField(
                     value = recentTurnsText,
-                    onValueChange = { raw ->
-                        recentTurnsText = raw.filter(Char::isDigit).take(2)
-                    },
+                    onValueChange = { raw -> recentTurnsText = raw.filter(Char::isDigit) },
                     modifier = Modifier.fillMaxWidth().onFocusChanged { state ->
                         if (!state.isFocused) commitRecentTurns()
                     },
                     suffix = { Text("轮") },
-                    supportingText = { Text("1–20；空值按 8。只保存在当前设备，每轮请求会把这个值递给海岸；实际上下文仍受 token budget 裁剪。") },
+                    supportingText = { Text("默认 8；常用可试 8 / 12 / 20。没有应用层上限，实际可递入量取决于当前窗口历史、token budget 与模型上下文窗口。") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { commitRecentTurns() })
                 )
-                ChoiceSet("舒服区间上沿", settings.contextBudget, listOf(2000, 6000, 12000)) { value ->
-                    store.updateBasic { it.copy(contextBudget = value) }
-                }
+                Text("上下文 token budget", fontWeight = FontWeight.Medium)
+                OutlinedTextField(
+                    value = contextBudgetText,
+                    onValueChange = { raw -> contextBudgetText = raw.filter(Char::isDigit) },
+                    modifier = Modifier.fillMaxWidth().onFocusChanged { state ->
+                        if (!state.isFocused) commitContextBudget()
+                    },
+                    suffix = { Text("tokens") },
+                    supportingText = { Text("默认 6000；推荐从 6000 / 12000 / 20000 起调。最小 1800，不设应用层上限；最终仍受模型与 provider 的真实 context window 限制。") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { commitContextBudget() })
+                )
             }
         }
         item {
@@ -173,32 +192,12 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSn
         }
         item {
             Text(
-                "最近聊天轮数与其余 Native 运行偏好一样保存在本机；聊天请求会携带当前值，海岸后端只负责安全裁剪。",
+                "最近聊天轮数与上下文 token budget 都保存在本机。海岸只提供推荐值，不设置人为上限；真正极限由现有历史与模型/provider 上下文窗口决定。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
         }
     }
-}
-
-@Composable
-private fun ChoiceSet(label: String, current: Int, values: List<Int>, onPick: (Int) -> Unit) {
-    Text(label, fontWeight = FontWeight.Medium)
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        values.forEach { value ->
-            Text(
-                value.toString(),
-                modifier = Modifier
-                    .background(
-                        if (value == current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                        RoundedCornerShape(12.dp)
-                    )
-                    .clickable { onPick(value) }
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
-            )
-        }
-    }
-    Spacer(Modifier.height(7.dp))
 }
 
 @Composable

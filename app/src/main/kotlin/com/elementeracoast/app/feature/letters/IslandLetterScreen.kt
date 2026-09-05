@@ -36,6 +36,7 @@ fun IslandLetterScreen(
     conversationId: String,
     modelName: String,
     recentTurns: Int,
+    contextBudget: Int,
     onBack: () -> Unit,
     onRefreshCoast: () -> Unit,
     onSnackbar: (String) -> Unit
@@ -66,7 +67,7 @@ fun IslandLetterScreen(
         replyModel = ""
         scope.launch {
             try {
-                val receipt = remote.send(conversationId, modelName, text, recentTurns)
+                val receipt = remote.send(conversationId, modelName, text, recentTurns, contextBudget)
                 reply = receipt.reply
                 replyModel = receipt.model
                 status = "已送到海岸"
