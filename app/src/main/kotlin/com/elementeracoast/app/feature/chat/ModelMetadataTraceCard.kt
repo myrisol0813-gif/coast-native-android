@@ -35,7 +35,7 @@ import kotlinx.serialization.json.JsonElement
 internal fun ModelMetadataTraceCard(
     conversationId: String,
     messageId: String,
-    repository: ChatRepository,
+    source: ModelMetadataRemoteDataSource,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember(messageId) { mutableStateOf(false) }
@@ -48,7 +48,7 @@ internal fun ModelMetadataTraceCard(
         if (!expanded || response != null || loading) return@LaunchedEffect
         loading = true
         errorText = ""
-        runCatching { repository.modelMetadata(conversationId, messageId, includeRaw = false) }
+        runCatching { source.get(conversationId, messageId, includeRaw = false) }
             .onSuccess { response = it }
             .onFailure { errorText = it.message ?: "模型回波读取失败。" }
         loading = false
@@ -57,7 +57,7 @@ internal fun ModelMetadataTraceCard(
     LaunchedEffect(rawExpanded, messageId) {
         if (!rawExpanded || loading || response?.rawMetadataSanitized != null) return@LaunchedEffect
         loading = true
-        runCatching { repository.modelMetadata(conversationId, messageId, includeRaw = true) }
+        runCatching { source.get(conversationId, messageId, includeRaw = true) }
             .onSuccess { response = it }
             .onFailure { errorText = it.message ?: "脱敏原始回包读取失败。" }
         loading = false
@@ -271,7 +271,7 @@ private fun RawMetadataSection(
 internal fun ModelMetadataDeskStatusStrip(
     conversationId: String,
     messageId: String?,
-    repository: ChatRepository,
+    source: ModelMetadataRemoteDataSource,
     modifier: Modifier = Modifier
 ) {
     var status by remember(conversationId, messageId) { mutableStateOf("未返回") }
@@ -284,7 +284,7 @@ internal fun ModelMetadataDeskStatusStrip(
             return@LaunchedEffect
         }
         status = "读取中"
-        runCatching { repository.modelMetadata(conversationId, messageId, includeRaw = false) }
+        runCatching { source.get(conversationId, messageId, includeRaw = false) }
             .onSuccess {
                 status = statusLabel(it.status)
                 sanitized = it.sanitized
@@ -335,7 +335,7 @@ private fun MetadataSectionTitle(title: String) {
 @Composable
 private fun MetadataRow(label: String, value: String) {
     if (value.isBlank()) return
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = CoastChatTokens.MetadataRowGap / 2)) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = CoastChatTokens.MetadataRowGap / 2f)) {
         Text(
             label,
             modifier = Modifier.weight(.34f),
