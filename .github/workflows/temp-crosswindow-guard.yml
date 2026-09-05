@@ -1,0 +1,27 @@
+name: Temporary cross-window guard update
+
+on:
+  push:
+    branches: [feature/coast-dogtalk-crosswindow-01]
+    paths: [.github/workflows/temp-crosswindow-guard.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coast-dogtalk-crosswindow-01
+      - name: Update formal structure guard
+        shell: bash
+        run: |
+          python .github/temp/crosswindow_guard.py
+          git rm .github/workflows/temp-crosswindow-guard.yml .github/temp/crosswindow_guard.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Update Native guard for cross-window contract"
+          git push origin HEAD:feature/coast-dogtalk-crosswindow-01
