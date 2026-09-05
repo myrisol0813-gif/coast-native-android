@@ -3,28 +3,6 @@ package com.elementeracoast.app.core.remote
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-
-@Serializable
-data class RemoteDevSettings(
-    @SerialName("github_read") val githubRead: Boolean = true,
-    @SerialName("github_write") val githubWrite: Boolean = false,
-    @SerialName("github_dangerous") val githubDangerous: Boolean = false,
-    @SerialName("ci_actions") val ciActions: Boolean = true,
-    @SerialName("apk_artifact") val apkArtifact: Boolean = true,
-    @SerialName("wolf_update") val wolfUpdate: Boolean = true,
-    @SerialName("notion_read") val notionRead: Boolean = true,
-    @SerialName("notion_write") val notionWrite: Boolean = true,
-    @SerialName("notion_delete") val notionDelete: Boolean = false,
-    @SerialName("updated_at") val updatedAt: String? = null
-)
-
-@Serializable
-data class RemoteDevSettingsResponse(
-    val ok: Boolean = true,
-    val settings: RemoteDevSettings = RemoteDevSettings(),
-    @SerialName("run_id") val runId: String? = null
-)
 
 @Serializable
 data class RemoteGithubRepoCheck(
@@ -54,14 +32,26 @@ data class RemoteNotionSelfCheck(
     @SerialName("root_page_readable") val rootPageReadable: Boolean? = null,
     @SerialName("root_page_title") val rootPageTitle: String? = null,
     @SerialName("can_append_test_block") val canAppendTestBlock: Boolean? = null,
-    @SerialName("write_test_requires_confirmation") val writeTestRequiresConfirmation: Boolean = true,
     @SerialName("error_type") val errorType: String? = null
+)
+
+@Serializable
+data class RemoteDeveloperTool(
+    val name: String = "",
+    val pack: String? = null,
+    @SerialName("target_system") val targetSystem: String? = null,
+    val risk: String? = null
 )
 
 @Serializable
 data class RemoteDevSelfCheckResponse(
     val ok: Boolean = true,
-    val settings: RemoteDevSettings = RemoteDevSettings(),
+    val release: String? = null,
+    @SerialName("model_tools_default") val modelToolsDefault: Boolean = false,
+    @SerialName("construction_mode_required") val constructionModeRequired: Boolean = false,
+    @SerialName("tool_switches_required") val toolSwitchesRequired: Boolean = false,
+    @SerialName("confirmation_required") val confirmationRequired: Boolean = false,
+    @SerialName("developer_tools") val developerTools: List<RemoteDeveloperTool> = emptyList(),
     val github: RemoteGithubSelfCheck = RemoteGithubSelfCheck(),
     val notion: RemoteNotionSelfCheck = RemoteNotionSelfCheck(),
     @SerialName("run_ids") val runIds: List<String> = emptyList()
@@ -114,13 +104,9 @@ data class RemoteDevRun(
     @SerialName("action_name") val actionName: String = "",
     @SerialName("target_ref") val targetRef: String? = null,
     @SerialName("operation_type") val operationType: String = "read",
-    @SerialName("confirmation_required") val confirmationRequired: Boolean = false,
-    @SerialName("confirmation_confirmed") val confirmationConfirmed: Boolean = false,
     val status: String = "",
-    @SerialName("input_summary") val inputSummary: JsonElement? = null,
     @SerialName("output_summary") val outputSummary: JsonElement? = null,
     @SerialName("error_summary") val errorSummary: String? = null,
-    val related: JsonObject = JsonObject(emptyMap()),
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("finished_at") val finishedAt: String? = null
 )
@@ -129,18 +115,4 @@ data class RemoteDevRun(
 data class RemoteDevRunsResponse(
     val ok: Boolean = true,
     val runs: List<RemoteDevRun> = emptyList()
-)
-
-@Serializable
-data class RemoteDevActionRequest(
-    val action: String,
-    val params: JsonObject = JsonObject(emptyMap()),
-    @SerialName("confirm_text") val confirmText: String? = null
-)
-
-@Serializable
-data class RemoteDevActionResponse(
-    val ok: Boolean = true,
-    val result: JsonElement? = null,
-    @SerialName("run_id") val runId: String? = null
 )
