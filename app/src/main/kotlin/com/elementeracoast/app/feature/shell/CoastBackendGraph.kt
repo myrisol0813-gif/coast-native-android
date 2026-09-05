@@ -21,6 +21,7 @@ import com.elementeracoast.app.feature.memory.DefaultThoughtSoilRepository
 import com.elementeracoast.app.feature.memory.MemoryRemoteDataSource
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
+import com.elementeracoast.app.feature.wolf.WolfStore
 
 data class CoastBackendGraph(
     val auth: AuthRepository,
@@ -33,11 +34,7 @@ data class CoastBackendGraph(
     val dogtalk: DogtalkRepository
 ) {
     companion object {
-        fun production(
-            context: Context,
-            persistence: LocalPersistence,
-            chatSettingsProvider: () -> Map<String, String> = { emptyMap() }
-        ): CoastBackendGraph {
+        fun production(context: Context, persistence: LocalPersistence): CoastBackendGraph {
             val authStore = AndroidKeystoreAuthStore(context.applicationContext)
             val config = CoastApiConfig.production()
             val http = CoastHttpClient(config, authStore).client
@@ -46,6 +43,9 @@ data class CoastBackendGraph(
             val memoryRemote = MemoryRemoteDataSource(config, http)
             val metadataRemote = ModelMetadataRemoteDataSource(config, http)
             val titleRemote = ConversationTitleRemoteDataSource(config, http)
+            val chatSettingsProvider = {
+                mapOf("recentTurns" to WolfStore.readRecentTurns(persistence).toString())
+            }
             return CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
                 conversations = DefaultConversationRepository(api, cache, titleRemote),
