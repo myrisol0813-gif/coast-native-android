@@ -12,10 +12,7 @@ enum class CrossWindowMode(val wireValue: String, val label: String) {
 
 data class CrossWindowLimits(
     val defaultTurns: Int,
-    val maxTurnsPerSource: Int,
-    val maxTotalTurns: Int,
-    val maxMessageChars: Int,
-    val maxTotalChars: Int
+    val technicalMaxTurnsPerSource: Int
 )
 
 data class CrossWindowSource(
