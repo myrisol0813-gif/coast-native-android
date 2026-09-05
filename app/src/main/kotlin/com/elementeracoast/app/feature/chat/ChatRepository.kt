@@ -47,7 +47,13 @@ interface ChatRepository {
         status = "not_returned",
         sanitized = true
     )
-    fun streamReply(conversationId: String, historyWithUser: RemoteHistory, turnId: String, modelId: String): Flow<ChatProgress>
+    fun streamReply(
+        conversationId: String,
+        historyWithUser: RemoteHistory,
+        turnId: String,
+        modelId: String,
+        recentTurns: Int
+    ): Flow<ChatProgress>
     fun failedHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, error: CoastApiException, partialContent: String = ""): RemoteHistory
     fun cancelledHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, partialContent: String): RemoteHistory
     fun clearFailure(history: RemoteHistory, turnId: String): RemoteHistory
@@ -79,7 +85,8 @@ class DefaultChatRepository(
         conversationId: String,
         historyWithUser: RemoteHistory,
         turnId: String,
-        modelId: String
+        modelId: String,
+        recentTurns: Int
     ): Flow<ChatProgress> = flow {
         var content = ""
         var actualModel = modelId
@@ -96,6 +103,7 @@ class DefaultChatRepository(
             messages = ChatSyncMapper.contextMessages(historyWithUser, turnId),
             localDate = LocalDate.now().toString(),
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+            settings = mapOf("recentTurns" to recentTurns.coerceIn(1, 20).toString()),
             stream = true
         )
         api.streamChat(request).collect { event ->

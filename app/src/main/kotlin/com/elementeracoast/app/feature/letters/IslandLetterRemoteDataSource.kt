@@ -41,7 +41,12 @@ class IslandLetterRemoteDataSource(
     private val client: OkHttpClient,
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = false }
 ) {
-    suspend fun send(conversationId: String, modelName: String, text: String): IslandLetterReceipt = withContext(Dispatchers.IO) {
+    suspend fun send(
+        conversationId: String,
+        modelName: String,
+        text: String,
+        recentTurns: Int
+    ): IslandLetterReceipt = withContext(Dispatchers.IO) {
         val cleanConversation = conversationId.trim()
         val cleanModel = modelName.trim()
         val cleanText = text.trim().take(IslandLetterStore.MAX_LENGTH)
@@ -65,7 +70,8 @@ class IslandLetterRemoteDataSource(
             model = cleanModel,
             letterText = cleanText,
             localDate = LocalDate.now().toString(),
-            localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+            localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+            settings = mapOf("recentTurns" to recentTurns.coerceIn(1, 20).toString())
         )
         val body = json.encodeToString(RemoteLandingLetterRequest.serializer(), payload).toRequestBody(JSON_MEDIA)
         val request = Request.Builder().url(config.url("/api/chat/landing-letter")).post(body).build()

@@ -23,11 +23,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -40,7 +38,6 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun ChatRecordsScreen(
@@ -107,36 +104,14 @@ internal fun ChatRecordsScreen(
 
 @Composable
 internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSnackbar: (String) -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val remote = remember(context) { ProfileSettingsRemoteDataSource.production(context) }
     var recentTurnsText by remember(settings.recentTurns) { mutableStateOf(settings.recentTurns.toString()) }
 
     fun commitRecentTurns() {
         val value = (recentTurnsText.toIntOrNull() ?: 8).coerceIn(1, 20)
         recentTurnsText = value.toString()
         if (value == settings.recentTurns) return
-        scope.launch {
-            try {
-                val profile = remote.putRecentTurns(value)
-                val applied = profile.recentTurns.coerceIn(1, 20)
-                store.updateBasic { it.copy(recentTurns = applied) }
-                recentTurnsText = applied.toString()
-                onSnackbar("最近聊天轮数已同步到海岸")
-            } catch (error: Throwable) {
-                recentTurnsText = settings.recentTurns.toString()
-                onSnackbar("最近聊天轮数保存失败：${error.message ?: "服务器没有完成保存。"}")
-            }
-        }
-    }
-
-    LaunchedEffect(remote) {
-        try {
-            val profile = remote.get()
-            store.updateBasic { it.copy(recentTurns = profile.recentTurns.coerceIn(1, 20)) }
-        } catch (error: Throwable) {
-            onSnackbar("最近聊天轮数同步失败：${error.message ?: "暂时无法读取海岸。"}")
-        }
+        store.updateBasic { it.copy(recentTurns = value) }
+        onSnackbar("当前设备最近聊天轮数已设为 $value")
     }
 
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -153,7 +128,7 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSn
                         if (!state.isFocused) commitRecentTurns()
                     },
                     suffix = { Text("轮") },
-                    supportingText = { Text("1–20；空值按 8。实际上下文仍受海岸 token budget 裁剪。") },
+                    supportingText = { Text("1–20；空值按 8。只保存在当前设备，每轮请求会把这个值递给海岸；实际上下文仍受 token budget 裁剪。") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { commitRecentTurns() })
@@ -198,7 +173,7 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSn
         }
         item {
             Text(
-                "最近聊天轮数由海岸 profile 跨 PWA / Native 共用；其余尚未明确映射到后端的 Native 偏好仍只保存在本机，不会偷偷塞进请求。",
+                "最近聊天轮数与其余 Native 运行偏好一样保存在本机；聊天请求会携带当前值，海岸后端只负责安全裁剪。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
