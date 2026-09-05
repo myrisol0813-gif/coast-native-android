@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TurnDeskMapperTest {
-    @Test fun mapperProducesSameNineSourceSectionsAsPwa() {
+    @Test fun mapperProducesSameTenSourceSectionsAsPwa() {
         val receipt = TurnDeskMapper.toUi(
             RemoteDeskSlip(
                 currentMessage = RemoteDeskCurrentMessage(
@@ -47,12 +47,13 @@ class TurnDeskMapperTest {
         )
 
         assertEquals(
-            listOf("当前消息", "最近上下文", "核心自定义", "思维壤", "相关记忆", "世界书", "神秘狗话", "工作台 / 工具回执", "外来潮汐"),
+            listOf("当前消息", "最近上下文", "核心自定义", "思维壤", "相关记忆", "世界书", "狗话", "跨窗口取信", "工作台 / 工具回执", "外来潮汐"),
             receipt.sections.map { it.title }
         )
         assertEquals("已递给 · 1 轮", receipt.sections[1].status)
         assertTrue(receipt.sections[3].details.any { it.label == "待确认候选" && it.text.contains("待确认 · 2 条 · 未递给正文") })
         assertEquals("未命中", receipt.sections[4].status)
+        assertTrue(receipt.sections[7].details.any { it.text == "本轮未递入" })
         assertTrue(receipt.sections.last().details.any { it.text == "本轮没有递入外部材料。" })
         assertTrue(receipt.sections.all { section -> section.details.any { it.label == "来源说明" } || section.details.any { it.text == "本轮未递入" } })
     }
