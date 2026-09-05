@@ -12,6 +12,7 @@ interface ProfileRepository {
     suspend fun refreshModels(force: Boolean = false): RemoteModelCatalogResponse
     suspend fun setCurrentChatModel(modelId: String): RemoteProfile
     suspend fun setAssistantAvatar(dataUrl: String): RemoteProfile
+    suspend fun setRecentTurns(value: Int): RemoteProfile
 }
 
 class DefaultProfileRepository(
@@ -30,6 +31,10 @@ class DefaultProfileRepository(
 
     override suspend fun setAssistantAvatar(dataUrl: String): RemoteProfile = updateProfile { current ->
         current.copy(assistantAvatarDataUrl = dataUrl)
+    }
+
+    override suspend fun setRecentTurns(value: Int): RemoteProfile = updateProfile { current ->
+        current.copy(recentTurns = value.coerceIn(1, 20))
     }
 
     private suspend fun updateProfile(transform: (RemoteProfile) -> RemoteProfile): RemoteProfile {
