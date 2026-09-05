@@ -36,7 +36,17 @@ interface ChatRepository {
     fun cachedHistory(conversationId: String): RemoteHistory?
     suspend fun loadHistory(conversationId: String): RemoteHistory
     suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory
-    suspend fun modelMetadata(conversationId: String, messageId: String, includeRaw: Boolean = false): RemoteMessageModelMetadataResponse
+    suspend fun modelMetadata(
+        conversationId: String,
+        messageId: String,
+        includeRaw: Boolean = false
+    ): RemoteMessageModelMetadataResponse = RemoteMessageModelMetadataResponse(
+        ok = true,
+        conversationId = conversationId,
+        messageId = messageId,
+        status = "not_returned",
+        sanitized = true
+    )
     fun streamReply(conversationId: String, historyWithUser: RemoteHistory, turnId: String, modelId: String): Flow<ChatProgress>
     fun failedHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, error: CoastApiException, partialContent: String = ""): RemoteHistory
     fun cancelledHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, partialContent: String): RemoteHistory
@@ -47,7 +57,7 @@ interface ChatRepository {
 class DefaultChatRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore,
-    private val metadataRemote: ModelMetadataRemoteDataSource,
+    private val metadataRemote: ModelMetadataRemoteDataSource? = null,
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 ) : ChatRepository {
     override fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
@@ -62,7 +72,8 @@ class DefaultChatRepository(
         conversationId: String,
         messageId: String,
         includeRaw: Boolean
-    ): RemoteMessageModelMetadataResponse = metadataRemote.get(conversationId, messageId, includeRaw)
+    ): RemoteMessageModelMetadataResponse = metadataRemote?.get(conversationId, messageId, includeRaw)
+        ?: super<ChatRepository>.modelMetadata(conversationId, messageId, includeRaw)
 
     override fun streamReply(
         conversationId: String,
