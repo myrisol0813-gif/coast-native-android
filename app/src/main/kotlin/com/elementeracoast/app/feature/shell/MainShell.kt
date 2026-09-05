@@ -32,6 +32,7 @@ import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
 import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
+import com.elementeracoast.app.feature.serpentdesk.DevHandsRepository
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import com.elementeracoast.app.ui.theme.LocalSnowLetterVisuals
 import com.elementeracoast.app.ui.theme.SnowLetterVisualSettings
@@ -44,6 +45,7 @@ fun MainShell(
     daily: DailyRepository,
     memory: MemoryRepository,
     dogtalk: DogtalkRepository,
+    devHands: DevHandsRepository,
     crossWindowRepository: CrossWindowRepository,
     crossWindow: CrossWindowUiState,
     onCrossWindowChange: (CrossWindowUiState) -> Unit,
@@ -166,6 +168,7 @@ fun MainShell(
                             services = services,
                             daily = daily,
                             memory = memory,
+                            devHands = devHands,
                             openMemoryPending = openPendingMemoryOnLanding,
                             onMemoryPendingConsumed = { openPendingMemoryOnLanding = false },
                             messages = state.messages,

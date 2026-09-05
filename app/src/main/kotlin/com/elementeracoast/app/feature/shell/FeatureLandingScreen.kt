@@ -9,6 +9,7 @@ import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.letters.IslandLetterScreen
 import com.elementeracoast.app.feature.memory.MemoryLanding
 import com.elementeracoast.app.feature.memory.MemoryRepository
+import com.elementeracoast.app.feature.serpentdesk.DevHandsRepository
 import com.elementeracoast.app.feature.serpentdesk.SerpentDeskScreen
 import com.elementeracoast.app.feature.wolf.WolfScreen
 import com.elementeracoast.app.ui.theme.SnowLetterFeatureScaffold
@@ -20,6 +21,7 @@ internal fun FeatureLandingScreen(
     services: LocalFeatureServices,
     daily: DailyRepository,
     memory: MemoryRepository,
+    devHands: DevHandsRepository,
     openMemoryPending: Boolean,
     onMemoryPendingConsumed: () -> Unit,
     messages: List<ChatMessage>,
@@ -56,6 +58,7 @@ internal fun FeatureLandingScreen(
                 store = services.wolf,
                 shellState = shellState,
                 messages = messages,
+                devHands = devHands,
                 onSelectModel = onSelectModel,
                 onRefreshModels = onRefreshModels,
                 onImportMessages = onImportMessages,
@@ -64,6 +67,7 @@ internal fun FeatureLandingScreen(
             )
             FeatureDestination.ActionLog -> SerpentDeskScreen(
                 actionLogStore = services.actionLog,
+                devHands = devHands,
                 conversationId = shellState.activeConversationId,
                 focusIds = shellState.actionLogFocusIds
             )
