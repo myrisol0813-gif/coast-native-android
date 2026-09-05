@@ -58,7 +58,8 @@ class DefaultChatRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore,
     private val metadataRemote: ModelMetadataRemoteDataSource? = null,
-    private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false },
+    private val settingsProvider: () -> Map<String, String> = { emptyMap() }
 ) : ChatRepository {
     override fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
 
@@ -96,6 +97,7 @@ class DefaultChatRepository(
             messages = ChatSyncMapper.contextMessages(historyWithUser, turnId),
             localDate = LocalDate.now().toString(),
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+            settings = settingsProvider(),
             stream = true
         )
         api.streamChat(request).collect { event ->
