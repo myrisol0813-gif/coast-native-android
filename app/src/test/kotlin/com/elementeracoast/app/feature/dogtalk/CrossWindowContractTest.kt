@@ -15,7 +15,7 @@ class CrossWindowContractTest {
     }
 
     @Test
-    fun manualRequestContainsOnlyReadableCheckedSources() {
+    fun manualRequestContainsOnlyReadableCheckedSourcesWithoutLowTurnClamp() {
         val coast = source("coast-1", "普通窗口", "coast", readable = true)
         val rikka = source("rikka-1", "旧导入", "rikkahub", readable = true)
         val disabled = source("disabled-1", "当前窗口", "coast", readable = false)
@@ -23,18 +23,18 @@ class CrossWindowContractTest {
             mode = CrossWindowMode.Manual,
             sources = listOf(coast, rikka, disabled),
             selections = mapOf(
-                coast.conversationId to CrossWindowSelectionUi(checked = true, turns = 4),
-                rikka.conversationId to CrossWindowSelectionUi(checked = true, turns = 6),
-                disabled.conversationId to CrossWindowSelectionUi(checked = true, turns = 9)
+                coast.conversationId to CrossWindowSelectionUi(checked = true, turns = 50),
+                rikka.conversationId to CrossWindowSelectionUi(checked = true, turns = 100),
+                disabled.conversationId to CrossWindowSelectionUi(checked = true, turns = 999)
             ),
-            limits = CrossWindowLimits(4, 20, 40, 6000, 24000)
+            limits = CrossWindowLimits(defaultTurns = 4, technicalMaxTurnsPerSource = 9999)
         )
 
         val request = state.request()
 
         assertEquals(CrossWindowMode.Manual, request.mode)
         assertEquals(listOf("coast-1", "rikka-1"), request.sources.map { it.conversationId })
-        assertEquals(listOf(4, 6), request.sources.map { it.turns })
+        assertEquals(listOf(50, 100), request.sources.map { it.turns })
         assertTrue(state.sources.any { it.source == "rikkahub" })
     }
 

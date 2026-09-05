@@ -140,7 +140,7 @@ class CoastShellViewModelTest {
                 mode = CrossWindowMode.Manual,
                 sources = listOf(source),
                 selections = mapOf("other-window" to CrossWindowSelectionUi(checked = true, turns = 4)),
-                limits = CrossWindowLimits(4, 20, 40, 6000, 24000)
+                limits = CrossWindowLimits(4, 9999)
             )
         )
 
@@ -430,7 +430,7 @@ class CoastShellViewModelTest {
     private class FakeCrossWindowRepository : CrossWindowRepository {
         override suspend fun sources(currentConversationId: String) = CrossWindowSourceSnapshot(
             description = "跨窗口测试",
-            limits = CrossWindowLimits(4, 20, 40, 6000, 24000),
+            limits = CrossWindowLimits(4, 9999),
             sources = emptyList()
         )
     }

@@ -19,8 +19,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 41
-        versionName = "0.1.39-dogtalk-crosswindow-01"
+        versionCode = 42
+        versionName = "0.1.40-crosswindow-unlock-02"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 

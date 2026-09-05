@@ -97,11 +97,7 @@ fun CrossWindowPane(
         Spacer(Modifier.height(7.dp))
         val limits = state.limits
         Text(
-            text = if (limits == null) {
-                "限制由海岸后端动态读取"
-            } else {
-                "单窗最多 ${limits.maxTurnsPerSource} 轮 · 本轮总计最多 ${limits.maxTotalTurns} 轮 · 单条最多 ${limits.maxMessageChars} 字符 · 总预算 ${limits.maxTotalChars} 字符"
-            },
+            text = "默认 ${limits?.defaultTurns ?: 4} 轮，可自行调整。",
             modifier = Modifier
                 .fillMaxWidth()
                 .background(fieldColor, RoundedCornerShape(12.dp))
@@ -113,13 +109,13 @@ fun CrossWindowPane(
         Spacer(Modifier.height(8.dp))
         when (state.mode) {
             CrossWindowMode.Off -> CrossWindowNote("本轮关闭，不读取其他窗口。")
-            CrossWindowMode.ModelDecides -> CrossWindowNote("本轮只开放受限取信工具，不提前塞入其他窗口正文。模型没有调用时，不会读取。")
+            CrossWindowMode.ModelDecides -> CrossWindowNote("本轮只开放取信工具，不提前塞入其他窗口正文。模型没有调用时，不会读取。")
             CrossWindowMode.Manual -> ManualCrossWindowSources(state, onChange)
         }
 
         if (state.loading) {
             Spacer(Modifier.height(7.dp))
-            CrossWindowNote("正在看一眼其他窗口……")
+            CrossWindowNote("正在整理跨窗口取信……")
         }
         state.error?.takeIf(String::isNotBlank)?.let { error ->
             Spacer(Modifier.height(7.dp))
@@ -169,7 +165,7 @@ private fun ManualCrossWindowSources(
 ) {
     val limits = state.limits
     if (limits == null) {
-        CrossWindowNote("正在读取可用窗口和限制……")
+        CrossWindowNote("正在读取可用窗口……")
         return
     }
     if (!state.loading && state.sources.isEmpty()) {
@@ -180,7 +176,7 @@ private fun ManualCrossWindowSources(
         state.selections[source.conversationId]?.takeIf { it.checked && source.readable }?.turns ?: 0
     }
     Text(
-        text = "已选 ${state.selections.values.count { it.checked }} 个窗口 · 请求 $selectedTurns / ${limits.maxTotalTurns} 轮",
+        text = "已选 ${state.selections.values.count { it.checked }} 个窗口 · 请求 $selectedTurns 轮",
         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .68f),
         style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize)
     )
@@ -249,7 +245,6 @@ private fun CrossWindowSourceRow(
             Spacer(Modifier.size(8.dp))
             CrossWindowTurnsField(
                 turns = selection.turns,
-                maxTurns = limits.maxTurnsPerSource,
                 enabled = source.readable,
                 onCommit = { turns ->
                     onChange(state.copy(selections = state.selections + (
@@ -287,14 +282,13 @@ private fun CrossWindowCheck(checked: Boolean, enabled: Boolean, onClick: () -> 
 @Composable
 private fun CrossWindowTurnsField(
     turns: Int,
-    maxTurns: Int,
     enabled: Boolean,
     onCommit: (Int) -> Unit
 ) {
-    var text by remember(turns, maxTurns) { mutableStateOf(turns.toString()) }
+    var text by remember(turns) { mutableStateOf(turns.toString()) }
     val focusManager = LocalFocusManager.current
     fun commit() {
-        val normalized = text.toIntOrNull()?.coerceIn(1, maxTurns) ?: turns.coerceIn(1, maxTurns)
+        val normalized = text.toIntOrNull()?.takeIf { it >= 1 } ?: turns.takeIf { it >= 1 } ?: 4
         text = normalized.toString()
         onCommit(normalized)
     }
@@ -306,9 +300,9 @@ private fun CrossWindowTurnsField(
     ) {
         BasicTextField(
             value = text,
-            onValueChange = { value -> if (enabled && value.length <= 2 && value.all(Char::isDigit)) text = value },
+            onValueChange = { value -> if (enabled && value.length <= 9 && value.all(Char::isDigit)) text = value },
             modifier = Modifier
-                .size(width = 30.dp, height = 22.dp)
+                .size(width = 44.dp, height = 22.dp)
                 .onFocusChanged { if (!it.isFocused && enabled) commit() },
             enabled = enabled,
             singleLine = true,

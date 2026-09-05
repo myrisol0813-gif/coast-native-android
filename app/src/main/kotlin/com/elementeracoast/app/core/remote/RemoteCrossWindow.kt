@@ -6,10 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class RemoteCrossWindowLimits(
     @SerialName("default_turns") val defaultTurns: Int = 4,
-    @SerialName("max_turns_per_source") val maxTurnsPerSource: Int = 20,
-    @SerialName("max_total_turns") val maxTotalTurns: Int = 40,
-    @SerialName("max_message_chars") val maxMessageChars: Int = 6000,
-    @SerialName("max_total_chars") val maxTotalChars: Int = 24000
+    @SerialName("technical_max_turns_per_source") val technicalMaxTurnsPerSource: Int = 9999
 )
 
 @Serializable

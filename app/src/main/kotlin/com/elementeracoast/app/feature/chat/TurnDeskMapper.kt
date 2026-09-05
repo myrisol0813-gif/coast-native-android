@@ -3,6 +3,7 @@ package com.elementeracoast.app.feature.chat
 import com.elementeracoast.app.core.model.TurnDeskDetail
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.model.TurnDeskSection
+import com.elementeracoast.app.core.remote.RemoteDeskCrossWindow
 import com.elementeracoast.app.core.remote.RemoteDeskCrossWindowSource
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteDeskTool
@@ -91,20 +92,31 @@ internal object TurnDeskMapper {
             ),
             section(
                 title = value.crossWindow.label.ifBlank { "跨窗口取信" },
-                status = withDetail(
-                    value.crossWindow.status,
-                    if (value.crossWindow.windowCount > 0) "${value.crossWindow.windowCount}窗 · 实际 ${value.crossWindow.totalDeliveredTurns}轮" else ""
-                ),
+                status = crossWindowStatus(value.crossWindow),
                 description = value.crossWindow.description,
                 details = buildList {
+                    val requestedTurns = value.crossWindow.requestedTurns.takeIf { it > 0 } ?: value.crossWindow.totalRequestedTurns
+                    val loadedTurns = value.crossWindow.loadedTurns.takeIf { it > 0 } ?: value.crossWindow.totalLoadedTurns
+                    val deliveredTurns = value.crossWindow.deliveredToModelTurns.takeIf { it > 0 } ?: value.crossWindow.totalDeliveredTurns
                     value.crossWindow.sources.forEach { source ->
+                        val sourceLoaded = source.loadedTurns.takeIf { it > 0 } ?: source.deliveredTurns
+                        val sourceDelivered = source.deliveredToModelTurns.takeIf { it > 0 } ?: source.deliveredTurns
                         add(TurnDeskDetail(
                             crossWindowSourceLabel(source),
-                            if (source.requestedTurns == source.deliveredTurns) "${source.deliveredTurns}轮" else "请求 ${source.requestedTurns}轮，实际 ${source.deliveredTurns}轮"
+                            "请求 ${source.requestedTurns}轮 · 读取 ${sourceLoaded}轮 · 递给 ${sourceDelivered}轮"
                         ))
                     }
+                    if (requestedTurns > 0 || loadedTurns > 0 || deliveredTurns > 0) {
+                        add(TurnDeskDetail("本轮统计", "请求 ${requestedTurns}轮 · 读取 ${loadedTurns}轮 · 递给 ${deliveredTurns}轮"))
+                    }
+                    if (value.crossWindow.attemptedDeliveredTurns > 0) add(TurnDeskDetail("尝试递送", "${value.crossWindow.attemptedDeliveredTurns}轮"))
+                    if (value.crossWindow.attemptedChars > 0) add(TurnDeskDetail("尝试字符", value.crossWindow.attemptedChars.toString()))
+                    if (value.crossWindow.attemptedEstimatedTokens > 0) add(TurnDeskDetail("估算输入 token", value.crossWindow.attemptedEstimatedTokens.toString()))
+                    value.crossWindow.failureReason?.takeIf(String::isNotBlank)?.let { add(TurnDeskDetail("失败原因", it)) }
+                    if (value.crossWindow.providerErrorType.isNotBlank()) add(TurnDeskDetail("Provider 错误类型", value.crossWindow.providerErrorType))
+                    if (value.crossWindow.providerErrorMessage.isNotBlank()) add(TurnDeskDetail("Provider 错误摘要", value.crossWindow.providerErrorMessage))
                     if (value.crossWindow.trimReason.isNotBlank()) add(TurnDeskDetail("裁剪原因", value.crossWindow.trimReason))
-                    if (value.crossWindow.error.isNotBlank()) add(TurnDeskDetail("读取错误", value.crossWindow.error))
+                    if (value.crossWindow.error.isNotBlank()) add(TurnDeskDetail("错误", value.crossWindow.error))
                     val sourceById = value.crossWindow.sources.associateBy { it.conversationId }
                     value.crossWindow.messages.forEach { group ->
                         val source = sourceById[group.conversationId]
@@ -148,6 +160,20 @@ internal object TurnDeskMapper {
             )
         )
     )
+
+    private fun crossWindowStatus(value: RemoteDeskCrossWindow): String {
+        val windows = value.requestedWindows.takeIf { it > 0 } ?: value.windowCount
+        val requested = value.requestedTurns.takeIf { it > 0 } ?: value.totalRequestedTurns
+        val loaded = value.loadedTurns.takeIf { it > 0 } ?: value.totalLoadedTurns
+        val delivered = value.deliveredToModelTurns.takeIf { it > 0 } ?: value.totalDeliveredTurns
+        val attempted = value.attemptedDeliveredTurns
+        val detail = when {
+            value.status == "递送失败" -> "${windows}窗 · 请求 ${requested} · 读取 ${loaded} · 尝试 ${attempted}轮"
+            windows > 0 || requested > 0 || loaded > 0 || delivered > 0 -> "${windows}窗 · 请求 ${requested} · 读取 ${loaded} · 递给 ${delivered}轮"
+            else -> ""
+        }
+        return withDetail(value.status, detail)
+    }
 
     private fun crossWindowSourceLabel(source: RemoteDeskCrossWindowSource): String = when {
         source.source == "rikkahub" -> "【Rikka】${source.title}"
