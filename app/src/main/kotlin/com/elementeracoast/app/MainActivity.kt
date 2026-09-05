@@ -6,8 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.elementeracoast.app.feature.gate.GateScreen
+import com.elementeracoast.app.feature.serpentdesk.DevHandsProvider
 import com.elementeracoast.app.feature.shell.CoastShellViewModel
 import com.elementeracoast.app.feature.shell.MainShell
 import com.elementeracoast.app.ui.theme.CoastTheme
@@ -17,6 +19,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val vm: CoastShellViewModel = viewModel(factory = CoastShellViewModel.factory(applicationContext))
+            val devHands = remember(applicationContext) { DevHandsProvider.production(applicationContext) }
             val state by vm.state.collectAsState()
             val crossWindow by vm.crossWindow.collectAsState()
             val wolf by vm.local.wolf.state.collectAsState()
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
                         daily = vm.daily,
                         memory = vm.memory,
                         dogtalk = vm.dogtalk,
+                        devHands = devHands,
                         crossWindowRepository = vm.crossWindowRepository,
                         crossWindow = crossWindow,
                         onCrossWindowChange = vm::updateCrossWindow,
