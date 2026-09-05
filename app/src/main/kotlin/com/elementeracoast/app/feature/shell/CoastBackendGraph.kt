@@ -33,7 +33,11 @@ data class CoastBackendGraph(
     val dogtalk: DogtalkRepository
 ) {
     companion object {
-        fun production(context: Context, persistence: LocalPersistence): CoastBackendGraph {
+        fun production(
+            context: Context,
+            persistence: LocalPersistence,
+            chatSettingsProvider: () -> Map<String, String> = { emptyMap() }
+        ): CoastBackendGraph {
             val authStore = AndroidKeystoreAuthStore(context.applicationContext)
             val config = CoastApiConfig.production()
             val http = CoastHttpClient(config, authStore).client
@@ -46,7 +50,7 @@ data class CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
                 conversations = DefaultConversationRepository(api, cache, titleRemote),
                 profile = DefaultProfileRepository(api, cache),
-                chat = DefaultChatRepository(api, cache, metadataRemote),
+                chat = DefaultChatRepository(api, cache, metadataRemote, settingsProvider = chatSettingsProvider),
                 thoughtSoil = DefaultThoughtSoilRepository(api),
                 daily = DefaultDailyRepository(api, cache),
                 memory = DefaultMemoryRepository(memoryRemote, cache),
