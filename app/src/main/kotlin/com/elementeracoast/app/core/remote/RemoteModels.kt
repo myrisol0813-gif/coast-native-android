@@ -18,8 +18,7 @@ data class RemoteProfile(
     @SerialName("assistant_avatar_dataurl") val assistantAvatarDataUrl: String = "",
     @SerialName("current_chat_model") val currentChatModel: String = "",
     @SerialName("current_image_model") val currentImageModel: String = "",
-    @SerialName("model_box") val modelBox: RemoteModelBox = RemoteModelBox(),
-    @SerialName("recent_turns") val recentTurns: Int = 8
+    @SerialName("model_box") val modelBox: RemoteModelBox = RemoteModelBox()
 )
 
 @Serializable
