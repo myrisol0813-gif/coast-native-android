@@ -72,6 +72,7 @@ internal fun FeatureLandingScreen(
                 conversationId = shellState.activeConversationId,
                 modelName = shellState.currentModel,
                 onBack = onBackToChat,
+                onRefreshCoast = onRefresh,
                 onSnackbar = onPlaceholder
             )
         }
