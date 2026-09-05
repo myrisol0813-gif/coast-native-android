@@ -117,7 +117,7 @@ class ChatSyncMapperTest {
     }
 
     @Test
-    fun importedContextIsBoundedToRecentMessagesInsteadOfInjectingTheWholeArchive() {
+    fun clientPreflightDoesNotCapCurrentConversationContext() {
         val importedTurns = (0 until 10).map { index ->
             RemoteTurn(
                 id = "rikka-$index",
@@ -149,8 +149,8 @@ class ChatSyncMapperTest {
         val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = importedTurns), "新的海岸消息")
         val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId)
 
-        assertEquals(15, context.size)
-        assertEquals("旧问题 3", context.first().content)
+        assertEquals(21, context.size)
+        assertEquals("旧问题 0", context.first().content)
         assertEquals("新的海岸消息", context.last().content)
     }
 
@@ -189,6 +189,24 @@ class ChatSyncMapperTest {
 
         assertEquals(193, appended.history.turns.size)
         assertEquals("rikka-0", appended.history.turns.first().id)
+        assertEquals(appended.turnId, appended.history.turns.last().id)
+    }
+
+    @Test
+    fun appendUserDoesNotImposeALocal400TurnHistoryCeiling() {
+        val importedTurns = (0 until 450).map { index ->
+            RemoteTurn(
+                id = "long-$index",
+                user = RemoteUserBranch(
+                    variants = listOf(RemoteVariant("u-$index", "问题 $index", "2026-08-01T00:00:00Z"))
+                )
+            )
+        }
+
+        val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = importedTurns), "第451轮")
+
+        assertEquals(451, appended.history.turns.size)
+        assertEquals("long-0", appended.history.turns.first().id)
         assertEquals(appended.turnId, appended.history.turns.last().id)
     }
 
