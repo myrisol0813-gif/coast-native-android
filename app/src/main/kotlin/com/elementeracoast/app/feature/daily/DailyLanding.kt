@@ -86,7 +86,8 @@ fun DailyLanding(
                 subtitle = "朋友圈与日记",
                 onBack = onBackToChat,
                 actionLabel = "刷新",
-                onAction = refreshAction
+                onAction = refreshAction,
+                compact = true
             )
             DailyPage.Moments -> FeaturePageTopBar(
                 title = "碳硅圈",
@@ -95,9 +96,15 @@ fun DailyLanding(
                 actionLabel = "+ 动态",
                 onAction = { page = DailyPage.MomentCompose },
                 secondaryActionLabel = "刷新",
-                onSecondaryAction = refreshAction
+                onSecondaryAction = refreshAction,
+                compact = true
             )
-            DailyPage.MomentCompose -> FeaturePageTopBar("写碳硅圈", "直接写入海岸正式条目", { page = DailyPage.Moments })
+            DailyPage.MomentCompose -> FeaturePageTopBar(
+                "写碳硅圈",
+                "直接写入海岸正式条目",
+                { page = DailyPage.Moments },
+                compact = true
+            )
             DailyPage.Diary -> FeaturePageTopBar(
                 title = "日记",
                 subtitle = "海岸里的正式纸页",
@@ -105,10 +112,21 @@ fun DailyLanding(
                 actionLabel = "+ 日记",
                 onAction = { page = DailyPage.DiaryCompose },
                 secondaryActionLabel = "刷新",
-                onSecondaryAction = refreshAction
+                onSecondaryAction = refreshAction,
+                compact = true
             )
-            DailyPage.DiaryCompose -> FeaturePageTopBar("写日记", "直接写入海岸正式日记", { page = DailyPage.Diary })
-            DailyPage.Pet -> FeaturePageTopBar("宠物系统", "休憩箱尚未展开", { page = DailyPage.Home })
+            DailyPage.DiaryCompose -> FeaturePageTopBar(
+                "写日记",
+                "直接写入海岸正式日记",
+                { page = DailyPage.Diary },
+                compact = true
+            )
+            DailyPage.Pet -> FeaturePageTopBar(
+                "宠物系统",
+                "休憩箱尚未展开",
+                { page = DailyPage.Home },
+                compact = true
+            )
         }
 
         Box(Modifier.weight(1f)) {
