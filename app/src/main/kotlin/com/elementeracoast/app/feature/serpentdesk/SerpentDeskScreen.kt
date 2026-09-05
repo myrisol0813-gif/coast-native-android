@@ -30,7 +30,7 @@ import com.elementeracoast.app.feature.actionlog.ActionLogStore
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
-internal enum class SerpentDeskTool { ActionLog }
+internal enum class SerpentDeskTool { DevHands, ActionLog }
 
 internal data class SerpentDeskItem(
     val tool: SerpentDeskTool,
@@ -40,15 +40,21 @@ internal data class SerpentDeskItem(
 
 internal fun serpentDeskItems(): List<SerpentDeskItem> = listOf(
     SerpentDeskItem(
+        tool = SerpentDeskTool.DevHands,
+        title = "海岸施工台",
+        subtitle = "GitHub · CI / APK · Notion · 小狼窝更新"
+    ),
+    SerpentDeskItem(
         tool = SerpentDeskTool.ActionLog,
         title = "小蛇行动日志",
-        subtitle = "工具调用成功 / 失败 · 房间 · 脱敏摘要"
+        subtitle = "普通海岸工具调用 · 房间 · 脱敏摘要"
     )
 )
 
 @Composable
 fun SerpentDeskScreen(
     actionLogStore: ActionLogStore,
+    devHands: DevHandsRepository,
     conversationId: String,
     focusIds: Set<String>
 ) {
@@ -57,6 +63,7 @@ fun SerpentDeskScreen(
     }
 
     when (activeTool) {
+        SerpentDeskTool.DevHands -> DevHandsScreen(repository = devHands, onBack = { activeTool = null })
         SerpentDeskTool.ActionLog -> ActionLogToolPage(
             store = actionLogStore,
             conversationId = conversationId,
@@ -149,7 +156,7 @@ private fun ActionLogToolPage(
             Column {
                 Text("小蛇行动日志", fontWeight = FontWeight.Bold)
                 Text(
-                    "工具调用成功 / 失败 · 房间 · 脱敏摘要",
+                    "普通海岸工具调用 · 房间 · 脱敏摘要",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
