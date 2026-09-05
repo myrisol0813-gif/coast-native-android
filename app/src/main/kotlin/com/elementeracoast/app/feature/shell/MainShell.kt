@@ -23,6 +23,7 @@ import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.RoomType
+import com.elementeracoast.app.feature.chat.ChatRepository
 import com.elementeracoast.app.feature.chat.ChatWindow
 import com.elementeracoast.app.feature.chat.ModelQuickPicker
 import com.elementeracoast.app.feature.daily.DailyRepository
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
 fun MainShell(
     state: CoastShellState,
     services: LocalFeatureServices,
+    chatRepository: ChatRepository,
     daily: DailyRepository,
     memory: MemoryRepository,
     dogtalk: DogtalkRepository,
@@ -120,6 +122,7 @@ fun MainShell(
                 if (feature == null) {
                     ChatWindow(
                         state = state,
+                        chatRepository = chatRepository,
                         dogtalk = dogtalk,
                         onSend = onSend,
                         onStop = onStop,
