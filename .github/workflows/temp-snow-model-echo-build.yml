@@ -1,0 +1,81 @@
+name: Temporary Snow Letter model echo build
+
+on:
+  push:
+    branches:
+      - build/model-metadata-snow-letter-0133
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Configure stable Android signing
+        shell: bash
+        env:
+          COAST_ANDROID_KEYSTORE_B64: ${{ secrets.COAST_ANDROID_KEYSTORE_B64 }}
+          COAST_ANDROID_KEYSTORE_PASSWORD_SECRET: ${{ secrets.COAST_ANDROID_KEYSTORE_PASSWORD }}
+          COAST_ANDROID_KEY_ALIAS_SECRET: ${{ secrets.COAST_ANDROID_KEY_ALIAS }}
+          COAST_ANDROID_KEY_PASSWORD_SECRET: ${{ secrets.COAST_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${COAST_ANDROID_KEYSTORE_B64:-}"
+          test -n "${COAST_ANDROID_KEYSTORE_PASSWORD_SECRET:-}"
+          test -n "${COAST_ANDROID_KEY_ALIAS_SECRET:-}"
+          test -n "${COAST_ANDROID_KEY_PASSWORD_SECRET:-}"
+          key_path="$RUNNER_TEMP/coast-stable.jks"
+          printf '%s' "$COAST_ANDROID_KEYSTORE_B64" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+          {
+            echo "COAST_ANDROID_KEYSTORE_PATH=$key_path"
+            echo "COAST_ANDROID_KEYSTORE_PASSWORD=$COAST_ANDROID_KEYSTORE_PASSWORD_SECRET"
+            echo "COAST_ANDROID_KEY_ALIAS=$COAST_ANDROID_KEY_ALIAS_SECRET"
+            echo "COAST_ANDROID_KEY_PASSWORD=$COAST_ANDROID_KEY_PASSWORD_SECRET"
+          } >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Assemble signed debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Verify version and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version_code=$(sed -nE 's/^[[:space:]]*versionCode = ([0-9]+)[[:space:]]*$/\1/p' app/build.gradle.kts | head -n 1)
+          version_name=$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)"[[:space:]]*$/\1/p' app/build.gradle.kts | head -n 1)
+          test "$version_code" = "35"
+          test "$version_name" = "0.1.33-snow-letter-model-echo"
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p artifact
+          cp app/build/outputs/apk/debug/app-debug.apk artifact/CoastGPT-0.1.33-snow-letter-model-echo-debug.apk
+          sha256sum artifact/CoastGPT-0.1.33-snow-letter-model-echo-debug.apk > artifact/SHA256SUMS.txt
+          {
+            echo "stable_signing=true"
+            echo "versionName=$version_name"
+            echo "versionCode=$version_code"
+            echo "applicationId=com.elementeracoast.app"
+          } > artifact/BUILD_INFO.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoastGPT-0.1.33-snow-letter-model-echo-debug
+          path: artifact/*
+          retention-days: 7
