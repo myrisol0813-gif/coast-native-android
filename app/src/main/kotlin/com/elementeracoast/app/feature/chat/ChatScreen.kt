@@ -57,11 +57,6 @@ fun ChatWindow(
         ?.takeIf { it.role == MessageRole.Assistant }
         ?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
-    val latestModelEchoMessageId = state.messages.lastOrNull {
-        it.role == MessageRole.Assistant &&
-            it.generationSource in setOf("chat", "landing") &&
-            !it.remoteVariantId.isNullOrBlank()
-    }?.remoteVariantId
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
         value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
@@ -95,13 +90,6 @@ fun ChatWindow(
                 modifier = Modifier.weight(1f)
             )
 
-            latestModelEchoMessageId?.let { messageId ->
-                ModelMetadataDeskStatusStrip(
-                    conversationId = state.activeConversationId,
-                    messageId = messageId,
-                    source = metadataSource
-                )
-            }
             deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
             DogtalkCard(
                 scope = DogtalkScope.from(state.activeRoomType),
