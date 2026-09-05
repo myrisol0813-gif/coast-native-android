@@ -67,7 +67,7 @@ class ChatSyncMapperTest {
             errorDetail = "stream_error: broken"
         )
 
-        val context = ChatSyncMapper.contextMessages(history, second.turnId)
+        val context = ChatSyncMapper.contextMessages(history, second.turnId, recentTurns = 8)
 
         assertEquals(listOf("user", "assistant", "user"), context.map { it.role })
         assertEquals("第二问", context.last().content)
@@ -106,7 +106,7 @@ class ChatSyncMapperTest {
         val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = listOf(archived)), "回到海岸后的新问题")
 
         val ui = ChatSyncMapper.toUi(appended.history)
-        val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId)
+        val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId, recentTurns = 8)
 
         assertTrue(ui.any { it.text == "RikkaHub 旧问题" })
         assertTrue(ui.any { it.text == "RikkaHub 旧回复" })
@@ -117,7 +117,7 @@ class ChatSyncMapperTest {
     }
 
     @Test
-    fun clientPreflightDoesNotCapCurrentConversationContext() {
+    fun clientPreflightUsesRequestedRecentTurnsWithoutHiddenMaximum() {
         val importedTurns = (0 until 10).map { index ->
             RemoteTurn(
                 id = "rikka-$index",
@@ -147,11 +147,16 @@ class ChatSyncMapperTest {
             )
         }
         val appended = ChatSyncMapper.appendUser(RemoteHistory(turns = importedTurns), "新的海岸消息")
-        val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId)
 
-        assertEquals(21, context.size)
-        assertEquals("旧问题 0", context.first().content)
-        assertEquals("新的海岸消息", context.last().content)
+        val openContext = ChatSyncMapper.contextMessages(appended.history, appended.turnId, recentTurns = 200)
+        assertEquals(21, openContext.size)
+        assertEquals("旧问题 0", openContext.first().content)
+        assertEquals("新的海岸消息", openContext.last().content)
+
+        val threeTurnContext = ChatSyncMapper.contextMessages(appended.history, appended.turnId, recentTurns = 3)
+        assertEquals(5, threeTurnContext.size)
+        assertEquals("旧问题 8", threeTurnContext.first().content)
+        assertEquals("新的海岸消息", threeTurnContext.last().content)
     }
 
     @Test
