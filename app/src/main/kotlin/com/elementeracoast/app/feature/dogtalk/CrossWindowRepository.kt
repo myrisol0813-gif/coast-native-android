@@ -44,20 +44,14 @@ class DefaultCrossWindowRepository(
             throw CoastApiException(CoastApiErrorKind.Network, "network_unreachable", "无法连接海岸后端。", cause = error)
         }
         val limits = remote.limits
-        if (limits.defaultTurns !in 1..limits.maxTurnsPerSource ||
-            limits.maxTurnsPerSource < 1 || limits.maxTotalTurns < 1 ||
-            limits.maxMessageChars < 1 || limits.maxTotalChars < 1
-        ) {
-            throw CoastApiException(CoastApiErrorKind.Decode, "invalid_cross_window_limits", "海岸返回了无效的跨窗口限制。")
+        if (limits.defaultTurns < 1 || limits.technicalMaxTurnsPerSource < limits.defaultTurns) {
+            throw CoastApiException(CoastApiErrorKind.Decode, "invalid_cross_window_limits", "海岸返回了无效的跨窗口设置。")
         }
         CrossWindowSourceSnapshot(
             description = remote.description,
             limits = CrossWindowLimits(
                 defaultTurns = limits.defaultTurns,
-                maxTurnsPerSource = limits.maxTurnsPerSource,
-                maxTotalTurns = limits.maxTotalTurns,
-                maxMessageChars = limits.maxMessageChars,
-                maxTotalChars = limits.maxTotalChars
+                technicalMaxTurnsPerSource = limits.technicalMaxTurnsPerSource
             ),
             sources = remote.sources.map { source ->
                 CrossWindowSource(
