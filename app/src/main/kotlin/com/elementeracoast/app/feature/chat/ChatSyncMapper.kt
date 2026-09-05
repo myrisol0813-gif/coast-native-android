@@ -17,9 +17,6 @@ import java.time.Instant
 import java.util.UUID
 
 object ChatSyncMapper {
-    private const val MAX_TURNS = 400
-    private const val MAX_CONTEXT_MESSAGES = 16
-
     data class AppendedUser(val history: RemoteHistory, val turnId: String)
 
     fun appendUser(history: RemoteHistory, text: String): AppendedUser {
@@ -40,7 +37,7 @@ object ChatSyncMapper {
             )
         )
         return AppendedUser(
-            history.copy(version = 4, updatedAt = now, turns = (history.turns + turn).takeLast(MAX_TURNS)),
+            history.copy(version = 4, updatedAt = now, turns = history.turns + turn),
             turnId
         )
     }
@@ -118,9 +115,10 @@ object ChatSyncMapper {
     }
 
     /**
-     * Build the current conversation's recent provider context through the target user turn.
-     * RikkaHub archive messages are allowed here because they belong to this conversation,
-     * but the result is bounded to the same recent-window budget used by Coast chat.
+     * Build the current conversation context through the target user turn.
+     * RikkaHub archive messages are allowed here because they belong to this conversation.
+     * Coast does not impose a client-side message ceiling here; the backend applies the
+     * user-selected recent-turn and token-budget controls before provider delivery.
      * Model metadata is deliberately absent: context is role/content only.
      */
     fun contextMessages(history: RemoteHistory, targetTurnId: String): List<RemoteChatMessage> {
@@ -142,7 +140,7 @@ object ChatSyncMapper {
                     add(RemoteChatMessage("assistant", assistant.content))
                 }
             }
-        }.takeLast(MAX_CONTEXT_MESSAGES).toMutableList()
+        }.toMutableList()
 
         while (messages.firstOrNull()?.role == "assistant") messages.removeAt(0)
         return messages
