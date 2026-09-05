@@ -1,5 +1,7 @@
 package com.elementeracoast.app.feature.chat
 
+import com.elementeracoast.app.core.model.CrossWindowMode
+import com.elementeracoast.app.core.model.CrossWindowRequest
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.network.ApiStreamEvent
 import com.elementeracoast.app.core.network.CoastApiClient
@@ -7,6 +9,8 @@ import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteChatRequest
+import com.elementeracoast.app.core.remote.RemoteCrossWindowRequest
+import com.elementeracoast.app.core.remote.RemoteCrossWindowSelection
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteHistory
@@ -53,7 +57,8 @@ interface ChatRepository {
         turnId: String,
         modelId: String,
         recentTurns: Int,
-        contextBudget: Int
+        contextBudget: Int,
+        crossWindow: CrossWindowRequest = CrossWindowRequest()
     ): Flow<ChatProgress>
     fun failedHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, error: CoastApiException, partialContent: String = ""): RemoteHistory
     fun cancelledHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, partialContent: String): RemoteHistory
@@ -88,7 +93,8 @@ class DefaultChatRepository(
         turnId: String,
         modelId: String,
         recentTurns: Int,
-        contextBudget: Int
+        contextBudget: Int,
+        crossWindow: CrossWindowRequest
     ): Flow<ChatProgress> = flow {
         var content = ""
         var actualModel = modelId
@@ -110,6 +116,7 @@ class DefaultChatRepository(
                 "recentTurns" to normalizedRecentTurns.toString(),
                 "contextBudget" to contextBudget.coerceAtLeast(1800).toString()
             ),
+            crossWindow = crossWindow.toRemote(),
             stream = true
         )
         api.streamChat(request).collect { event ->
@@ -201,4 +208,14 @@ class DefaultChatRepository(
         ChatSyncMapper.clearUserFailure(history, turnId)
 
     override fun cacheHistory(conversationId: String, history: RemoteHistory) = cache.putHistory(conversationId, history)
+
+    private fun CrossWindowRequest.toRemote(): RemoteCrossWindowRequest? {
+        if (mode == CrossWindowMode.Off) return null
+        return RemoteCrossWindowRequest(
+            mode = mode.wireValue,
+            sources = if (mode == CrossWindowMode.Manual) {
+                sources.map { source -> RemoteCrossWindowSelection(source.conversationId, source.turns) }
+            } else emptyList()
+        )
+    }
 }

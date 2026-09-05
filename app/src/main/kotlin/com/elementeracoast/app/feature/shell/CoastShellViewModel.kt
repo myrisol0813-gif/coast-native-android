@@ -10,6 +10,7 @@ import com.elementeracoast.app.core.local.SharedPreferencesLocalPersistence
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.ConversationSummary
+import com.elementeracoast.app.core.model.CrossWindowRequest
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
@@ -25,6 +26,8 @@ import com.elementeracoast.app.feature.chat.ChatProgress
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
+import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import kotlinx.coroutines.CancellationException
@@ -46,11 +49,14 @@ class CoastShellViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(CoastShellState())
     val state: StateFlow<CoastShellState> = _state.asStateFlow()
+    private val _crossWindow = MutableStateFlow(CrossWindowUiState())
+    val crossWindow: StateFlow<CrossWindowUiState> = _crossWindow.asStateFlow()
 
     val local = LocalFeatureServices(persistence)
     val daily: DailyRepository get() = backend.daily
     val memory: MemoryRepository get() = backend.memory
     val dogtalk: DogtalkRepository get() = backend.dogtalk
+    val crossWindowRepository: CrossWindowRepository get() = backend.crossWindow
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private val soilJobs = mutableMapOf<String, Job>()
@@ -96,6 +102,7 @@ class CoastShellViewModel(
 
     fun logout() {
         stopGeneration()
+        resetCrossWindow()
         historyJob?.cancel()
         soilJobs.values.forEach(Job::cancel)
         soilJobs.clear()
@@ -320,6 +327,10 @@ class CoastShellViewModel(
         logAction(actionKey, label, summary)
     }
 
+    fun updateCrossWindow(value: CrossWindowUiState) {
+        _crossWindow.value = value
+    }
+
     fun sendMessage(text: String) {
         val clean = text.trim()
         if (clean.isBlank() || generationJob?.isActive == true || _state.value.isStreaming) return
@@ -355,11 +366,18 @@ class CoastShellViewModel(
                 }
 
                 if (conversation.roomType == RoomType.Lighthouse) {
+                    resetCrossWindow()
                     showHistory(conversationId, persistedUser)
                     _state.update { it.copy(snackbarMessage = "灯塔来信已写入海岸；这里按房间规则不触发模型回复") }
                     return@launch
                 }
-                generateTurn(conversationId, persistedUser, appended.turnId, _state.value.currentModel)
+                generateTurn(
+                    conversationId,
+                    persistedUser,
+                    appended.turnId,
+                    _state.value.currentModel,
+                    consumeCrossWindowRequest()
+                )
             } catch (error: CoastApiException) {
                 handleBackendError(error, "消息发送失败", keepAuthenticatedOnNetworkError = true)
             } finally {
@@ -616,7 +634,8 @@ class CoastShellViewModel(
         conversationId: String,
         history: RemoteHistory,
         turnId: String,
-        modelId: String
+        modelId: String,
+        crossWindowRequest: CrossWindowRequest
     ) {
         var partial = ""
         val cleared = backend.chat.clearFailure(history, turnId)
@@ -642,7 +661,8 @@ class CoastShellViewModel(
                 turnId,
                 modelId,
                 local.wolf.state.value.basic.recentTurns,
-                local.wolf.state.value.basic.contextBudget
+                local.wolf.state.value.basic.contextBudget,
+                crossWindowRequest
             ).collect { progress ->
                 when (progress) {
                     is ChatProgress.Delta -> {
@@ -728,7 +748,7 @@ class CoastShellViewModel(
                 val cleared = backend.chat.clearFailure(history, turnId)
                 val persisted = backend.chat.persistHistory(conversationId, cleared)
                 showHistory(conversationId, persisted)
-                generateTurn(conversationId, persisted, turnId, model)
+                generateTurn(conversationId, persisted, turnId, model, consumeCrossWindowRequest())
             } catch (error: CoastApiException) {
                 val failed = backend.chat.failedHistory(history, turnId, model, error)
                 backend.chat.cacheHistory(conversationId, failed)
@@ -790,7 +810,7 @@ class CoastShellViewModel(
                     _state.update { it.copy(snackbarMessage = "编辑版本已写回；当前没有可用聊天模型，未生成新回复") }
                     return@launch
                 }
-                generateTurn(conversationId, persisted, turnId, model)
+                generateTurn(conversationId, persisted, turnId, model, consumeCrossWindowRequest())
             } catch (error: CoastApiException) {
                 backend.chat.cacheHistory(conversationId, previous)
                 showHistory(conversationId, previous)
@@ -826,7 +846,7 @@ class CoastShellViewModel(
         }
         generationJob = viewModelScope.launch(workDispatcher) {
             try {
-                generateTurn(conversationId, history, turnId, model)
+                generateTurn(conversationId, history, turnId, model, consumeCrossWindowRequest())
             } finally {
                 generationJob = null
             }
@@ -883,6 +903,7 @@ class CoastShellViewModel(
     }
 
     private fun activateCachedConversation(conversation: ConversationSummary) {
+        resetCrossWindow()
         persistence.put(KEY_CURRENT_CONVERSATION, conversation.id)
         val history = backend.chat.cachedHistory(conversation.id)
         _state.update {
@@ -904,6 +925,7 @@ class CoastShellViewModel(
 
     private fun openRoomLanding(roomType: RoomType) {
         require(roomType in RoomType.entries)
+        resetCrossWindow()
         persistence.remove(KEY_CURRENT_CONVERSATION)
         _state.update {
             it.copy(
@@ -921,6 +943,16 @@ class CoastShellViewModel(
                 streamingVariantIndex = null
             )
         }
+    }
+
+    private fun consumeCrossWindowRequest(): CrossWindowRequest {
+        val request = _crossWindow.value.request()
+        _crossWindow.value = CrossWindowUiState()
+        return request
+    }
+
+    private fun resetCrossWindow() {
+        _crossWindow.value = CrossWindowUiState()
     }
 
     private suspend fun <T> remoteOrNull(label: String, block: suspend () -> T): T? = try {
