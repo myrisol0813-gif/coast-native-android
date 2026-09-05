@@ -79,7 +79,7 @@ fun WolfScreen(
                     onSelect = onSelectModel,
                     onRefresh = onRefreshModels
                 )
-                WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store)
+                WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store, onSnackbar)
                 WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
             }
         }
