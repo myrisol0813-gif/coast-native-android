@@ -17,6 +17,7 @@ import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
+import com.elementeracoast.app.core.remote.RemoteAttachment
 import com.elementeracoast.app.core.remote.RemoteHistory
 import com.elementeracoast.app.core.remote.RemoteModelCatalogItem
 import com.elementeracoast.app.core.remote.RemoteModelCatalogResponse
@@ -481,6 +482,23 @@ class CoastShellViewModelTest {
             histories[conversationId] = saved
             return saved
         }
+
+        override suspend fun uploadAttachment(
+            conversationId: String,
+            name: String,
+            mime: String,
+            bytes: ByteArray
+        ): RemoteAttachment = RemoteAttachment(
+            id = "att-${name.hashCode()}",
+            type = if (mime.startsWith("image/")) "image" else "file",
+            name = name,
+            mime = mime,
+            size = bytes.size.toLong(),
+            storageKey = "chat-attachment:att-${name.hashCode()}",
+            createdAt = "2026-09-15T12:00:00Z"
+        )
+
+        override suspend fun deleteAttachment(conversationId: String, attachmentId: String) = Unit
 
         override fun streamReply(
             conversationId: String,
