@@ -18,6 +18,8 @@ data class CoastShellState(
     val conversations: List<ConversationSummary> = emptyList(),
     val activeConversationId: String = "",
     val messages: List<ChatMessage> = emptyList(),
+    val pendingAttachments: List<ChatAttachment> = emptyList(),
+    val attachmentUploading: Boolean = false,
     val thoughtSoil: ThoughtSoilSnapshot? = null,
     val turnDeskReceipt: TurnDeskReceipt? = null,
     val currentModel: String = "",
