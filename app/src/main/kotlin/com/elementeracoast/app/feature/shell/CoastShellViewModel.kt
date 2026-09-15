@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.elementeracoast.app.core.auth.SessionRestoreResult
 import com.elementeracoast.app.core.local.LocalPersistence
 import com.elementeracoast.app.core.local.SharedPreferencesLocalPersistence
+import com.elementeracoast.app.core.model.ChatAttachment
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.ConversationSummary
@@ -59,6 +60,7 @@ class CoastShellViewModel(
     val crossWindowRepository: CrossWindowRepository get() = backend.crossWindow
     private var generationJob: Job? = null
     private var historyJob: Job? = null
+    private var attachmentUploadsInFlight = 0
     private val soilJobs = mutableMapOf<String, Job>()
 
     init {
@@ -147,6 +149,7 @@ class CoastShellViewModel(
 
     fun selectConversation(id: String) {
         stopGeneration()
+        if (id != _state.value.activeConversationId) discardPendingAttachments()
         val conversation = _state.value.conversations.firstOrNull { it.id == id } ?: return
         activateCachedConversation(conversation)
         loadConversation(conversation)
@@ -154,6 +157,7 @@ class CoastShellViewModel(
 
     fun newConversation() {
         stopGeneration()
+        discardPendingAttachments()
         val roomType = _state.value.activeRoomType
         viewModelScope.launch(workDispatcher) {
             try {
@@ -333,7 +337,8 @@ class CoastShellViewModel(
 
     fun sendMessage(text: String) {
         val clean = text.trim()
-        if (clean.isBlank() || generationJob?.isActive == true || _state.value.isStreaming) return
+        val pendingAttachments = _state.value.pendingAttachments
+        if ((clean.isBlank() && pendingAttachments.isEmpty()) || generationJob?.isActive == true || _state.value.isStreaming || _state.value.attachmentUploading) return
         if (_state.value.currentModel.isBlank() && _state.value.activeRoomType != RoomType.Lighthouse) {
             showPlaceholder("当前模型还没有从海岸载入，暂时不能发送。")
             return
@@ -346,7 +351,7 @@ class CoastShellViewModel(
                     _state.update { it.copy(turnDeskReceipt = null) }
                 }
                 val baseHistory = historyForSend(conversationId)
-                val appended = ChatSyncMapper.appendUser(baseHistory, clean)
+                val appended = ChatSyncMapper.appendUser(baseHistory, clean, pendingAttachments)
                 backend.chat.cacheHistory(conversationId, appended.history)
                 showHistory(conversationId, appended.history)
 
@@ -365,6 +370,8 @@ class CoastShellViewModel(
                     return@launch
                 }
 
+                _state.update { it.copy(pendingAttachments = emptyList(), attachmentUploading = false) }
+
                 if (conversation.roomType == RoomType.Lighthouse) {
                     resetCrossWindow()
                     showHistory(conversationId, persistedUser)
@@ -382,6 +389,89 @@ class CoastShellViewModel(
                 handleBackendError(error, "消息发送失败", keepAuthenticatedOnNetworkError = true)
             } finally {
                 generationJob = null
+            }
+        }
+    }
+
+    fun uploadAttachment(name: String, mime: String, bytes: ByteArray) {
+        if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024 || _state.value.pendingAttachments.size >= 12) {
+            _state.update {
+                it.copy(snackbarMessage = when {
+                    bytes.isEmpty() -> "附件是空文件。"
+                    bytes.size > 8 * 1024 * 1024 -> "附件超过海岸当前 8 MB 上传上限。"
+                    else -> "一轮最多发送 12 个附件。"
+                })
+            }
+            return
+        }
+        attachmentUploadsInFlight += 1
+        _state.update { it.copy(attachmentUploading = true) }
+        viewModelScope.launch(workDispatcher) {
+            var conversationId = ""
+            try {
+                val conversation = ensureRemoteConversation()
+                conversationId = conversation.id
+                val remote = backend.chat.uploadAttachment(
+                    conversationId = conversationId,
+                    name = name,
+                    mime = mime,
+                    bytes = bytes
+                )
+                val attachment = ChatAttachment(
+                    id = remote.id,
+                    type = remote.type,
+                    name = remote.name,
+                    mime = remote.mime,
+                    size = remote.size,
+                    storageKey = remote.storageKey,
+                    createdAt = remote.createdAt
+                )
+                if (_state.value.activeConversationId == conversationId) {
+                    _state.update { state ->
+                        state.copy(
+                            pendingAttachments = (state.pendingAttachments + attachment)
+                                .distinctBy { it.id }
+                                .take(12),
+                            backendOffline = false
+                        )
+                    }
+                } else {
+                    runCatching { backend.chat.deleteAttachment(conversationId, attachment.id) }
+                }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "附件上传失败", keepAuthenticatedOnNetworkError = true)
+            } finally {
+                attachmentUploadsInFlight = (attachmentUploadsInFlight - 1).coerceAtLeast(0)
+                _state.update { it.copy(attachmentUploading = attachmentUploadsInFlight > 0) }
+            }
+        }
+    }
+
+    fun removePendingAttachment(attachmentId: String) {
+        val id = attachmentId.trim()
+        val conversationId = _state.value.activeConversationId
+        if (id.isBlank() || conversationId.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                backend.chat.deleteAttachment(conversationId, id)
+                _state.update { state ->
+                    state.copy(pendingAttachments = state.pendingAttachments.filterNot { it.id == id })
+                }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "附件移除失败", keepAuthenticatedOnNetworkError = true)
+            }
+        }
+    }
+
+    private fun discardPendingAttachments() {
+        val conversationId = _state.value.activeConversationId
+        val pending = _state.value.pendingAttachments
+        if (pending.isEmpty()) return
+        _state.update { it.copy(pendingAttachments = emptyList(), attachmentUploading = false) }
+        if (conversationId.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            pending.forEach { attachment ->
+                runCatching { backend.chat.deleteAttachment(conversationId, attachment.id) }
             }
         }
     }
