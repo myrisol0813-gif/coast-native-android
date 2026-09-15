@@ -343,7 +343,7 @@ jobs:
           retention-days: 7
 
       - name: Publish closeout APK as prerelease asset
-        if: github.event_name == 'push' && github.ref_name == 'coast-v1-final-closeout' && contains(github.event.head_commit.message, '[apk-release]')
+        if: github.event_name == 'push' && (github.ref_name == 'main' || (github.ref_name == 'coast-v1-final-closeout' && contains(github.event.head_commit.message, '[apk-release]')))
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
