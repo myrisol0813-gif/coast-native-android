@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import com.elementeracoast.app.ui.theme.snowLetterComposerGlyphColor
 
 @Composable
 fun CoastComposer(
@@ -51,6 +52,7 @@ fun CoastComposer(
 ) {
     val focus = LocalFocusManager.current
     val canSend = enabled && value.trim().isNotEmpty() && !isStreaming
+    val plusGlyphColor = snowLetterComposerGlyphColor(MaterialTheme.colorScheme.onSurface)
 
     Row(
         modifier = Modifier
@@ -65,7 +67,7 @@ fun CoastComposer(
     ) {
         RoundComposerButton(
             background = MaterialTheme.colorScheme.surfaceVariant,
-            foreground = MaterialTheme.colorScheme.onSurface,
+            foreground = plusGlyphColor,
             onClick = { onPlaceholder("图片与附件将在 P1 接入。") }
         ) {
             Icon(
@@ -148,7 +150,11 @@ fun CoastComposer(
         Spacer(Modifier.size(CoastChatTokens.ComposerGap))
 
         val actionBackground = if (isStreaming) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
-        val actionForeground = if (isStreaming) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onPrimary
+        val actionForeground = if (isStreaming) {
+            MaterialTheme.colorScheme.background
+        } else {
+            snowLetterComposerGlyphColor(MaterialTheme.colorScheme.onPrimary)
+        }
         RoundComposerButton(
             background = actionBackground,
             foreground = actionForeground,
