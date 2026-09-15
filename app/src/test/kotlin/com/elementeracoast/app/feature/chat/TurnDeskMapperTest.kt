@@ -1,12 +1,17 @@
 package com.elementeracoast.app.feature.chat
 
 import com.elementeracoast.app.core.remote.RemoteChatMessage
+import com.elementeracoast.app.core.remote.RemoteDeskAttachmentItem
+import com.elementeracoast.app.core.remote.RemoteDeskAttachments
+import com.elementeracoast.app.core.remote.RemoteDeskAttachmentVision
 import com.elementeracoast.app.core.remote.RemoteDeskCurrentMessage
 import com.elementeracoast.app.core.remote.RemoteDeskExternalTide
 import com.elementeracoast.app.core.remote.RemoteDeskMemory
 import com.elementeracoast.app.core.remote.RemoteDeskRecentContext
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteDeskThinkingSoil
+import com.elementeracoast.app.core.remote.RemoteDeskWebSearch
+import com.elementeracoast.app.core.remote.RemoteDeskWebSearchResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,5 +61,57 @@ class TurnDeskMapperTest {
         assertTrue(receipt.sections[7].details.any { it.text == "本轮未递入" })
         assertTrue(receipt.sections.last().details.any { it.text == "本轮没有递入外部材料。" })
         assertTrue(receipt.sections.all { section -> section.details.any { it.label == "来源说明" } || section.details.any { it.text == "本轮未递入" } })
+    }
+
+    @Test fun mapperAddsAttachmentAndSearchReceiptsWhenPresent() {
+        val receipt = TurnDeskMapper.toUi(
+            RemoteDeskSlip(
+                attachments = RemoteDeskAttachments(
+                    uploaded = 2,
+                    deliveredToModel = 1,
+                    delivered = listOf(
+                        RemoteDeskAttachmentItem(
+                            id = "a1",
+                            name = "图.png",
+                            type = "image",
+                            mode = "vision"
+                        )
+                    ),
+                    notDelivered = listOf(
+                        RemoteDeskAttachmentItem(
+                            id = "a2",
+                            name = "书.pdf",
+                            reason = "file_type_unsupported"
+                        )
+                    ),
+                    vision = RemoteDeskAttachmentVision(
+                        supported = true,
+                        imagesDelivered = 1
+                    )
+                ),
+                webSearch = RemoteDeskWebSearch(
+                    available = true,
+                    used = true,
+                    requestedQuery = "搜一下最新资料",
+                    requests = 1,
+                    resultsCount = 1,
+                    results = listOf(
+                        RemoteDeskWebSearchResult(
+                            title = "来源",
+                            url = "https://example.com",
+                            content = "摘要"
+                        )
+                    )
+                )
+            )
+        )
+
+        val attachment = receipt.sections.first { it.title == "本轮附件" }
+        val search = receipt.sections.first { it.title == "本轮搜索" }
+        assertTrue(attachment.status.contains("上传 2"))
+        assertTrue(attachment.details.any { it.text.contains("识图") })
+        assertTrue(attachment.details.any { it.text.contains("file_type_unsupported") })
+        assertTrue(search.status.contains("已搜索"))
+        assertTrue(search.details.any { it.text.contains("https://example.com") })
     }
 }
