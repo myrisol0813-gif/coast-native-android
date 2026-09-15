@@ -103,6 +103,23 @@ data class RemoteAssistantBranches(
 )
 
 @Serializable
+data class RemoteAttachment(
+    val id: String,
+    val type: String = "file",
+    val name: String = "附件",
+    val mime: String = "application/octet-stream",
+    val size: Long = 0L,
+    @SerialName("storage_key") val storageKey: String = "",
+    @SerialName("created_at") val createdAt: String = ""
+)
+
+@Serializable
+data class RemoteAttachmentResponse(
+    val ok: Boolean = false,
+    val attachment: RemoteAttachment
+)
+
+@Serializable
 data class RemoteVariant(
     val id: String,
     val content: String = "",
@@ -116,6 +133,7 @@ data class RemoteVariant(
     @SerialName("message_source") val messageSource: String? = null,
     @SerialName("display_author") val displayAuthor: String? = null,
     @SerialName("errorDetail") val errorDetail: String? = null,
+    val attachments: List<RemoteAttachment> = emptyList(),
     @SerialName("furniture_runs") val furnitureRuns: List<RemoteFurnitureRun> = emptyList(),
     @SerialName("desk_slip") val deskSlip: RemoteDeskSlip? = null
 )
@@ -146,6 +164,7 @@ data class RemoteChatRequest(
     @SerialName("message_id") val messageId: String = "",
     val model: String,
     val messages: List<RemoteChatMessage>,
+    @SerialName("attachment_ids") val attachmentIds: List<String> = emptyList(),
     @SerialName("local_date") val localDate: String,
     @SerialName("local_datetime") val localDateTime: String,
     val settings: Map<String, String> = emptyMap(),
