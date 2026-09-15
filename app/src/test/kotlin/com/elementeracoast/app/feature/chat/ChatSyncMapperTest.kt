@@ -1,5 +1,6 @@
 package com.elementeracoast.app.feature.chat
 
+import com.elementeracoast.app.core.model.ChatAttachment
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.remote.RemoteAssistantBranches
 import com.elementeracoast.app.core.remote.RemoteHistory
@@ -50,6 +51,28 @@ class ChatSyncMapperTest {
         assertEquals("第二版", assistant.text)
         assertEquals(2, assistant.variantCount)
         assertEquals(1, assistant.variantIndex)
+    }
+
+    @Test
+    fun attachmentOnlyTurnStaysVisibleAndProvidesIdsForGeneration() {
+        val attachment = ChatAttachment(
+            id = "att-1",
+            type = "image",
+            name = "coast.png",
+            mime = "image/png",
+            size = 1234,
+            storageKey = "chat-attachment:att-1",
+            createdAt = "2026-09-15T12:00:00Z"
+        )
+        val appended = ChatSyncMapper.appendUser(RemoteHistory(), "", listOf(attachment))
+
+        val context = ChatSyncMapper.contextMessages(appended.history, appended.turnId, recentTurns = 8)
+        val ui = ChatSyncMapper.toUi(appended.history).single()
+
+        assertEquals("请查看本轮附件。", context.single().content)
+        assertEquals(listOf("att-1"), ChatSyncMapper.activeAttachmentIds(appended.history, appended.turnId))
+        assertEquals("", ui.text)
+        assertEquals("coast.png", ui.attachments.single().name)
     }
 
     @Test
