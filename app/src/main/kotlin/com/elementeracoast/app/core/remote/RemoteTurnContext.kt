@@ -16,6 +16,8 @@ data class RemoteDeskSlip(
     val dogtalk: RemoteDeskDogtalk = RemoteDeskDogtalk(),
     @SerialName("cross_window") val crossWindow: RemoteDeskCrossWindow = RemoteDeskCrossWindow(),
     val workbench: RemoteDeskWorkbench = RemoteDeskWorkbench(),
+    val attachments: RemoteDeskAttachments? = null,
+    @SerialName("web_search") val webSearch: RemoteDeskWebSearch? = null,
     @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide()
 )
 
@@ -183,6 +185,50 @@ data class RemoteDeskWorkbench(
     @SerialName("side_tools") val sideTools: List<RemoteDeskTool> = emptyList(),
     val furniture: List<String> = emptyList(),
     @SerialName("tool_results") val toolResults: List<RemoteDeskToolResult> = emptyList()
+)
+
+@Serializable
+data class RemoteDeskAttachmentItem(
+    val id: String = "",
+    val name: String = "",
+    val type: String = "file",
+    val mode: String = "",
+    val reason: String = ""
+)
+
+@Serializable
+data class RemoteDeskAttachmentVision(
+    val supported: Boolean = false,
+    @SerialName("images_delivered") val imagesDelivered: Int = 0
+)
+
+@Serializable
+data class RemoteDeskAttachments(
+    val uploaded: Int = 0,
+    @SerialName("delivered_to_model") val deliveredToModel: Int = 0,
+    val delivered: List<RemoteDeskAttachmentItem> = emptyList(),
+    @SerialName("not_delivered") val notDelivered: List<RemoteDeskAttachmentItem> = emptyList(),
+    val vision: RemoteDeskAttachmentVision = RemoteDeskAttachmentVision()
+)
+
+@Serializable
+data class RemoteDeskWebSearchResult(
+    val title: String = "",
+    val url: String = "",
+    val content: String = ""
+)
+
+@Serializable
+data class RemoteDeskWebSearch(
+    val available: Boolean = false,
+    val used: Boolean = false,
+    @SerialName("requested_query") val requestedQuery: String = "",
+    @SerialName("query_source") val querySource: String = "",
+    @SerialName("provider_query_returned") val providerQueryReturned: Boolean = false,
+    val requests: Int = 0,
+    @SerialName("results_count") val resultsCount: Int = 0,
+    val results: List<RemoteDeskWebSearchResult> = emptyList(),
+    val reason: String? = null
 )
 
 @Serializable
