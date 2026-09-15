@@ -2,6 +2,16 @@ package com.elementeracoast.app.core.model
 
 enum class MessageRole { User, Assistant }
 
+data class ChatAttachment(
+    val id: String,
+    val type: String = "file",
+    val name: String = "附件",
+    val mime: String = "application/octet-stream",
+    val size: Long = 0L,
+    val storageKey: String = "",
+    val createdAt: String = ""
+)
+
 data class FurnitureItem(
     val title: String,
     val kind: String = ""
@@ -34,6 +44,7 @@ data class ChatMessage(
     val variantCount: Int = 1,
     val variants: List<String> = emptyList(),
     val createdAtLabel: String? = null,
+    val attachments: List<ChatAttachment> = emptyList(),
     val furnitureRuns: List<FurnitureRun> = emptyList(),
     val deskReceipt: TurnDeskReceipt? = null
 ) {

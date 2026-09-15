@@ -9,6 +9,7 @@ package com.elementeracoast.app.feature.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,160 +24,221 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import com.elementeracoast.app.core.model.ChatAttachment
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import com.elementeracoast.app.ui.theme.snowLetterComposerGlyphColor
 
 @Composable
 fun CoastComposer(
     value: String,
     onValueChange: (String) -> Unit,
+    pendingAttachments: List<ChatAttachment>,
+    attachmentUploading: Boolean,
     isStreaming: Boolean,
     enabled: Boolean = true,
+    onPickImage: () -> Unit,
+    onPickFile: () -> Unit,
+    onRemoveAttachment: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onPlaceholder: (String) -> Unit
 ) {
     val focus = LocalFocusManager.current
-    val canSend = enabled && value.trim().isNotEmpty() && !isStreaming
+    var attachmentMenuOpen by remember { mutableStateOf(false) }
+    val canSend = enabled &&
+        (value.trim().isNotEmpty() || pendingAttachments.isNotEmpty()) &&
+        !attachmentUploading &&
+        !isStreaming
+    val plusGlyphColor = snowLetterComposerGlyphColor(MaterialTheme.colorScheme.onSurface)
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
-            .padding(
-                horizontal = CoastChatTokens.ComposerHorizontalPadding,
-                vertical = CoastChatTokens.ComposerVerticalPadding
-            ),
-        verticalAlignment = Alignment.Bottom
     ) {
-        RoundComposerButton(
-            background = MaterialTheme.colorScheme.surfaceVariant,
-            foreground = MaterialTheme.colorScheme.onSurface,
-            onClick = { onPlaceholder("图片与附件将在 P1 接入。") }
-        ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = "添加",
-                modifier = Modifier.size(CoastChatTokens.ComposerPlusGlyph)
-            )
-        }
+        PendingAttachmentTray(
+            attachments = pendingAttachments,
+            uploading = attachmentUploading,
+            onRemove = onRemoveAttachment
+        )
 
-        Spacer(Modifier.size(CoastChatTokens.ComposerGap))
-
-        SnowLetterSurface(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .heightIn(
-                    min = CoastChatTokens.ComposerPillMinHeight,
-                    max = CoastChatTokens.ComposerPillMaxHeight
+                .fillMaxWidth()
+                .padding(
+                    horizontal = CoastChatTokens.ComposerHorizontalPadding,
+                    vertical = CoastChatTokens.ComposerVerticalPadding
                 ),
-            role = SnowLetterSurfaceRole.ComposerField,
-            fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
-            fallbackShape = RoundedCornerShape(CoastChatTokens.ComposerPillRadius)
+            verticalAlignment = Alignment.Bottom
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = CoastChatTokens.ComposerPillStartPadding,
-                        end = CoastChatTokens.ComposerPillEndPadding,
-                        top = CoastChatTokens.ComposerPillVerticalPadding,
-                        bottom = CoastChatTokens.ComposerPillVerticalPadding
-                    ),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Box(
-                    modifier = Modifier.weight(1f).heightIn(min = CoastChatTokens.ComposerMicTouch),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    if (value.isEmpty()) {
-                        Text(
-                            if (enabled) "询问任何问题" else "正在准备聊天…",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = CoastChatTokens.ComposerTextSize,
-                                lineHeight = CoastChatTokens.ComposerTextLineHeight
-                            )
-                        )
-                    }
-                    BasicTextField(
-                        value = value,
-                        onValueChange = onValueChange,
-                        enabled = enabled && !isStreaming,
-                        modifier = Modifier.fillMaxWidth(),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = CoastChatTokens.ComposerTextSize,
-                            lineHeight = CoastChatTokens.ComposerTextLineHeight
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        maxLines = 6
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(CoastChatTokens.ComposerMicTouch)
-                        .clickable(enabled = enabled && !isStreaming) {
-                            onPlaceholder("语音输入将在 P1 接入。")
-                        },
-                    contentAlignment = Alignment.Center
+            Box {
+                RoundComposerButton(
+                    background = MaterialTheme.colorScheme.surfaceVariant,
+                    foreground = plusGlyphColor,
+                    enabled = enabled && !isStreaming && !attachmentUploading,
+                    onClick = { attachmentMenuOpen = true }
                 ) {
                     Icon(
-                        Icons.Default.Mic,
-                        contentDescription = "语音输入",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .78f),
-                        modifier = Modifier.size(CoastChatTokens.ComposerMicGlyph)
+                        Icons.Default.Add,
+                        contentDescription = "添加图片或文件",
+                        modifier = Modifier.size(CoastChatTokens.ComposerPlusGlyph)
+                    )
+                }
+                DropdownMenu(
+                    expanded = attachmentMenuOpen,
+                    onDismissRequest = { attachmentMenuOpen = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("图片") },
+                        leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
+                        onClick = {
+                            attachmentMenuOpen = false
+                            onPickImage()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("文件") },
+                        leadingIcon = { Icon(Icons.Default.InsertDriveFile, contentDescription = null) },
+                        onClick = {
+                            attachmentMenuOpen = false
+                            onPickFile()
+                        }
                     )
                 }
             }
-        }
 
-        Spacer(Modifier.size(CoastChatTokens.ComposerGap))
+            Spacer(Modifier.size(CoastChatTokens.ComposerGap))
 
-        val actionBackground = if (isStreaming) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
-        val actionForeground = if (isStreaming) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onPrimary
-        RoundComposerButton(
-            background = actionBackground,
-            foreground = actionForeground,
-            enabled = enabled || isStreaming,
-            onClick = {
-                when {
-                    isStreaming -> onStop()
-                    canSend -> {
-                        focus.clearFocus()
-                        onSend()
+            SnowLetterSurface(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(
+                        min = CoastChatTokens.ComposerPillMinHeight,
+                        max = CoastChatTokens.ComposerPillMaxHeight
+                    ),
+                role = SnowLetterSurfaceRole.ComposerField,
+                fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+                fallbackShape = RoundedCornerShape(CoastChatTokens.ComposerPillRadius)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = CoastChatTokens.ComposerPillStartPadding,
+                            end = CoastChatTokens.ComposerPillEndPadding,
+                            top = CoastChatTokens.ComposerPillVerticalPadding,
+                            bottom = CoastChatTokens.ComposerPillVerticalPadding
+                        ),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Box(
+                        modifier = Modifier.weight(1f).heightIn(min = CoastChatTokens.ComposerMicTouch),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (value.isEmpty()) {
+                            Text(
+                                if (enabled) "询问任何问题" else "正在准备聊天…",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontSize = CoastChatTokens.ComposerTextSize,
+                                    lineHeight = CoastChatTokens.ComposerTextLineHeight
+                                )
+                            )
+                        }
+                        BasicTextField(
+                            value = value,
+                            onValueChange = onValueChange,
+                            enabled = enabled && !isStreaming && !attachmentUploading,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = CoastChatTokens.ComposerTextSize,
+                                lineHeight = CoastChatTokens.ComposerTextLineHeight
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            maxLines = 6
+                        )
                     }
-                    else -> onPlaceholder("空输入通话仍是 Native v1 占位。")
+                    if (value.isBlank() && pendingAttachments.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(CoastChatTokens.ComposerMicTouch)
+                                .clickable(enabled = enabled && !isStreaming) {
+                                    onPlaceholder("语音输入不在 V1 范围内。")
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = "语音输入",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .78f),
+                                modifier = Modifier.size(CoastChatTokens.ComposerMicGlyph)
+                            )
+                        }
+                    }
                 }
             }
-        ) {
-            Icon(
-                imageVector = when {
-                    isStreaming -> Icons.Default.Stop
-                    canSend -> Icons.Default.ArrowUpward
-                    else -> Icons.Default.Call
-                },
-                contentDescription = when {
-                    isStreaming -> "停止"
-                    canSend -> "发送"
-                    else -> "通话"
-                },
-                modifier = Modifier.size(CoastChatTokens.ComposerActionGlyph)
-            )
+
+            Spacer(Modifier.size(CoastChatTokens.ComposerGap))
+
+            val actionBackground = if (isStreaming) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
+            val actionForeground = if (isStreaming) {
+                MaterialTheme.colorScheme.background
+            } else {
+                snowLetterComposerGlyphColor(MaterialTheme.colorScheme.onPrimary)
+            }
+            RoundComposerButton(
+                background = actionBackground,
+                foreground = actionForeground,
+                enabled = (enabled && !attachmentUploading) || isStreaming,
+                onClick = {
+                    when {
+                        isStreaming -> onStop()
+                        canSend -> {
+                            focus.clearFocus()
+                            onSend()
+                        }
+                        else -> onPlaceholder("空输入通话不在 Native V1 范围内。")
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = when {
+                        isStreaming -> Icons.Default.Stop
+                        canSend -> Icons.Default.ArrowUpward
+                        else -> Icons.Default.Call
+                    },
+                    contentDescription = when {
+                        isStreaming -> "停止"
+                        canSend -> "发送"
+                        else -> "通话"
+                    },
+                    modifier = Modifier.size(CoastChatTokens.ComposerActionGlyph)
+                )
+            }
         }
     }
 }

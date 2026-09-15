@@ -4,8 +4,10 @@ import com.elementeracoast.app.core.model.TurnDeskDetail
 import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.core.model.TurnDeskSection
 import com.elementeracoast.app.core.remote.RemoteDeskCrossWindow
+import com.elementeracoast.app.core.remote.RemoteDeskAttachments
 import com.elementeracoast.app.core.remote.RemoteDeskCrossWindowSource
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
+import com.elementeracoast.app.core.remote.RemoteDeskWebSearch
 import com.elementeracoast.app.core.remote.RemoteDeskTool
 
 internal object TurnDeskMapper {
@@ -158,8 +160,66 @@ internal object TurnDeskMapper {
                 description = value.externalTide.description,
                 details = detail("", value.externalTide.content.ifBlank { "本轮没有递入外部材料。" })
             )
+        ) + listOfNotNull(
+            attachmentSection(value.attachments),
+            webSearchSection(value.webSearch)
         )
     )
+
+    private fun attachmentSection(value: RemoteDeskAttachments?): TurnDeskSection? {
+        if (value == null) return null
+        return section(
+            title = "本轮附件",
+            status = "上传 ${value.uploaded} · 递给 ${value.deliveredToModel}",
+            description = "",
+            details = buildList {
+                add(TurnDeskDetail(
+                    "识图",
+                    if (value.vision.supported) "当前模型支持 · 已递 ${value.vision.imagesDelivered} 张"
+                    else "当前模型未确认支持 · 已递 ${value.vision.imagesDelivered} 张"
+                ))
+                value.delivered.forEach { item ->
+                    add(TurnDeskDetail(
+                        item.name.ifBlank { item.id.ifBlank { "附件" } },
+                        when (item.mode) {
+                            "vision" -> "图片 · 已递给模型 · 识图"
+                            "text" -> "文件 · 已递给模型 · 文本读取"
+                            else -> "已递给模型"
+                        }
+                    ))
+                }
+                value.notDelivered.forEach { item ->
+                    add(TurnDeskDetail(
+                        item.name.ifBlank { item.id.ifBlank { "附件" } },
+                        "未递给模型 · ${item.reason.ifBlank { "unknown" }}"
+                    ))
+                }
+            }
+        )
+    }
+
+    private fun webSearchSection(value: RemoteDeskWebSearch?): TurnDeskSection? {
+        if (value == null) return null
+        val status = when {
+            !value.available -> "不可用"
+            value.used -> "已搜索 · ${value.requests} 次 · ${value.resultsCount} 来源"
+            else -> "可用 · 本轮未调用"
+        }
+        return section(
+            title = "本轮搜索",
+            status = status,
+            description = "",
+            details = buildList {
+                if (value.requestedQuery.isNotBlank()) add(TurnDeskDetail("本轮触发语句", value.requestedQuery))
+                if (!value.providerQueryReturned) add(TurnDeskDetail("搜索 query", "provider 未回传内部原始 query；海岸不伪造。"))
+                value.reason?.takeIf(String::isNotBlank)?.let { add(TurnDeskDetail("不可用原因", it)) }
+                value.results.forEach { item ->
+                    val body = listOf(item.url, item.content).filter(String::isNotBlank).joinToString("\n")
+                    add(TurnDeskDetail(item.title.ifBlank { item.url.ifBlank { "搜索结果" } }, body))
+                }
+            }
+        )
+    }
 
     private fun crossWindowStatus(value: RemoteDeskCrossWindow): String {
         val windows = value.requestedWindows.takeIf { it > 0 } ?: value.windowCount

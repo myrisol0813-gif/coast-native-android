@@ -2,6 +2,8 @@ package com.elementeracoast.app.core.network
 
 import com.elementeracoast.app.core.auth.AndroidKeystoreAuthStore
 import com.elementeracoast.app.core.auth.AuthSession
+import com.elementeracoast.app.core.remote.RemoteAttachment
+import com.elementeracoast.app.core.remote.RemoteAttachmentResponse
 import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteConversation
 import com.elementeracoast.app.core.remote.RemoteConversationListResponse
@@ -48,6 +50,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -211,6 +214,38 @@ class CoastApiClient(
 
     suspend fun getHistory(conversationId: String): RemoteHistory =
         jsonRequest(Request.Builder().url(config.url("/api/chat/history?conversation_id=${encodeQuery(conversationId)}")).get().build(), RemoteHistoryResponse.serializer()).history
+
+    suspend fun uploadChatAttachment(
+        conversationId: String,
+        name: String,
+        mime: String,
+        bytes: ByteArray
+    ): RemoteAttachment {
+        if (bytes.isEmpty()) throw CoastApiException(CoastApiErrorKind.Request, "attachment_empty", "附件是空文件。", 400)
+        if (bytes.size > 8 * 1024 * 1024) {
+            throw CoastApiException(CoastApiErrorKind.Request, "file_too_large", "附件超过海岸当前 8 MB 上传上限。", 413)
+        }
+        val mediaType = runCatching { mime.ifBlank { "application/octet-stream" }.toMediaType() }
+            .getOrElse { "application/octet-stream".toMediaType() }
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("conversation_id", conversationId)
+            .addFormDataPart("file", name.ifBlank { "附件" }, bytes.toRequestBody(mediaType))
+            .build()
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/chat/attachments")).post(body).build(),
+            RemoteAttachmentResponse.serializer()
+        ).attachment
+    }
+
+    suspend fun deleteChatAttachment(conversationId: String, attachmentId: String) {
+        jsonRequestElement(
+            Request.Builder()
+                .url(config.url("/api/chat/attachments/${encodePath(attachmentId)}?conversation_id=${encodeQuery(conversationId)}"))
+                .delete()
+                .build()
+        )
+    }
 
     suspend fun putHistory(conversationId: String, history: RemoteHistory): RemoteHistory {
         val payload = historyJson.encodeToString(RemoteHistory.serializer(), history.copy(conversationId = null))

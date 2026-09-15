@@ -62,6 +62,8 @@ class MainActivity : ComponentActivity() {
                         onBackToChat = vm::backToChat,
                         onRefresh = vm::refreshCoastState,
                         onUpdateMyriAvatar = vm::updateMyriAvatar,
+                        onUploadAttachment = vm::uploadAttachment,
+                        onRemovePendingAttachment = vm::removePendingAttachment,
                         onSend = vm::sendMessage,
                         onStop = vm::stopGeneration,
                         onMessageAction = vm::handleMessageAction,

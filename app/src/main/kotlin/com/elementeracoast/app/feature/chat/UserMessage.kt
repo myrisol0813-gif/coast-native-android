@@ -44,7 +44,8 @@ internal fun UserMessage(
             Spacer(Modifier.weight(1f))
             Column(modifier = Modifier.widthIn(max = maxBubble), horizontalAlignment = Alignment.End) {
                 val bubbleShape = RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
-                SnowLetterSurface(
+                if (message.text.isNotBlank()) {
+                    SnowLetterSurface(
                     role = SnowLetterSurfaceRole.UserBubble,
                     fallbackColor = customBubble ?: MaterialTheme.colorScheme.surfaceVariant,
                     fallbackShape = bubbleShape,
@@ -65,6 +66,11 @@ internal fun UserMessage(
                             fontWeight = FontWeight.Normal
                         )
                     )
+                    }
+                }
+                if (message.attachments.isNotEmpty()) {
+                    Spacer(Modifier.height(if (message.text.isNotBlank()) 6.dp else 0.dp))
+                    MessageAttachmentList(message.attachments)
                 }
                 if (!message.errorDetail.isNullOrBlank()) {
                     Spacer(Modifier.height(5.dp))

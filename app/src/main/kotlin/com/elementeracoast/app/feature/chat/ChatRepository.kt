@@ -7,6 +7,7 @@ import com.elementeracoast.app.core.network.ApiStreamEvent
 import com.elementeracoast.app.core.network.CoastApiClient
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
+import com.elementeracoast.app.core.remote.RemoteAttachment
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteCrossWindowRequest
@@ -40,6 +41,8 @@ interface ChatRepository {
     fun cachedHistory(conversationId: String): RemoteHistory?
     suspend fun loadHistory(conversationId: String): RemoteHistory
     suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory
+    suspend fun uploadAttachment(conversationId: String, name: String, mime: String, bytes: ByteArray): RemoteAttachment
+    suspend fun deleteAttachment(conversationId: String, attachmentId: String)
     suspend fun modelMetadata(
         conversationId: String,
         messageId: String,
@@ -80,6 +83,13 @@ class DefaultChatRepository(
     override suspend fun persistHistory(conversationId: String, history: RemoteHistory): RemoteHistory =
         api.putHistory(conversationId, history).also { cache.putHistory(conversationId, it) }
 
+    override suspend fun uploadAttachment(conversationId: String, name: String, mime: String, bytes: ByteArray): RemoteAttachment =
+        api.uploadChatAttachment(conversationId, name, mime, bytes)
+
+    override suspend fun deleteAttachment(conversationId: String, attachmentId: String) {
+        api.deleteChatAttachment(conversationId, attachmentId)
+    }
+
     override suspend fun modelMetadata(
         conversationId: String,
         messageId: String,
@@ -110,6 +120,7 @@ class DefaultChatRepository(
             messageId = assistantVariantId,
             model = modelId,
             messages = ChatSyncMapper.contextMessages(historyWithUser, turnId, normalizedRecentTurns),
+            attachmentIds = ChatSyncMapper.activeAttachmentIds(historyWithUser, turnId),
             localDate = LocalDate.now().toString(),
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
             settings = mapOf(

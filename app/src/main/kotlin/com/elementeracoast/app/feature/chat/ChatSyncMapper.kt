@@ -1,10 +1,12 @@
 package com.elementeracoast.app.feature.chat
 
+import com.elementeracoast.app.core.model.ChatAttachment
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.FurnitureItem
 import com.elementeracoast.app.core.model.FurnitureRun
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.remote.RemoteAssistantBranches
+import com.elementeracoast.app.core.remote.RemoteAttachment
 import com.elementeracoast.app.core.remote.RemoteChatMessage
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
@@ -19,13 +21,14 @@ import java.util.UUID
 object ChatSyncMapper {
     data class AppendedUser(val history: RemoteHistory, val turnId: String)
 
-    fun appendUser(history: RemoteHistory, text: String): AppendedUser {
+    fun appendUser(history: RemoteHistory, text: String, attachments: List<ChatAttachment> = emptyList()): AppendedUser {
         val now = Instant.now().toString()
         val turnId = "turn_${UUID.randomUUID()}"
         val variant = RemoteVariant(
             id = "user_variant_${UUID.randomUUID()}",
             content = text,
             createdAt = now,
+            attachments = attachments.map(::toRemoteAttachment),
             displayAuthor = "小寒"
         )
         val turn = RemoteTurn(
@@ -126,8 +129,8 @@ object ChatSyncMapper {
             for (turn in history.turns) {
                 val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
                 val user = turn.user.variants.getOrNull(userIndex)
-                if (user != null && user.content.isNotBlank() && !user.hidden) {
-                    add(RemoteChatMessage("user", user.content))
+                if (user != null && !user.hidden && (user.content.isNotBlank() || user.attachments.isNotEmpty())) {
+                    add(RemoteChatMessage("user", user.content.ifBlank { "请查看本轮附件。" }))
                 }
                 if (turn.id == targetTurnId) break
 
@@ -168,7 +171,8 @@ object ChatSyncMapper {
                         variantIndex = userIndex,
                         variantCount = userVariants.size.coerceAtLeast(1),
                         variants = userVariants.map { it.content },
-                        createdAtLabel = user.createdAt
+                        createdAtLabel = user.createdAt,
+                        attachments = user.attachments.map(::toChatAttachment)
                     )
                 )
             }
@@ -201,6 +205,32 @@ object ChatSyncMapper {
             }
         }
     }
+
+    fun activeAttachmentIds(history: RemoteHistory, turnId: String): List<String> {
+        val turn = history.turns.firstOrNull { it.id == turnId } ?: return emptyList()
+        val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
+        return turn.user.variants.getOrNull(userIndex)?.attachments.orEmpty().map { it.id }.filter(String::isNotBlank)
+    }
+
+    private fun toRemoteAttachment(value: ChatAttachment): RemoteAttachment = RemoteAttachment(
+        id = value.id,
+        type = value.type,
+        name = value.name,
+        mime = value.mime,
+        size = value.size,
+        storageKey = value.storageKey,
+        createdAt = value.createdAt
+    )
+
+    private fun toChatAttachment(value: RemoteAttachment): ChatAttachment = ChatAttachment(
+        id = value.id,
+        type = value.type,
+        name = value.name,
+        mime = value.mime,
+        size = value.size,
+        storageKey = value.storageKey,
+        createdAt = value.createdAt
+    )
 
     fun streamingAssistant(turnId: String, modelId: String, partialContent: String): ChatMessage = ChatMessage(
         id = streamingMessageId(turnId),

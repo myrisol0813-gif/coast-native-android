@@ -95,6 +95,14 @@ fun snowLetterSheetContainerColor(): Color =
         MaterialTheme.colorScheme.surfaceContainerLow
     }
 
+@Composable
+fun snowLetterComposerGlyphColor(fallback: Color): Color =
+    if (LocalCoastAppearance.current.preset.usesSnowLetterDecorations()) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        fallback
+    }
+
 private fun Modifier.optionalShadow(elevation: Dp, shape: Shape): Modifier =
     if (elevation.value > 0f) shadow(elevation, shape, clip = false) else this
 
