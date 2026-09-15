@@ -74,6 +74,24 @@ class CoastApiClientTest {
     }
 
     @Test
+    fun attachmentUploadUsesCanonicalMultipartEndpointWithOrigin() = runBlocking {
+        server.enqueue(jsonResponse("""{"ok":true,"attachment":{"id":"att-1","type":"image","name":"coast.png","mime":"image/png","size":4,"storage_key":"chat-attachment:att-1","created_at":"2026-09-15T12:00:00Z"}}"""))
+
+        val attachment = api.uploadChatAttachment("c1", "coast.png", "image/png", byteArrayOf(1, 2, 3, 4))
+        val request = server.takeRequest()
+
+        assertEquals("att-1", attachment.id)
+        assertEquals("POST", request.method)
+        assertEquals("/api/chat/attachments", request.path)
+        assertEquals(config.origin, request.getHeader("Origin"))
+        assertTrue(request.getHeader("Content-Type")!!.startsWith("multipart/form-data;"))
+        val body = request.body.readUtf8()
+        assertTrue(body.contains("name=\"conversation_id\""))
+        assertTrue(body.contains("c1"))
+        assertTrue(body.contains("filename=\"coast.png\""))
+    }
+
+    @Test
     fun dailyCrudUsesCanonicalEndpointsAndPreservesTagsAndProfilePatch() = runBlocking {
         server.enqueue(jsonResponse("""{"ok":true,"moment":{"id":"m1","date":"2026-09-02","author":"xiaohan","text":"回海","liked":false,"comments":[]}}"""))
         server.enqueue(jsonResponse("""{"ok":true,"diary":{"id":"d1","date":"2026-09-02","author":"xiaohan","weather":"有风","mood":"开心","tags":["回海","金色"],"text":"今天。"}}"""))
