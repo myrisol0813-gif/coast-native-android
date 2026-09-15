@@ -394,7 +394,11 @@ class CoastShellViewModel(
     }
 
     fun uploadAttachment(name: String, mime: String, bytes: ByteArray) {
-        if (bytes.isEmpty() || bytes.size > 8 * 1024 * 1024 || _state.value.pendingAttachments.size >= 12) {
+        if (
+            bytes.isEmpty() ||
+            bytes.size > 8 * 1024 * 1024 ||
+            _state.value.pendingAttachments.size + attachmentUploadsInFlight >= 12
+        ) {
             _state.update {
                 it.copy(snackbarMessage = when {
                     bytes.isEmpty() -> "附件是空文件。"
