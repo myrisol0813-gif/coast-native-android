@@ -212,6 +212,15 @@ jobs:
           grep -q 'TurnDeskSectionCard' "$chat/TurnDeskSheet.kt"
           grep -q 'mutableStateOf<Set<Int>>(emptySet())' "$chat/TurnDeskSheet.kt"
 
+          # V1 closeout polish: thought-soil cards and Snow Letter composer glyphs stay centralized.
+          grep -q '"当前思维壤"' "$chat/SoilSheet.kt"
+          grep -q '"手持种"' "$chat/SoilSheet.kt"
+          grep -q '"待确认袋"' "$chat/SoilSheet.kt"
+          grep -q '"来源 / 更新时间"' "$chat/SoilSheet.kt"
+          grep -q 'SnowLetterSurfaceRole.StatusCard' "$chat/SoilSheet.kt"
+          grep -q 'snowLetterComposerGlyphColor' "$chat/InputBar.kt"
+          grep -q 'fun snowLetterComposerGlyphColor' "$theme/SnowLetterSkins.kt"
+
           # Theme wardrobe keeps one persisted Native owner and the original Coast default as a preset.
           grep -q 'enum class CoastThemePreset' "$theme/CoastThemePresets.kt"
           grep -q 'CoastDefault("默认海岸", "原始默认")' "$theme/CoastThemePresets.kt"
