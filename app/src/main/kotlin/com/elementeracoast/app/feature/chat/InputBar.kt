@@ -219,11 +219,9 @@ fun CoastComposer(
             Spacer(Modifier.size(CoastChatTokens.ComposerGap))
 
             val actionBackground = if (isStreaming) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary
-            val actionForeground = if (isStreaming) {
-                MaterialTheme.colorScheme.background
-            } else {
-                snowLetterComposerGlyphColor(MaterialTheme.colorScheme.onPrimary)
-            }
+            val actionForeground = snowLetterComposerGlyphColor(
+                if (isStreaming) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.onPrimary
+            )
             RoundComposerButton(
                 background = actionBackground,
                 foreground = actionForeground,
