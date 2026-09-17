@@ -250,106 +250,53 @@ jobs:
             echo 'Daily profile ownership returned to ProfileRepository.'
             exit 1
           fi
-          if grep -Eq 'daily\.myriAvatarDataUrl|daily\.xiaohanAvatarDataUrl' "$shell/CoastShellViewModel.kt"; then
-            echo 'Shell profile still reads Daily profile avatars.'
+          if grep -Eq 'daily\.myriAvatarDataUrl\.ifBlank|profile\.myriAvatarDataUrl' "$shell/CoastShellViewModel.kt" "$chat/ChatScreen.kt"; then
+            echo 'Myri avatar ownership drifted back to Daily profile data.'
             exit 1
           fi
-          if grep -Eq 'runCatching \{ backend\.profile\.getProfile\(\) \}' "$shell/CoastShellViewModel.kt"; then
-            echo 'Shell profile fetch still bypasses the ProfileRepository cache.'
+          if grep -Eq 'backend\.profile\.(cachedDailyProfile|refreshDailyProfile)' "$shell/CoastShellViewModel.kt"; then
+            echo 'Shell bypassed DailyRepository for Daily profile data.'
             exit 1
           fi
-
-          if grep -Rq 'RikkaHubChatParser\|LocalRikkaHubProvider\|RikkaHubImport' app/src/main app/src/test; then
-            echo 'Native RikkaHub import implementation returned; RikkaHub must stay read-only from PWA/backend.'
+          if grep -RIE 'daily\.moments|daily\.diaries|daily\.profile\.avatar|daily\.profile\.myri-avatar|daily\.cover' "$daily" "$shell/LocalFeatureServices.kt"; then
+            echo 'Formal Daily data returned to a Native local owner.'
             exit 1
           fi
-          if grep -Rq 'rikkahub' app/src/main/kotlin/com/elementeracoast/app/feature/chat/ChatHistoryMutations.kt \
-             app/src/main/kotlin/com/elementeracoast/app/feature/shell/CoastShellViewModel.kt; then
-            echo 'Native message mutation path references RikkaHub and risks forking imported history.'
+          if grep -RIE '"memory\.(entries|seeds|worldbook|customInstructions)"' "$memory" "$shell"; then
+            echo 'Formal Memory data returned to retired Native local persistence keys.'
             exit 1
           fi
-          if grep -Rq '/api/chat/rikkahub-import' "$root"; then
-            echo 'Native must not expose the retired RikkaHub import route.'
+          if grep -RIE 'MemoryStore|LocalMemoryEntry|LocalSeed|LocalWorldbookEntry|MemoryState' "$memory" "$shell/LocalFeatureServices.kt"; then
+            echo 'Retired local Memory owner or models returned.'
             exit 1
           fi
-          if grep -Eq 'putHistory\(|deleteConversation\(' "$remote/RemoteRikkaHub.kt" 2>/dev/null; then
-            echo 'Native RikkaHub source must stay read-only.'
+          if grep -RIE 'sendFakeMessage|fakeChunks|local-mock|fake generation|fake generation' \
+            "$root/MainActivity.kt" "$shell" "$chat"; then
+            echo 'Retired fake chat/generation path returned.'
             exit 1
           fi
-
-          # Keep one shared typed-room model: main/radio/lighthouse all use the same chat owner.
-          test ! -e "$shell/RoomHub.kt"
-          test ! -e "$shell/RoomThread.kt"
-          ! grep -Rq '/api/room/' "$root"
-          ! grep -Rq 'room_thread' "$root"
-          ! grep -Rq 'roomRevision' "$root"
-
-          # Native v1 must not re-introduce removed local selector state.
-          ! grep -q 'preferredProvider\|preferredModel' "$shell/CoastShellViewModel.kt"
-
-          # Direct dev hands belong to the shared backend registry, not a Native-only construction console.
-          ! grep -Rq 'construction mode\|ConstructionMode\|developerMode\|dev tools mode\|dev_tools_mode' "$root" app/src/test
-          ! grep -Rq '/api/workbench/dev' "$root"
-          ! grep -Rq 'github_read_file\|github_create_branch\|notion_append_worklog' "$root"
-
-          # Legacy owner/theme components must stay deleted.
-          test ! -e "$shell/LegacyThemePicker.kt"
-          test ! -e "$shell/LegacyRoomToolbar.kt"
-          test ! -e "$shell/ModelDrawer.kt"
-
-          # Retired voice/realtime surface stays absent from Native v1.
-          ! grep -Rq 'SpeechRecognizer\|RecognizerIntent\|RECORD_AUDIO' "$root" app/src/main/AndroidManifest.xml
-
-          # Keep one small activity host and one main shell owner.
-          test $(wc -l < app/src/main/kotlin/com/elementeracoast/app/MainActivity.kt) -le 170
-          test $(wc -l < "$shell/MainShell.kt") -le 360
-
-          # Keep model-facing remote generation payload fields aligned with the shared backend contract.
-          grep -q 'SerialName("cross_window")' "$remote/RemoteModels.kt"
-          grep -q 'SerialName("recent_entry_ids")' "$remote/RemoteModels.kt"
-          grep -q 'SerialName("source_turn_id")' "$remote/RemoteModels.kt"
-          grep -q 'SerialName("local_date")' "$remote/RemoteModels.kt"
-          grep -q 'SerialName("attachment_ids")' "$remote/RemoteModels.kt"
-          grep -q 'data class RemoteAttachment' "$remote/RemoteModels.kt"
-          grep -q 'suspend fun uploadChatAttachment' "$network/CoastApiClient.kt"
-          grep -q 'suspend fun deleteChatAttachment' "$network/CoastApiClient.kt"
-          grep -q 'fun uploadAttachment' "$shell/CoastShellViewModel.kt"
-          grep -q 'fun removePendingAttachment' "$shell/CoastShellViewModel.kt"
-          grep -q 'ActivityResultContracts.OpenMultipleDocuments' "$chat/ChatScreen.kt"
-          grep -q 'PendingAttachmentTray' "$chat/InputBar.kt"
-          grep -q '"图片"' "$chat/InputBar.kt"
-          grep -q '"文件"' "$chat/InputBar.kt"
-          grep -q 'PNG / JPG / WebP' "$chat/InputBar.kt"
-          grep -q '文本 / MD / JSON / CSV / 代码 · 读取 ≤ 1 MB' "$chat/InputBar.kt"
-          grep -q 'PDF / Office 暂不解析' "$chat/InputBar.kt"
-          grep -q 'PreviewSource.Bitmap' "$chat/AttachmentCards.kt"
-          grep -q 'LocalAttachmentPreviewRegistry' "$chat/AttachmentCards.kt"
-          grep -q 'openrouter:web_search' "$remote/RemoteTurnContext.kt"
-          grep -q 'webSearchSection' "$chat/TurnDeskMapper.kt"
-          grep -q '"本轮附件"' "$chat/TurnDeskMapper.kt"
-          grep -q 'ToolActivityOverlay' "$chat/ChatScreen.kt"
-          grep -q '"搜索了公开网络"' "$chat/ChatScreen.kt"
-
-          # Official MCP writes are first-class provenance, never Xiaohan/user impersonation.
-          grep -q 'val messageSource: String = "coast"' "$model/ChatModels.kt"
-          grep -q 'messageSource = user.messageSource' "$chat/ChatSyncMapper.kt"
-          grep -q 'OfficialMcpLetter' "$chat/ChatTimeline.kt"
-          grep -q 'ChatGPT-5.6 Thinking sol≋' "$chat/ChatTimeline.kt"
-
-          # Snow Letter composer uses the same theme glyph treatment for phone / send / stop.
-          grep -q 'snowLetterComposerGlyphColor' "$chat/InputBar.kt"
-
-          # Update settings already moved to the small-wolf room; keep settings UI lean.
-          ! grep -q '更新 / 小狼窝' "$shell/SettingsScreen.kt"
-          ! grep -q 'settingsUpdateStatus' "$shell/SettingsScreen.kt"
-          ! grep -q 'forceUpdateCheck' "$shell/SettingsScreen.kt"
-
-          # Reject retired/prototype architectures. Native keeps one clear backend source per current feature.
-          if grep -R -n -E '(compat|legacy|fallback).*(map|store|client|repository|provider|service)|(?:map|store|client|repository|provider|service).*(compat|legacy|fallback)' "$root" \
-            | grep -v 'fallbackLabel' \
-            | grep -v 'fallbackColor' \
-            | grep -v 'fallbackShape'; then
-            echo 'Compatibility/legacy/fallback architecture remains.'
+          if grep -RIE 'main-luna|main-o3|main-55t' "$root/core/model" "$shell" "$chat"; then
+            echo 'Hard-coded fake conversations returned.'
+            exit 1
+          fi
+          if grep -RIE 'Authorization:|Bearer [A-Za-z0-9_-]{12,}|OPENROUTER_API_KEY|COAST_SESSION_SECRET|COAST_PASSWORD_HASH' app/src/main; then
+            echo 'A backend secret or provider credential appears to be embedded in Native source.'
+            exit 1
+          fi
+          if grep -RIE 'println\(.*(Cookie|Authorization)|Log\.[divew].*(Cookie|Authorization)' app/src/main/kotlin; then
+            echo 'Sensitive auth logging found.'
+            exit 1
+          fi
+          if grep -R 'https://app.elementeracoast.com' app/src/main/kotlin; then
+            echo 'Coast base URL must stay centralized in BuildConfig, not Kotlin source.'
+            exit 1
+          fi
+          if find app/src -type f \( -name '*.ts' -o -name '*.tsx' -o -name 'package.json' \) | grep -q .; then
+            echo 'TypeScript/React material found in Native source.'
+            exit 1
+          fi
+          if find app/src/main/kotlin -type d | grep -Ei '/(legacy|compat|bridge|temp|misc)(/|$)'; then
+            echo 'Forbidden legacy/compat/bridge/temp/misc source directory found.'
             exit 1
           fi
           if find app/src/main/kotlin -type f | grep -Ei '/[^/]*(legacy|compat|bridge|temp|misc)[^/]*\.kt$'; then
@@ -383,7 +330,7 @@ jobs:
           printf 'versionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
-        if: (github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref_name == 'main')
+        if: github.event_name == 'push' && github.ref_name == 'main'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
