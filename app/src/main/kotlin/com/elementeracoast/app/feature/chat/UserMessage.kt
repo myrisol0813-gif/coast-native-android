@@ -32,7 +32,9 @@ import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
 
 @Composable
 internal fun UserMessage(
+    conversationId: String,
     message: ChatMessage,
+    attachmentPreviewSource: AttachmentPreviewRemoteDataSource,
     onCopy: () -> Unit,
     onEdit: () -> Unit,
     onAction: (MessageAction) -> Unit
@@ -46,31 +48,35 @@ internal fun UserMessage(
                 val bubbleShape = RoundedCornerShape(CoastChatTokens.UserBubbleRadius)
                 if (message.text.isNotBlank()) {
                     SnowLetterSurface(
-                    role = SnowLetterSurfaceRole.UserBubble,
-                    fallbackColor = customBubble ?: MaterialTheme.colorScheme.surfaceVariant,
-                    fallbackShape = bubbleShape,
-                    fallbackElevation = 2.dp
-                ) {
-                    Text(
-                        text = message.text,
-                        modifier = Modifier
-                            .padding(snowLetterInnerPadding(SnowLetterSurfaceRole.UserBubble))
-                            .padding(
-                                horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
-                                vertical = CoastChatTokens.UserBubbleVerticalPadding
-                            ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontSize = CoastChatTokens.ChatBodySize,
-                            lineHeight = CoastChatTokens.UserBodyLineHeight,
-                            fontWeight = FontWeight.Normal
+                        role = SnowLetterSurfaceRole.UserBubble,
+                        fallbackColor = customBubble ?: MaterialTheme.colorScheme.surfaceVariant,
+                        fallbackShape = bubbleShape,
+                        fallbackElevation = 2.dp
+                    ) {
+                        Text(
+                            text = message.text,
+                            modifier = Modifier
+                                .padding(snowLetterInnerPadding(SnowLetterSurfaceRole.UserBubble))
+                                .padding(
+                                    horizontal = CoastChatTokens.UserBubbleHorizontalPadding,
+                                    vertical = CoastChatTokens.UserBubbleVerticalPadding
+                                ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = CoastChatTokens.ChatBodySize,
+                                lineHeight = CoastChatTokens.UserBodyLineHeight,
+                                fontWeight = FontWeight.Normal
+                            )
                         )
-                    )
                     }
                 }
                 if (message.attachments.isNotEmpty()) {
                     Spacer(Modifier.height(if (message.text.isNotBlank()) 6.dp else 0.dp))
-                    MessageAttachmentList(message.attachments)
+                    MessageAttachmentList(
+                        conversationId = conversationId,
+                        attachments = message.attachments,
+                        previewSource = attachmentPreviewSource
+                    )
                 }
                 if (!message.errorDetail.isNullOrBlank()) {
                     Spacer(Modifier.height(5.dp))

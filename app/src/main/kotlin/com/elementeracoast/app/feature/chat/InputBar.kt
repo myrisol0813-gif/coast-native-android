@@ -52,10 +52,12 @@ import com.elementeracoast.app.ui.theme.snowLetterComposerGlyphColor
 
 @Composable
 fun CoastComposer(
+    conversationId: String,
     value: String,
     onValueChange: (String) -> Unit,
     pendingAttachments: List<ChatAttachment>,
     attachmentUploading: Boolean,
+    previewSource: AttachmentPreviewRemoteDataSource,
     isStreaming: Boolean,
     enabled: Boolean = true,
     onPickImage: () -> Unit,
@@ -80,8 +82,10 @@ fun CoastComposer(
             .navigationBarsPadding()
     ) {
         PendingAttachmentTray(
+            conversationId = conversationId,
             attachments = pendingAttachments,
             uploading = attachmentUploading,
+            previewSource = previewSource,
             onRemove = onRemoveAttachment
         )
 
@@ -112,7 +116,12 @@ fun CoastComposer(
                     onDismissRequest = { attachmentMenuOpen = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("图片") },
+                        text = {
+                            AttachmentMenuText(
+                                title = "图片",
+                                subtitle = "PNG / JPG / WEBP · 单个 ≤ 8 MB · 需识图模型"
+                            )
+                        },
                         leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) },
                         onClick = {
                             attachmentMenuOpen = false
@@ -120,7 +129,12 @@ fun CoastComposer(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("文件") },
+                        text = {
+                            AttachmentMenuText(
+                                title = "文件",
+                                subtitle = "TXT / MD / JSON / CSV / YAML / 代码 / 日志等\n可上传 ≤ 8 MB · 可读文本 ≤ 1 MB · PDF 暂不解析"
+                            )
+                        },
                         leadingIcon = { Icon(Icons.Default.InsertDriveFile, contentDescription = null) },
                         onClick = {
                             attachmentMenuOpen = false
@@ -240,6 +254,18 @@ fun CoastComposer(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AttachmentMenuText(title: String, subtitle: String) {
+    Column {
+        Text(title, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            subtitle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .76f),
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }
 

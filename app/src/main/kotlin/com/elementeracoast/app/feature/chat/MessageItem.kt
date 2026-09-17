@@ -8,9 +8,11 @@ import com.elementeracoast.app.core.model.MessageRole
 
 @Composable
 internal fun MessageItem(
+    conversationId: String,
     message: ChatMessage,
     isStreamingTail: Boolean,
     avatarBitmap: ImageBitmap?,
+    attachmentPreviewSource: AttachmentPreviewRemoteDataSource,
     onAvatarClick: () -> Unit,
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
@@ -19,7 +21,9 @@ internal fun MessageItem(
 ) {
     when (message.role) {
         MessageRole.User -> UserMessage(
+            conversationId = conversationId,
             message = message,
+            attachmentPreviewSource = attachmentPreviewSource,
             onCopy = { onCopy(message) },
             onEdit = { onEdit(message) },
             onAction = onAction

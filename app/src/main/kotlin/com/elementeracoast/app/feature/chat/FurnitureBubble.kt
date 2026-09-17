@@ -33,6 +33,7 @@ internal fun FurnitureBubble(
 ) {
     if (runs.isEmpty()) return
     var expanded by remember(runs) { mutableStateOf(false) }
+    val loggableIds = runs.map { it.actionId }.filterNot { it.startsWith("runtime:") }.toSet()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -53,7 +54,11 @@ internal fun FurnitureBubble(
             Spacer(Modifier.height(8.dp))
             runs.forEach { run ->
                 val mark = if (run.success) "✓" else "!"
-                val suffix = if (run.actionKey == "memory.search") "：${run.count} 条" else ""
+                val suffix = when (run.actionKey) {
+                    "memory.search" -> "：${run.count} 条"
+                    "web.search" -> "：${run.count} 次"
+                    else -> ""
+                }
                 Text("$mark ${run.label}$suffix", style = MaterialTheme.typography.bodySmall)
                 run.items.take(5).forEach { item ->
                     val label = if (item.kind.isBlank()) item.title else "${item.kind}｜${item.title}"
@@ -61,13 +66,15 @@ internal fun FurnitureBubble(
                 }
                 if (run.extraCount > 0) Text("  · 另有 ${run.extraCount} 条", style = MaterialTheme.typography.labelSmall)
             }
-            Spacer(Modifier.height(7.dp))
-            Text(
-                "查看小蛇行动日志",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.clickable { onOpenActionLog(runs.map { it.actionId }.toSet()) }
-            )
+            if (loggableIds.isNotEmpty()) {
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "查看小蛇行动日志",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.clickable { onOpenActionLog(loggableIds) }
+                )
+            }
         }
     }
 }
