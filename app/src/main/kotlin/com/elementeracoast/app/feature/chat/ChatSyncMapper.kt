@@ -117,20 +117,17 @@ object ChatSyncMapper {
         return history.copy(updatedAt = Instant.now().toString(), turns = turns)
     }
 
-    /**
-     * Build the current conversation's provider preflight through the target user turn.
-     * The only message-count limit is the user's local recent-turn setting; there is no
-     * additional Native ceiling. The backend then applies the same recent-turn setting,
-     * the user-selected token budget, and the provider/model context-window constraints.
-     * Model metadata is deliberately absent: context is role/content only.
-     */
     fun contextMessages(history: RemoteHistory, targetTurnId: String, recentTurns: Int): List<RemoteChatMessage> {
         val messages = buildList {
             for (turn in history.turns) {
                 val userIndex = turn.user.active.coerceIn(0, (turn.user.variants.size - 1).coerceAtLeast(0))
                 val user = turn.user.variants.getOrNull(userIndex)
                 if (user != null && !user.hidden && (user.content.isNotBlank() || user.attachments.isNotEmpty())) {
-                    add(RemoteChatMessage("user", user.content.ifBlank { "请查看本轮附件。" }))
+                    val body = user.content.ifBlank { "请查看本轮附件。" }
+                    add(RemoteChatMessage(
+                        "user",
+                        if (user.messageSource == "official_mcp") "[来源：官端 ChatGPT / official_mcp]\n$body" else body
+                    ))
                 }
                 if (turn.id == targetTurnId) break
 
@@ -167,6 +164,8 @@ object ChatSyncMapper {
                         text = user.content,
                         turnId = turn.id,
                         remoteVariantId = user.id,
+                        messageSource = user.messageSource,
+                        displayAuthor = user.displayAuthor,
                         errorDetail = user.errorDetail,
                         variantIndex = userIndex,
                         variantCount = userVariants.size.coerceAtLeast(1),
@@ -191,6 +190,8 @@ object ChatSyncMapper {
                         remoteVariantId = assistant.id,
                         modelId = assistant.modelId,
                         generationSource = assistant.generationSource,
+                        messageSource = assistant.messageSource,
+                        displayAuthor = assistant.displayAuthor,
                         liked = assistant.liked,
                         favorite = assistant.favorite,
                         errorDetail = assistant.errorDetail,

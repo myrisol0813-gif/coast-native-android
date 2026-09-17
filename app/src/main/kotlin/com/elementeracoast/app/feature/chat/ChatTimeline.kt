@@ -106,7 +106,7 @@ internal fun ChatTimeline(
                     if (
                         message.role == MessageRole.Assistant &&
                         !streamingTail &&
-                        message.generationSource in setOf("chat", "landing") &&
+                        message.generationSource in setOf("chat", "landing", "radio", "lighthouse") &&
                         !remoteMessageId.isNullOrBlank()
                     ) {
                         ModelUsageFooter(

@@ -37,6 +37,8 @@ data class ChatMessage(
     val remoteVariantId: String? = null,
     val modelId: String? = null,
     val generationSource: String? = null,
+    val messageSource: String? = null,
+    val displayAuthor: String? = null,
     val liked: Boolean = false,
     val favorite: Boolean = false,
     val errorDetail: String? = null,

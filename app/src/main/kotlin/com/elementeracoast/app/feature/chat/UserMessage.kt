@@ -39,6 +39,15 @@ internal fun UserMessage(
     onEdit: () -> Unit,
     onAction: (MessageAction) -> Unit
 ) {
+    if (message.messageSource == "official_mcp") {
+        OfficialMcpLetter(
+            conversationId = conversationId,
+            message = message,
+            attachmentPreviewSource = attachmentPreviewSource
+        )
+        return
+    }
+
     val customBubble = LocalCoastAppearance.current.userBubbleColor
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val maxBubble = maxWidth * CoastChatTokens.UserBubbleWidth
