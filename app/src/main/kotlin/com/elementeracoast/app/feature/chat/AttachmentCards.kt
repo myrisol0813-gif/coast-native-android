@@ -1,7 +1,10 @@
 package com.elementeracoast.app.feature.chat
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,13 +22,21 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatAttachment
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private fun attachmentSizeLabel(value: Long): String = when {
     value < 1024L -> "${value} B"
@@ -35,8 +46,10 @@ private fun attachmentSizeLabel(value: Long): String = when {
 
 @Composable
 internal fun PendingAttachmentTray(
+    conversationId: String,
     attachments: List<ChatAttachment>,
     uploading: Boolean,
+    previewSource: AttachmentPreviewRemoteDataSource,
     onRemove: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -50,7 +63,9 @@ internal fun PendingAttachmentTray(
     ) {
         attachments.forEach { attachment ->
             AttachmentCard(
+                conversationId = conversationId,
                 attachment = attachment,
+                previewSource = previewSource,
                 removable = true,
                 onRemove = { onRemove(attachment.id) }
             )
@@ -74,7 +89,9 @@ internal fun PendingAttachmentTray(
 
 @Composable
 internal fun MessageAttachmentList(
+    conversationId: String,
     attachments: List<ChatAttachment>,
+    previewSource: AttachmentPreviewRemoteDataSource,
     modifier: Modifier = Modifier
 ) {
     if (attachments.isEmpty()) return
@@ -84,32 +101,49 @@ internal fun MessageAttachmentList(
         horizontalAlignment = Alignment.End
     ) {
         attachments.forEach { attachment ->
-            AttachmentCard(attachment = attachment)
+            AttachmentCard(
+                conversationId = conversationId,
+                attachment = attachment,
+                previewSource = previewSource
+            )
         }
     }
 }
 
 @Composable
 private fun AttachmentCard(
+    conversationId: String,
     attachment: ChatAttachment,
+    previewSource: AttachmentPreviewRemoteDataSource,
     removable: Boolean = false,
     onRemove: () -> Unit = {}
 ) {
+    val preview by produceState<ImageBitmap?>(
+        initialValue = null,
+        conversationId,
+        attachment.id,
+        attachment.type
+    ) {
+        value = if (attachment.type == "image" && conversationId.isNotBlank()) {
+            runCatching {
+                val bytes = previewSource.get(conversationId, attachment.id)
+                withContext(Dispatchers.Default) {
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                }
+            }.getOrNull()
+        } else null
+    }
+
     SnowLetterSurface(
         role = SnowLetterSurfaceRole.StatusCard,
         fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f),
         fallbackShape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, end = if (removable) 2.dp else 10.dp, top = 8.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = 8.dp, end = if (removable) 2.dp else 10.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = if (attachment.type == "image") Icons.Default.Image else Icons.Default.InsertDriveFile,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
-            )
+            AttachmentVisual(attachment = attachment, preview = preview)
             Spacer(Modifier.size(8.dp))
             Column(modifier = Modifier.padding(end = 6.dp)) {
                 Text(
@@ -130,6 +164,33 @@ private fun AttachmentCard(
                     Icon(Icons.Default.Close, contentDescription = "移除附件", modifier = Modifier.size(18.dp))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AttachmentVisual(attachment: ChatAttachment, preview: ImageBitmap?) {
+    val shape = RoundedCornerShape(11.dp)
+    Box(
+        modifier = Modifier
+            .size(if (attachment.type == "image") 52.dp else 38.dp)
+            .clip(shape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (preview != null) {
+            Image(
+                bitmap = preview,
+                contentDescription = attachment.name,
+                modifier = Modifier.size(52.dp),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                imageVector = if (attachment.type == "image") Icons.Default.Image else Icons.Default.InsertDriveFile,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(if (attachment.type == "image") 24.dp else 22.dp)
+            )
         }
     }
 }
