@@ -9,8 +9,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -24,6 +27,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
@@ -35,6 +39,7 @@ import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
 import com.elementeracoast.app.ui.theme.SnowLetterChatScaffold
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -62,6 +67,7 @@ fun ChatWindow(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val attachmentScope = rememberCoroutineScope()
+    val toolNotice by ToolActivityBus.notice.collectAsState()
 
     fun acceptPickedUris(uris: List<Uri>) {
         if (uris.isEmpty()) return
@@ -88,11 +94,20 @@ fun ChatWindow(
     val metadataSource = remember(context.applicationContext) {
         ModelMetadataRemoteDataSource.production(context.applicationContext)
     }
+    val attachmentPreviewSource = remember(context.applicationContext) {
+        AttachmentPreviewRemoteDataSource.production(context.applicationContext)
+    }
     val avatarSource = state.myriAvatarDataUrl
     val persistedDeskReceipt = state.messages.lastOrNull()
         ?.takeIf { it.role == MessageRole.Assistant }
         ?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
+
+    LaunchedEffect(toolNotice?.id) {
+        val id = toolNotice?.id ?: return@LaunchedEffect
+        delay(2200)
+        ToolActivityBus.clear(id)
+    }
 
     val avatarBitmap by produceState<ImageBitmap?>(initialValue = null, avatarSource) {
         value = if (avatarSource.isBlank()) null else withContext(Dispatchers.IO) { decodeImageSource(context, avatarSource) }
@@ -108,6 +123,7 @@ fun ChatWindow(
                 streamingMessageId = state.streamingMessageId,
                 avatarBitmap = avatarBitmap,
                 metadataSource = metadataSource,
+                attachmentPreviewSource = attachmentPreviewSource,
                 onAvatarClick = { avatarDialogOpen = true },
                 onCopy = { message ->
                     clipboard.setText(AnnotatedString(message.text))
@@ -126,6 +142,12 @@ fun ChatWindow(
                 modifier = Modifier.weight(1f)
             )
 
+            toolNotice?.let { notice ->
+                ToolActivityPopup(
+                    notice = notice,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
             deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
             DogtalkCard(
                 scope = DogtalkScope.from(state.activeRoomType),
@@ -140,10 +162,12 @@ fun ChatWindow(
             )
             HorizontalDivider(color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
             CoastComposer(
+                conversationId = state.activeConversationId,
                 value = input,
                 onValueChange = { input = it },
                 pendingAttachments = state.pendingAttachments,
                 attachmentUploading = state.attachmentUploading,
+                previewSource = attachmentPreviewSource,
                 isStreaming = state.isStreaming,
                 enabled = !state.historyLoading,
                 onPickImage = { imagePicker.launch(arrayOf("image/png", "image/jpeg", "image/webp")) },
