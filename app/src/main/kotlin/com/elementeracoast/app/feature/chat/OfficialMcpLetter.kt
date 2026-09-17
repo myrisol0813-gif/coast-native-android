@@ -42,7 +42,7 @@ internal fun OfficialMcpLetter(
             modifier = Modifier
                 .weight(.86f)
                 .widthIn(max = 620.dp),
-            horizontalAlignment = Alignment.Stretch
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(
                 modifier = Modifier
