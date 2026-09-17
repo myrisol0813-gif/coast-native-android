@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -150,13 +152,27 @@ class DefaultChatRepository(
                     deskSlip = runCatching {
                         json.decodeFromJsonElement(RemoteDeskSlip.serializer(), event.data)
                     }.getOrNull()
+                    deskSlip?.webSearch?.takeIf { it.used }?.let { search ->
+                        val sourceCount = search.resultsCount.coerceAtLeast(search.results.size)
+                        ToolActivityBus.publish(
+                            id = "web-search-$turnId",
+                            text = if (sourceCount > 0) "网络搜索完成 · $sourceCount 个来源" else "网络搜索完成",
+                            success = true
+                        )
+                    }
+                }
+                is ApiStreamEvent.Tool -> {
+                    val obj = event.data.runCatching { jsonObject }.getOrNull()
+                    val id = obj?.get("id")?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { "tool-$turnId-${System.nanoTime()}" }
+                    val name = obj?.get("name")?.jsonPrimitive?.contentOrNull.orEmpty()
+                    val ok = obj?.get("ok")?.jsonPrimitive?.booleanOrNull ?: true
+                    ToolActivityBus.publish(id, friendlyToolActivity(name, ok), ok)
                 }
                 is ApiStreamEvent.Done -> {
                     finishReason = event.finishReason
                     done = true
                 }
                 is ApiStreamEvent.Error -> throw event.error
-                is ApiStreamEvent.Tool,
                 is ApiStreamEvent.Usage -> Unit
             }
         }
@@ -171,7 +187,7 @@ class DefaultChatRepository(
             content = content,
             modelId = actualModel,
             finishReason = finishReason,
-            furnitureRuns = furnitureRuns,
+            furnitureRuns = mergeFurnitureRuns(furnitureRuns, deskSlip),
             deskSlip = deskSlip,
             assistantVariantId = assistantVariantId
         )
