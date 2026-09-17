@@ -35,6 +35,7 @@ internal fun ChatTimeline(
     streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
     metadataSource: ModelMetadataRemoteDataSource,
+    attachmentPreviewSource: AttachmentPreviewRemoteDataSource,
     onAvatarClick: () -> Unit,
     onCopy: (ChatMessage) -> Unit,
     onEdit: (ChatMessage) -> Unit,
@@ -90,9 +91,11 @@ internal fun ChatTimeline(
                         )
                     }
                     MessageItem(
+                        conversationId = conversationId,
                         message = message,
                         isStreamingTail = streamingTail,
                         avatarBitmap = avatarBitmap,
+                        attachmentPreviewSource = attachmentPreviewSource,
                         onAvatarClick = onAvatarClick,
                         onCopy = onCopy,
                         onEdit = onEdit,
