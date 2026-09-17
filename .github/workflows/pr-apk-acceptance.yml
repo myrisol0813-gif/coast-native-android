@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -73,13 +73,22 @@ jobs:
           sha256sum "$apk" > artifact/SHA256SUMS.txt
           printf 'stable_signing=true\nversionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" > artifact/BUILD_INFO.txt
 
-      - name: Upload acceptance APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoastGPT-native-${{ steps.app_version.outputs.version_name }}-acceptance
-          path: |
-            artifact/CoastGPT-native-${{ steps.app_version.outputs.version_name }}-debug.apk
-            artifact/SHA256SUMS.txt
-            artifact/BUILD_INFO.txt
-          if-no-files-found: error
-          retention-days: 3
+      - name: Publish acceptance APK as prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="coast-post-v1-acceptance-${COAST_VERSION_CODE}"
+          title="Elementera Coast Native ${COAST_VERSION_NAME} acceptance"
+          apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
+          notes="Post-V1 real-device acceptance APK for PR #${{ github.event.pull_request.number }}. Stable-signed debug build. versionCode=${COAST_VERSION_CODE}."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt --clobber
+          else
+            gh release create "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt \
+              --target "${{ github.event.pull_request.head.sha }}" \
+              --title "$title" \
+              --notes "$notes" \
+              --prerelease
+          fi
