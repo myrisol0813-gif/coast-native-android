@@ -36,8 +36,8 @@ data class MailboxMessage(
     val visitor_id: String = "",
     val role: String,
     val content: String,
-    val created_at: Long,
-    val updated_at: Long = created_at,
+    val created_at: String,
+    val updated_at: String = created_at,
     val status: String = "",
     val reply_batch_id: String? = null
 )
@@ -58,8 +58,8 @@ data class MailboxMessageEnvelope(
 data class MailboxStatus(
     val ok: Boolean = true,
     val pending_count: Int = 0,
-    val last_myri_reply_at: Long? = null,
-    val last_visitor_message_at: Long? = null,
+    val last_myri_reply_at: String? = null,
+    val last_visitor_message_at: String? = null,
     val queue_status: String = "idle"
 )
 
@@ -84,8 +84,8 @@ data class MailboxPocket(
     val status: String = "pending",
     val generated_by_model: String? = null,
     val model_nickname: String? = null,
-    val created_at: Long = 0,
-    val updated_at: Long = 0
+    val created_at: String = "",
+    val updated_at: String = ""
 )
 
 @Serializable
@@ -97,8 +97,8 @@ data class MailboxNotebookEntry(
     val content: String = "",
     val usage_hint: String = "",
     val avoid_hint: String = "",
-    val created_at: Long = 0,
-    val updated_at: Long = 0,
+    val created_at: String = "",
+    val updated_at: String = "",
     val visibility: String = "visitor_visible",
     val status: String = "active",
     val generated_by_model: String? = null,
@@ -115,7 +115,7 @@ data class MailboxThoughtSoil(
     val revision: Int = 1,
     val model_label: String? = null,
     val model_nickname: String? = null,
-    val updated_at: Long? = null
+    val updated_at: String? = null
 )
 
 @Serializable

@@ -66,8 +66,9 @@ import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
 
@@ -1065,7 +1066,13 @@ private fun visitorStatusLabel(status: String): String = when (status) {
     else -> "已送达"
 }
 
-private fun mailboxTime(value: Long?): String {
-    if (value == null || value <= 0) return "—"
-    return SimpleDateFormat("MM-dd HH:mm", Locale.CHINA).format(Date(value))
+private fun mailboxTime(value: String?): String {
+    if (value.isNullOrBlank()) return "—"
+    return runCatching {
+        MAILBOX_TIME_FORMATTER.format(Instant.parse(value))
+    }.getOrElse { value }
 }
+
+private val MAILBOX_TIME_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MM-dd HH:mm", Locale.CHINA)
+        .withZone(ZoneId.systemDefault())
