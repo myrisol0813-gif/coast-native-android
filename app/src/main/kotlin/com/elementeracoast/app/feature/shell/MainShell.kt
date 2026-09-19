@@ -71,6 +71,7 @@ fun MainShell(
     onDismissModels: () -> Unit,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
+    onLogout: () -> Unit,
     onPlaceholder: (String) -> Unit,
     onSnackbarShown: () -> Unit
 ) {
@@ -181,6 +182,7 @@ fun MainShell(
                             onUpdateMyriAvatar = onUpdateMyriAvatar,
                             onSelectModel = onSelectModel,
                             onRefreshModels = onRefreshModels,
+                            onLogout = onLogout,
                             onImportMessages = onImportMessages,
                             onLocalActionLogged = onLocalActionLogged,
                             onPlaceholder = onPlaceholder
