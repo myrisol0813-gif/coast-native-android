@@ -4,11 +4,30 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class RemoteSessionInfo(
+    val kind: String = "",
+    @SerialName("issued_at") val issuedAt: String? = null,
+    val persistence: String = "",
+    @SerialName("expires_at") val expiresAt: Long = 0L
+)
+
+@Serializable
+data class RemoteAccountInfo(
+    val type: String = "",
+    @SerialName("display_name") val displayName: String = ""
+)
+
+@Serializable
 data class RemoteSessionResponse(
     val ok: Boolean = false,
     val authenticated: Boolean = false,
-    @SerialName("expires_at") val expiresAt: Long = 0L
-)
+    @SerialName("expires_at") val legacyExpiresAt: Long = 0L,
+    val session: RemoteSessionInfo = RemoteSessionInfo(),
+    val account: RemoteAccountInfo = RemoteAccountInfo()
+) {
+    val expiresAt: Long get() = session.expiresAt.takeIf { it > 0L } ?: legacyExpiresAt
+    val persistsUntilLogout: Boolean get() = session.persistence == "until_logout"
+}
 
 @Serializable
 data class RemoteProfileResponse(val ok: Boolean = false, val profile: RemoteProfile = RemoteProfile())
