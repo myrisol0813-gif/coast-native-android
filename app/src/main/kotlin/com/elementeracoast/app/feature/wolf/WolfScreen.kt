@@ -38,6 +38,7 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.remote.RemoteDevUpdate
 import com.elementeracoast.app.feature.serpentdesk.DevHandsRepository
+import com.elementeracoast.app.feature.serpentdesk.NativeApkInstallLaunch
 import com.elementeracoast.app.feature.serpentdesk.installNativeApk
 import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
@@ -235,8 +236,12 @@ private fun WolfUpdateScreen(
         scope.launch {
             try {
                 val apk = repository.downloadApk(path, native.apkSha256)
-                installNativeApk(context, apk)
-                onSnackbar("APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。")
+                when (installNativeApk(context, apk)) {
+                    NativeApkInstallLaunch.InstallerOpened ->
+                        onSnackbar("APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。")
+                    NativeApkInstallLaunch.PermissionSettingsOpened ->
+                        onSnackbar("APK 已下载并通过 SHA-256 校验。请先允许海岸“安装未知应用”，返回后再点一次“下载并安装”。")
+                }
             } catch (cause: Throwable) {
                 val message = cause.message ?: "APK 下载或安装入口打开失败。"
                 error = message
