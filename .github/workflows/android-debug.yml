@@ -330,6 +330,32 @@ jobs:
             exit 1
           fi
 
+      - name: Verify public repository hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Keep the private relationship title out of publicly tracked copy.
+          forbidden_term=$(printf '\345\205\210\347\224\237')
+          if git grep -I -n -F "$forbidden_term" -- .; then
+            echo 'Private relationship wording found in tracked repository text.'
+            exit 1
+          fi
+
+          # Reject common real credential/key formats. Variable names such as
+          # COAST_ANDROID_KEYSTORE_PASSWORD are allowed; credential values are not.
+          secret_pattern='-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|(^|[^A-Za-z0-9_])(ghp_|github_pat_)[A-Za-z0-9_]{20,}|(^|[^A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[pbar]-[A-Za-z0-9-]{20,}|https?://[^[:space:]/:@]+:[^[:space:]/@]+@'
+          if git grep -I -n -E -- "$secret_pattern" -- .; then
+            echo 'A credential-like literal was found in tracked repository text.'
+            exit 1
+          fi
+
+          # Sensitive signing material must never be tracked.
+          if git ls-files | grep -Ei '(^|/)(\.env($|\.)|.*\.(jks|keystore|p12|pfx|pem|key)$|service[-_]?account.*\.json$)'; then
+            echo 'A secret-bearing file type is tracked by git.'
+            exit 1
+          fi
+
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
