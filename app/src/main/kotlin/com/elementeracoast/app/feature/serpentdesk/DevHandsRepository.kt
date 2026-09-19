@@ -173,7 +173,7 @@ class DefaultDevHandsRepository(
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256")
             .digest(bytes)
-            .joinToString("") { byte -> "%02x".format(byte) }
+            .joinToString("") { byte -> (byte.toInt() and 0xff).toString(16).padStart(2, '0') }
 
     private fun responseError(status: Int, text: String): CoastApiException {
         var type = if (status == 401) "unauthorized" else "request_failed"
