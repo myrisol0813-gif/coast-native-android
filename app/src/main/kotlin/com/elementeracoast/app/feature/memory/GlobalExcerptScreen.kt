@@ -64,7 +64,7 @@ fun GlobalExcerptScreen(
             .onFailure { onSnackbar("全局摘录读取失败：${it.message ?: "未知错误"}") }
     }
 
-    fun runAction(id: String = "excerpt", block: suspend () -> Unit, success: String) {
+    fun runAction(id: String = "excerpt", success: String, block: suspend () -> Unit) {
         if (busyId != null) return
         busyId = id
         scope.launch {
@@ -227,10 +227,10 @@ fun GlobalExcerptScreen(
                                 Button(
                                     enabled = busyId == null && editBody.isNotBlank(),
                                     onClick = {
-                                        runAction(candidate.id, {
+                                        runAction(candidate.id, "编辑后的全局摘录已确认。") {
                                             repository.confirmGlobalExcerptCandidate(candidate.id, editBody)
                                             editingCandidateId = null
-                                        }, "编辑后的全局摘录已确认。")
+                                        }
                                     }
                                 ) { Text("编辑后确认") }
                                 TextButton(onClick = { editingCandidateId = null }) { Text("取消编辑") }
@@ -240,9 +240,9 @@ fun GlobalExcerptScreen(
                                 Button(
                                     enabled = busyId == null,
                                     onClick = {
-                                        runAction(candidate.id, {
+                                        runAction(candidate.id, "全局摘录已确认更新。") {
                                             repository.confirmGlobalExcerptCandidate(candidate.id)
-                                        }, "全局摘录已确认更新。")
+                                        }
                                     }
                                 ) { Text("确认") }
                                 TextButton(onClick = {
@@ -252,9 +252,9 @@ fun GlobalExcerptScreen(
                                 TextButton(
                                     enabled = busyId == null,
                                     onClick = {
-                                        runAction(candidate.id, {
+                                        runAction(candidate.id, "这条候选已经消失，正式正文没有改变。") {
                                             repository.discardGlobalExcerptCandidate(candidate.id)
-                                        }, "这条候选已经消失，正式正文没有改变。")
+                                        }
                                     }
                                 ) { Text("驳回") }
                             }
