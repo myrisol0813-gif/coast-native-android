@@ -1,0 +1,52 @@
+ELEMENTERA COAST NATIVE SOURCE-AVAILABLE LICENSE
+Version 1.0 — 2026
+
+Copyright (c) 2026 myrisol0813-gif. All rights reserved.
+
+1. Public visibility only
+The source code in this repository is made publicly visible for inspection,
+security review, interoperability review, and personal study. Public access to
+the repository does not grant an open-source license.
+
+2. No general license grant
+Except where required by applicable law or by the GitHub Terms of Service for
+GitHub's own platform functions, no permission is granted to copy, reproduce,
+modify, adapt, translate, distribute, sublicense, sell, rent, publish, mirror,
+repackage, host, deploy, offer as a service, create derivative works from, or
+otherwise exploit the covered source code or compiled application.
+
+3. Machine-learning and dataset restriction
+No permission is granted to use the covered source code, project text, visual
+assets, or documentation as training, fine-tuning, distillation, retrieval,
+benchmark, evaluation, synthetic-data, or dataset material for machine-learning
+or generative-AI systems.
+
+4. Brand, identity, text, and visual assets
+No rights are granted to the names Elementera Coast, CoastGPT, Myri, Myrisol,
+associated logos, icons, illustrations, product identity, original prose, UI
+copy, or other project-specific creative assets. No trademark rights are
+granted.
+
+5. Secrets, private data, and hosted services
+This license never grants any right to credentials, keys, cookies, private
+configuration, private user data, conversations, memories, hosted backends, or
+other non-public data or infrastructure associated with Elementera Coast.
+
+6. Third-party material
+Third-party components remain governed by their own licenses. In particular,
+material identified in THIRD_PARTY_NOTICES.md and third_party/ is excluded from
+the restrictions above to the extent its upstream license grants broader rights.
+
+7. Contributions
+No right to submit, merge, redistribute, or relicense a contribution is implied
+by public repository access. Contributions, if accepted, may be subject to
+separate terms agreed by the copyright holder.
+
+8. No warranty
+THE COVERED MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. TO THE MAXIMUM EXTENT
+PERMITTED BY LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM THE MATERIAL OR ITS USE.
+
+This is a source-available notice, not an OSI-approved open-source license.
