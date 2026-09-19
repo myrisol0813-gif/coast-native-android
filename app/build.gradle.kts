@@ -19,8 +19,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 50
-        versionName = "0.1.48-native-auth-update-hotfix-01"
+        versionCode = 51
+        versionName = "0.1.49-cross-window-null-hotfix-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 

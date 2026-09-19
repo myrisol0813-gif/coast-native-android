@@ -13,7 +13,7 @@ data class RemoteCrossWindowLimits(
 data class RemoteCrossWindowMessage(
     @SerialName("message_id") val messageId: String,
     val role: String = "message",
-    @SerialName("display_author") val displayAuthor: String = "",
+    @SerialName("display_author") val displayAuthor: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     val length: Int = 0,
     val preview: String = ""
@@ -21,7 +21,7 @@ data class RemoteCrossWindowMessage(
 
 @Serializable
 data class RemoteCrossWindowTurn(
-    @SerialName("turn_id") val turnId: String,
+    @SerialName("turn_id") val turnId: String? = null,
     @SerialName("turn_number") val turnNumber: Int = 0,
     val messages: List<RemoteCrossWindowMessage> = emptyList()
 )
