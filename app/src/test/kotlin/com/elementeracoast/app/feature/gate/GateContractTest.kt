@@ -21,10 +21,12 @@ class GateContractTest {
     }
 
     @Test
-    fun mailboxUsesCanonicalCoastRoomInsteadOfLocalPlaceholderState() {
-        val target = MailboxWebTarget.production()
-        assertEquals(true, target.origin.startsWith("https://"))
-        assertEquals(true, target.mailboxUrl.endsWith("/mailbox"))
-        assertEquals(false, target.mailboxUrl.contains("placeholder", ignoreCase = true))
+    fun mailboxVisitorSessionIsSeparateFromOwnerSession() {
+        val store = MemoryMailboxSessionStore()
+        store.save("__Host-coast_mailbox=test-token")
+        assertEquals("__Host-coast_mailbox=test-token", store.load())
+        store.clear()
+        assertEquals(null, store.load())
+        assertEquals("__Host-coast_mailbox", AndroidMailboxSessionStore.COOKIE_NAME)
     }
 }
