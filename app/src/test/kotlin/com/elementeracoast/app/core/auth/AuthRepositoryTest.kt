@@ -45,7 +45,7 @@ class AuthRepositoryTest {
             MockResponse()
                 .setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
-                .setBody("""{"ok":true,"authenticated":true,"expires_at":4000000000}""")
+                .setBody("""{"ok":true,"authenticated":true,"session":{"kind":"owner","issued_at":"2026-09-18T10:00:00.000Z","persistence":"legacy_expiring","expires_at":"2096-10-02T07:06:40Z"},"account":{"type":"owner","display_name":"海岸屋主"}}""")
         )
         val store = MemoryAuthStore(AuthSession("__Host-coast_session=stored", 3_900_000_000L))
         val repository = repository(store)
@@ -66,7 +66,7 @@ class AuthRepositoryTest {
                 .setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody(
-                    """{"ok":true,"authenticated":true,"session":{"kind":"v2","issued_at":"2026-09-19T11:00:00.000Z","persistence":"until_logout"},"account":{"type":"owner","display_name":"小寒"}}"""
+                    """{"ok":true,"authenticated":true,"session":{"kind":"owner","issued_at":"2026-09-19T11:00:00.000Z","persistence":"until_logout","expires_at":null},"account":{"type":"owner","display_name":"海岸屋主"}}"""
                 )
         )
         val store = MemoryAuthStore(AuthSession("__Host-coast_session=persistent", 3_900_000_000L))
