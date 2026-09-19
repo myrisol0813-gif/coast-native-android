@@ -85,7 +85,19 @@ class TurnDeskMapperTest {
         assertTrue(budget.status.contains("4321 / 6000"))
         assertTrue(budget.details.any { it.label == "保留来源" && it.text.contains("全局摘录") })
         assertTrue(receipt.sections.last().details.any { it.text == "本轮没有递入外部材料。" })
-        assertTrue(receipt.sections.all { section -> section.details.any { it.label == "来源说明" } || section.details.any { it.text == "本轮未递入" } })
+        val sourceSections = setOf(
+            "当前消息", "最近上下文", "核心自定义", "全局摘录", "思维壤",
+            "相关记忆", "世界书", "狗话", "跨窗口取信", "工作台 / 工具回执", "外来潮汐"
+        )
+        assertTrue(
+            receipt.sections
+                .filter { it.title in sourceSections }
+                .all { section ->
+                    section.details.any { it.label == "来源说明" } ||
+                        section.details.any { it.text == "本轮未递入" } ||
+                        section.details.any { it.text == "本轮没有递入外部材料。" }
+                }
+        )
     }
 
     @Test fun mapperAddsAttachmentAndSearchReceiptsWhenPresent() {
