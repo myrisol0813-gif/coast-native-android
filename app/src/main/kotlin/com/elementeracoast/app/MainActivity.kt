@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
                         memory = vm.memory,
                         dogtalk = vm.dogtalk,
                         devHands = devHands,
+                        archive = vm.archive,
                         crossWindowRepository = vm.crossWindowRepository,
                         crossWindow = crossWindow,
                         onCrossWindowChange = vm::updateCrossWindow,
