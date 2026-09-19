@@ -31,6 +31,7 @@ import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
 import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
+import com.elementeracoast.app.feature.wolf.GlobalArchiveRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,7 @@ class CoastShellViewModel(
     val memory: MemoryRepository get() = backend.memory
     val dogtalk: DogtalkRepository get() = backend.dogtalk
     val crossWindowRepository: CrossWindowRepository get() = backend.crossWindow
+    val archive: GlobalArchiveRepository get() = backend.archive
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private var attachmentUploadsInFlight = 0
