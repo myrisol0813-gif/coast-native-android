@@ -60,6 +60,26 @@ class AuthRepositoryTest {
     }
 
     @Test
+    fun restoreAcceptsUntilLogoutSessionWithoutExpiry() = kotlinx.coroutines.runBlocking {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody(
+                    """{"ok":true,"authenticated":true,"session":{"kind":"v2","issued_at":"2026-09-19T11:00:00.000Z","persistence":"until_logout"},"account":{"type":"owner","display_name":"小寒"}}"""
+                )
+        )
+        val store = MemoryAuthStore(AuthSession("__Host-coast_session=persistent", 3_900_000_000L))
+        val repository = repository(store)
+
+        val result = repository.restore()
+
+        assertTrue(result is SessionRestoreResult.Restored)
+        assertEquals(0L, store.load()!!.expiresAtEpochSeconds)
+        assertEquals("__Host-coast_session=persistent", server.takeRequest().getHeader("Cookie"))
+    }
+
+    @Test
     fun networkFailureDoesNotEraseStoredSession() = kotlinx.coroutines.runBlocking {
         val store = MemoryAuthStore(AuthSession("__Host-coast_session=offline", 4_000_000_000L))
         server.shutdown()

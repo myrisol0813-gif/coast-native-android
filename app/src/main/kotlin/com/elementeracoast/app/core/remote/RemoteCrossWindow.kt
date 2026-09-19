@@ -10,6 +10,23 @@ data class RemoteCrossWindowLimits(
 )
 
 @Serializable
+data class RemoteCrossWindowMessage(
+    @SerialName("message_id") val messageId: String,
+    val role: String = "message",
+    @SerialName("display_author") val displayAuthor: String = "",
+    @SerialName("created_at") val createdAt: String? = null,
+    val length: Int = 0,
+    val preview: String = ""
+)
+
+@Serializable
+data class RemoteCrossWindowTurn(
+    @SerialName("turn_id") val turnId: String,
+    @SerialName("turn_number") val turnNumber: Int = 0,
+    val messages: List<RemoteCrossWindowMessage> = emptyList()
+)
+
+@Serializable
 data class RemoteCrossWindowSource(
     @SerialName("conversation_id") val conversationId: String,
     val title: String = "",
@@ -20,7 +37,8 @@ data class RemoteCrossWindowSource(
     @SerialName("message_count") val messageCount: Int = 0,
     @SerialName("turn_count") val turnCount: Int = 0,
     val readable: Boolean = false,
-    @SerialName("disabled_reason") val disabledReason: String = ""
+    @SerialName("disabled_reason") val disabledReason: String = "",
+    val turns: List<RemoteCrossWindowTurn> = emptyList()
 )
 
 @Serializable
@@ -32,13 +50,13 @@ data class RemoteCrossWindowSourcesResponse(
 )
 
 @Serializable
-data class RemoteCrossWindowSelection(
+data class RemoteCrossWindowMessageSelection(
     @SerialName("conversation_id") val conversationId: String,
-    val turns: Int
+    @SerialName("message_id") val messageId: String
 )
 
 @Serializable
 data class RemoteCrossWindowRequest(
     val mode: String = "off",
-    val sources: List<RemoteCrossWindowSelection> = emptyList()
+    val messages: List<RemoteCrossWindowMessageSelection> = emptyList()
 )

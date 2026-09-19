@@ -31,6 +31,7 @@ import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
 import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.memory.MemoryRepository
+import com.elementeracoast.app.feature.wolf.GlobalArchiveRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,7 @@ class CoastShellViewModel(
     val memory: MemoryRepository get() = backend.memory
     val dogtalk: DogtalkRepository get() = backend.dogtalk
     val crossWindowRepository: CrossWindowRepository get() = backend.crossWindow
+    val archive: GlobalArchiveRepository get() = backend.archive
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private var attachmentUploadsInFlight = 0
@@ -78,12 +80,14 @@ class CoastShellViewModel(
         viewModelScope.launch(workDispatcher) {
             _state.update { it.copy(authBusy = true, authMessage = null) }
             try {
-                backend.auth.login(password)
+                val session = backend.auth.login(password)
                 _state.update {
                     it.copy(
                         authenticated = true,
                         authBusy = false,
                         authMessage = null,
+                        sessionPersistence = if (session.expiresAtEpochSeconds == 0L) "until_logout" else "legacy_expiring",
+                        sessionExpiresAtEpochSeconds = session.expiresAtEpochSeconds,
                         backendOffline = false,
                         password = ""
                     )
@@ -543,6 +547,8 @@ class CoastShellViewModel(
                             authenticated = true,
                             authBusy = false,
                             authMessage = null,
+                            sessionPersistence = if (restored.session.expiresAtEpochSeconds == 0L) "until_logout" else "legacy_expiring",
+                            sessionExpiresAtEpochSeconds = restored.session.expiresAtEpochSeconds,
                             backendOffline = false
                         )
                     }
@@ -554,6 +560,8 @@ class CoastShellViewModel(
                             authenticated = true,
                             authBusy = false,
                             authMessage = null,
+                            sessionPersistence = if (restored.session.expiresAtEpochSeconds == 0L) "until_logout" else "legacy_expiring",
+                            sessionExpiresAtEpochSeconds = restored.session.expiresAtEpochSeconds,
                             backendOffline = true,
                             snackbarMessage = "暂时无法验证海岸连接，先使用本机缓存。"
                         )

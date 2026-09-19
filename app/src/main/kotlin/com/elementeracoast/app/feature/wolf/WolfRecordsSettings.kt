@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -38,55 +39,99 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun ChatRecordsScreen(
     profile: WolfProfile,
     messages: List<ChatMessage>,
+    archive: GlobalArchiveRepository,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val stamp = remember { DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now()) }
     var pendingText by remember { mutableStateOf("") }
+    var pendingOk by remember { mutableStateOf("已导出") }
+    var pendingSummary by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
 
-    fun write(uri: Uri?, text: String, ok: String) {
-        if (uri == null) return
+    fun write(uri: Uri?, text: String) {
+        if (uri == null) {
+            busy = false
+            return
+        }
         runCatching {
             context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(text) }
                 ?: error("无法打开目标文件")
         }
             .onSuccess {
-                onActionLogged("chat.export", ok, "当前窗口 ${messages.size} 条消息")
-                onSnackbar(ok)
+                onActionLogged("chat.export", pendingOk, pendingSummary)
+                onSnackbar(pendingOk)
             }
             .onFailure { onSnackbar("导出失败：${it.message ?: "无法写入文件"}") }
+        busy = false
     }
 
     val jsonExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        write(uri, pendingText, "已导出 JSON")
+        write(uri, pendingText)
     }
     val htmlExport = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
-        write(uri, pendingText, "已导出 HTML")
+        write(uri, pendingText)
+    }
+
+    fun launchGlobal(format: String) {
+        if (busy) return
+        busy = true
+        scope.launch {
+            runCatching { archive.snapshot() }
+                .onSuccess { snapshot ->
+                    if (format == "html") {
+                        pendingText = GlobalArchive.exportHtml(snapshot)
+                        pendingOk = "已导出全局 HTML"
+                        pendingSummary = "snapshot-backed · 不含附件二进制"
+                        htmlExport.launch("elementera-coast-global-$stamp.html")
+                    } else {
+                        pendingText = GlobalArchive.exportJson(snapshot)
+                        pendingOk = "已导出全局 JSON"
+                        pendingSummary = "V1 全局快照 · 已脱敏"
+                        jsonExport.launch("elementera-coast-global-$stamp.json")
+                    }
+                }
+                .onFailure {
+                    busy = false
+                    onSnackbar("全局导出失败：${it.message ?: "无法读取海岸快照"}")
+                }
+        }
     }
 
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("聊天记录", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
+        item { Text("防丢导出", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item {
-            WolfRow("导出 JSON", "保留当前显示消息与资料 metadata") {
-                pendingText = ChatArchive.exportJson(profile, messages)
-                jsonExport.launch("elementera-chat-$stamp.json")
+            WolfRow("全局 JSON", if (busy) "正在读取全局快照……" else "V1 全局快照 · 与 Web 同一数据源") {
+                launchGlobal("json")
             }
         }
         item {
-            WolfRow("导出 HTML", "离线打开查看") {
-                pendingText = ChatArchive.exportHtml(profile, messages)
-                htmlExport.launch("elementera-chat-$stamp.html")
+            WolfRow("全局 HTML", "同一全局快照的可读离线文档") {
+                launchGlobal("html")
             }
         }
         item {
-            WolfRow("导入 JSON", "真实 history 写回本轮未接；暂不导入") {
+            WolfRow("当前窗口 JSON", "局部副本 · 保留当前显示消息与资料 metadata") {
+                if (!busy) {
+                    busy = true
+                    pendingText = ChatArchive.exportJson(profile, messages)
+                    pendingOk = "已导出当前窗口 JSON"
+                    pendingSummary = "当前窗口 ${messages.size} 条消息"
+                    jsonExport.launch("elementera-chat-$stamp.json")
+                }
+            }
+        }
+        item {
+            WolfRow("导入当前窗口 JSON", "真实 history 写回本轮未接；暂不导入") {
                 @Suppress("UNUSED_EXPRESSION")
                 onImportMessages
                 onSnackbar("聊天记录导入暂未接后端；没有修改当前真实会话。")
@@ -94,7 +139,7 @@ internal fun ChatRecordsScreen(
         }
         item {
             Text(
-                "当前聊天记录的真实来源是海岸 D1。导出是本机副本；导入不会在没有后端写回规则时伪装成功。",
+                "全局 JSON 与全局 HTML 都直接读取 /api/export/v1-snapshot：聊天窗口、思维壤、记忆、全局摘录与修改记录、世界书、自定义指令、模型回波、工具摘要、附件索引、搜索摘要和版本信息共用一份来源。附件二进制不会塞进 HTML。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )

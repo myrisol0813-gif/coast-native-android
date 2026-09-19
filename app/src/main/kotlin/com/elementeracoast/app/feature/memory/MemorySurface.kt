@@ -37,7 +37,11 @@ import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 
 enum class MemoryTab(val title: String) {
-    Memory("记忆库"), Seed("种子库"), Worldbook("世界书"), Instructions("自定义指令")
+    Memory("记忆库"),
+    Seed("种子库"),
+    Worldbook("世界书"),
+    GlobalExcerpt("全局摘录"),
+    Instructions("自定义指令")
 }
 
 enum class MemoryFilterKind(val label: String, val allLabel: String, val emptyLabel: String) {
@@ -69,6 +73,9 @@ fun MemoryTabs(active: MemoryTab, onSelect: (MemoryTab) -> Unit) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MemoryTabCell(MemoryTab.Worldbook, active, Modifier.weight(1f), onSelect)
+                MemoryTabCell(MemoryTab.GlobalExcerpt, active, Modifier.weight(1f), onSelect)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MemoryTabCell(MemoryTab.Instructions, active, Modifier.weight(1f), onSelect)
             }
         }

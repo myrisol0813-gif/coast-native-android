@@ -5,6 +5,7 @@ import com.elementeracoast.app.ui.theme.CoastThemePreset
 enum class WolfDestination(val title: String, val subtitle: String) {
     Profile("个人资料", "昵称、聊天署名与显示资料"),
     Appearance("外观", "主题、用户气泡与重点色"),
+    Account("账户", "当前登录状态与主动退出"),
     ChatRecords("聊天记录", "导出 JSON / HTML · 导入 JSON"),
     ModelBox("模型箱", "当前模型与 OpenRouter 目录分区"),
     BasicSettings("基本设置", "回答长度、流式输出、记忆召回与世界书"),

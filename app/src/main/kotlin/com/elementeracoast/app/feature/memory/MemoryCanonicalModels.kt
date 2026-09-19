@@ -52,13 +52,50 @@ data class CustomInstructions(
     val source: String = "小寒手动编辑"
 )
 
+
+data class GlobalExcerptCandidate(
+    val id: String,
+    val proposedBody: String = "",
+    val changeKind: String = "rewrite",
+    val reason: String = "",
+    val sourceConversationId: String? = null,
+    val sourceMessageId: String? = null,
+    val sourceModel: String = "",
+    val createdAt: String? = null
+)
+
+data class GlobalExcerptRevision(
+    val id: String,
+    val revision: Int = 0,
+    val beforeBody: String = "",
+    val afterBody: String = "",
+    val sourceConversationId: String? = null,
+    val sourceMessageId: String? = null,
+    val modelReason: String = "",
+    val confirmationMode: String = "",
+    val operator: String = "",
+    val createdAt: String? = null
+)
+
+data class GlobalExcerpt(
+    val writeGuidance: String = "",
+    val body: String = "",
+    val writeEnabled: Boolean = false,
+    val revision: Int = 1,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    val candidates: List<GlobalExcerptCandidate> = emptyList(),
+    val revisions: List<GlobalExcerptRevision> = emptyList()
+)
+
 data class MemorySnapshot(
     val memories: List<MemoryEntry> = emptyList(),
     val seeds: List<MemoryEntry> = emptyList(),
     val pockets: List<MemoryPocket> = emptyList(),
     val pocketConversationId: String? = null,
     val worldbook: List<WorldbookEntry> = emptyList(),
-    val customInstructions: CustomInstructions = CustomInstructions()
+    val customInstructions: CustomInstructions = CustomInstructions(),
+    val globalExcerpt: GlobalExcerpt = GlobalExcerpt()
 )
 
 internal val canonicalMemoryTags = listOf(

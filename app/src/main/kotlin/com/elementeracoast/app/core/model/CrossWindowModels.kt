@@ -2,8 +2,9 @@ package com.elementeracoast.app.core.model
 
 enum class CrossWindowMode(val wireValue: String, val label: String) {
     Off("off", "关闭"),
-    Manual("manual", "手动选择窗口"),
-    ModelDecides("model_decides", "让模型决定");
+    Manual("manual", "手动选择"),
+    ModelDecides("model_decides", "让模型决定"),
+    Keyword("keyword", "旧信关键词");
 
     companion object {
         fun fromWire(value: String): CrossWindowMode = entries.firstOrNull { it.wireValue == value } ?: Off
@@ -13,6 +14,21 @@ enum class CrossWindowMode(val wireValue: String, val label: String) {
 data class CrossWindowLimits(
     val defaultTurns: Int,
     val technicalMaxTurnsPerSource: Int
+)
+
+data class CrossWindowMessage(
+    val messageId: String,
+    val role: String,
+    val displayAuthor: String,
+    val createdAt: String?,
+    val length: Int,
+    val preview: String
+)
+
+data class CrossWindowTurn(
+    val turnId: String,
+    val turnNumber: Int,
+    val messages: List<CrossWindowMessage>
 )
 
 data class CrossWindowSource(
@@ -25,17 +41,18 @@ data class CrossWindowSource(
     val messageCount: Int,
     val turnCount: Int,
     val readable: Boolean,
-    val disabledReason: String
+    val disabledReason: String,
+    val turns: List<CrossWindowTurn> = emptyList()
 )
 
-data class CrossWindowSelection(
+data class CrossWindowMessageSelection(
     val conversationId: String,
-    val turns: Int
+    val messageId: String
 )
 
 data class CrossWindowRequest(
     val mode: CrossWindowMode = CrossWindowMode.Off,
-    val sources: List<CrossWindowSelection> = emptyList()
+    val messages: List<CrossWindowMessageSelection> = emptyList()
 )
 
 data class CrossWindowSourceSnapshot(

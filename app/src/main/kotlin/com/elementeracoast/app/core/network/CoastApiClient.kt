@@ -89,8 +89,10 @@ class CoastApiClient(
         }
         val provisional = AuthSession(cookie, 0L)
         val verified = getSession(provisional)
-        if (!verified.authenticated || verified.expiresAt <= 0L) throw CoastApiException(CoastApiErrorKind.Unauthorized, "invalid_session", "海岸登录凭据未通过验证。", 401)
-        return AuthSession(cookie, verified.expiresAt)
+        if (!verified.authenticated || (!verified.persistsUntilLogout && verified.expiresAt <= 0L)) {
+            throw CoastApiException(CoastApiErrorKind.Unauthorized, "invalid_session", "海岸登录凭据未通过验证。", 401)
+        }
+        return AuthSession(cookie, if (verified.persistsUntilLogout) 0L else verified.expiresAt)
     }
 
     suspend fun getSession(overrideSession: AuthSession? = null): RemoteSessionResponse {
@@ -103,6 +105,18 @@ class CoastApiClient(
         val builder = Request.Builder().url(config.url("/logout")).get()
         session?.cookieHeader?.let { builder.header("Cookie", it) }
         runCatching { execute(builder.build()) { Unit } }
+    }
+
+    suspend fun getGlobalSnapshot(): JsonElement {
+        val envelope = jsonRequestElement(
+            Request.Builder().url(config.url("/api/export/v1-snapshot")).get().build()
+        )
+        return envelope.runCatching { jsonObject["snapshot"] }.getOrNull()
+            ?: throw CoastApiException(
+                CoastApiErrorKind.Decode,
+                "snapshot_missing",
+                "海岸全局快照没有返回 snapshot 正文。"
+            )
     }
 
     suspend fun getProfile(): RemoteProfile = jsonRequest(Request.Builder().url(config.url("/api/chat/profile")).get().build(), RemoteProfileResponse.serializer()).profile

@@ -141,13 +141,14 @@ fun DogtalkCard(
                         onSelect = { pane = it }
                     )
                     Spacer(Modifier.height(9.dp))
-                    if (pane == "cross") {
+                    if (pane == "cross" || pane == "keyword") {
                         CrossWindowPane(
                             conversationId = conversationId,
                             repository = crossWindowRepository,
                             state = crossWindow,
                             onChange = onCrossWindowChange,
-                            onNotice = onNotice
+                            onNotice = onNotice,
+                            keywordOnly = pane == "keyword"
                         )
                     } else {
                         Text(
@@ -281,7 +282,7 @@ private fun DogtalkTabs(selected: String, fieldColor: androidx.compose.ui.graphi
             .background(fieldColor, RoundedCornerShape(13.dp))
             .padding(4.dp)
     ) {
-        listOf("dogtalk" to "狗话", "cross" to "跨窗口").forEach { (key, label) ->
+        listOf("dogtalk" to "狗话", "cross" to "跨窗口取信", "keyword" to "旧信关键词").forEach { (key, label) ->
             val active = selected == key
             Box(
                 modifier = Modifier

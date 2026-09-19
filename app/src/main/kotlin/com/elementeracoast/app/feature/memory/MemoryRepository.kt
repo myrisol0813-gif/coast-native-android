@@ -6,6 +6,10 @@ import com.elementeracoast.app.core.remote.RemoteMemoryEntry
 import com.elementeracoast.app.core.remote.RemoteMemoryEntryWriteRequest
 import com.elementeracoast.app.core.remote.RemoteMemoryPocket
 import com.elementeracoast.app.core.remote.RemoteMemoryPocketResolveRequest
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerpt
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptCandidate
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptRevision
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptResponse
 import com.elementeracoast.app.core.remote.RemoteWorldbookEntry
 import com.elementeracoast.app.core.remote.RemoteWorldbookEntryWriteRequest
 import kotlinx.coroutines.async
@@ -22,6 +26,10 @@ interface MemoryRepository {
     suspend fun refreshPockets(conversationId: String)
     suspend fun refreshWorldbook()
     suspend fun refreshInstructions()
+    suspend fun refreshGlobalExcerpt()
+    suspend fun setGlobalExcerptWriteEnabled(enabled: Boolean)
+    suspend fun confirmGlobalExcerptCandidate(id: String, editedBody: String? = null)
+    suspend fun discardGlobalExcerptCandidate(id: String)
     suspend fun saveEntry(entry: MemoryEntry): MemoryEntry
     suspend fun deleteEntry(id: String)
     suspend fun resolvePocket(id: String, action: String, tag: String? = null)
@@ -57,12 +65,14 @@ class DefaultMemoryRepository(
         }
         val worldbook = async { remote.listWorldbook() }
         val instructions = async { remote.getInstructions() }
+        val globalExcerpt = async { remote.getGlobalExcerpt() }
 
         val remoteMemories = memories.await()
         val remoteSeeds = seeds.await()
         val remotePockets = pockets?.await().orEmpty()
         val remoteWorldbook = worldbook.await()
         val remoteInstructions = instructions.await()
+        val remoteGlobalExcerpt = globalExcerpt.await()
 
         cache.putMemoryEntries("memory", remoteMemories)
         cache.putMemoryEntries("seed", remoteSeeds)
@@ -76,7 +86,8 @@ class DefaultMemoryRepository(
             pockets = remotePockets.map(::toPocket),
             pocketConversationId = cleanConversationId.ifBlank { null },
             worldbook = remoteWorldbook.map(::toWorldbook),
-            customInstructions = remoteInstructions?.let(::toInstructions) ?: CustomInstructions()
+            customInstructions = remoteInstructions?.let(::toInstructions) ?: CustomInstructions(),
+            globalExcerpt = toGlobalExcerpt(remoteGlobalExcerpt)
         )
     }
 
@@ -118,6 +129,26 @@ class DefaultMemoryRepository(
         mutableSnapshot.value = mutableSnapshot.value.copy(
             customInstructions = instructions?.let(::toInstructions) ?: CustomInstructions()
         )
+    }
+
+    override suspend fun refreshGlobalExcerpt() {
+        val response = remote.getGlobalExcerpt()
+        mutableSnapshot.value = mutableSnapshot.value.copy(globalExcerpt = toGlobalExcerpt(response))
+    }
+
+    override suspend fun setGlobalExcerptWriteEnabled(enabled: Boolean) {
+        remote.setGlobalExcerptWriteEnabled(enabled)
+        refreshGlobalExcerpt()
+    }
+
+    override suspend fun confirmGlobalExcerptCandidate(id: String, editedBody: String?) {
+        remote.confirmGlobalExcerptCandidate(id, editedBody)
+        refreshGlobalExcerpt()
+    }
+
+    override suspend fun discardGlobalExcerptCandidate(id: String) {
+        remote.discardGlobalExcerptCandidate(id)
+        refreshGlobalExcerpt()
     }
 
     override suspend fun saveEntry(entry: MemoryEntry): MemoryEntry {
@@ -245,6 +276,41 @@ class DefaultMemoryRepository(
             enabled = value.enabled,
             scope = value.scope,
             visitorSafe = value.visitorSafe
+        )
+
+        fun toGlobalExcerpt(response: RemoteGlobalExcerptResponse) = GlobalExcerpt(
+            writeGuidance = response.excerpt.writeGuidance,
+            body = response.excerpt.body,
+            writeEnabled = response.excerpt.writeEnabled,
+            revision = response.excerpt.revision,
+            createdAt = response.excerpt.createdAt,
+            updatedAt = response.excerpt.updatedAt,
+            candidates = response.candidates.map(::toGlobalExcerptCandidate),
+            revisions = response.revisions.map(::toGlobalExcerptRevision)
+        )
+
+        fun toGlobalExcerptCandidate(value: RemoteGlobalExcerptCandidate) = GlobalExcerptCandidate(
+            id = value.id,
+            proposedBody = value.proposedBody,
+            changeKind = value.changeKind,
+            reason = value.reason,
+            sourceConversationId = value.sourceConversationId,
+            sourceMessageId = value.sourceMessageId,
+            sourceModel = value.sourceModel,
+            createdAt = value.createdAt
+        )
+
+        fun toGlobalExcerptRevision(value: RemoteGlobalExcerptRevision) = GlobalExcerptRevision(
+            id = value.id,
+            revision = value.revision,
+            beforeBody = value.beforeBody,
+            afterBody = value.afterBody,
+            sourceConversationId = value.sourceConversationId,
+            sourceMessageId = value.sourceMessageId,
+            modelReason = value.modelReason,
+            confirmationMode = value.confirmationMode,
+            operator = value.operator,
+            createdAt = value.createdAt
         )
 
         fun toInstructions(value: RemoteCustomInstructions) = CustomInstructions(

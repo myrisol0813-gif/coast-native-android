@@ -34,7 +34,9 @@ class DefaultAuthRepository(
                 store.clear()
                 SessionRestoreResult.Invalid("登录状态已失效，请重新进入海岸。")
             } else {
-                val refreshed = session.copy(expiresAtEpochSeconds = response.expiresAt)
+                val refreshed = session.copy(
+                    expiresAtEpochSeconds = if (response.persistsUntilLogout) 0L else response.expiresAt
+                )
                 store.save(refreshed)
                 SessionRestoreResult.Restored(refreshed)
             }

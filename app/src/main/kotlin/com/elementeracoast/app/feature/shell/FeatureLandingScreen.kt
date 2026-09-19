@@ -11,6 +11,7 @@ import com.elementeracoast.app.feature.memory.MemoryLanding
 import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.serpentdesk.DevHandsRepository
 import com.elementeracoast.app.feature.serpentdesk.SerpentDeskScreen
+import com.elementeracoast.app.feature.wolf.GlobalArchiveRepository
 import com.elementeracoast.app.feature.wolf.WolfScreen
 import com.elementeracoast.app.ui.theme.SnowLetterFeatureScaffold
 
@@ -22,6 +23,7 @@ internal fun FeatureLandingScreen(
     daily: DailyRepository,
     memory: MemoryRepository,
     devHands: DevHandsRepository,
+    archive: GlobalArchiveRepository,
     openMemoryPending: Boolean,
     onMemoryPendingConsumed: () -> Unit,
     messages: List<ChatMessage>,
@@ -30,6 +32,7 @@ internal fun FeatureLandingScreen(
     onUpdateMyriAvatar: (String) -> Unit,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
+    onLogout: () -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onLocalActionLogged: (String, String, String) -> Unit,
     onPlaceholder: (String) -> Unit
@@ -59,8 +62,10 @@ internal fun FeatureLandingScreen(
                 shellState = shellState,
                 messages = messages,
                 devHands = devHands,
+                archive = archive,
                 onSelectModel = onSelectModel,
                 onRefreshModels = onRefreshModels,
+                onLogout = onLogout,
                 onImportMessages = onImportMessages,
                 onActionLogged = onLocalActionLogged,
                 onSnackbar = onPlaceholder
