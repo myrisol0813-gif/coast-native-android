@@ -6,6 +6,9 @@ import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.core.remote.RemoteCustomInstructions
 import com.elementeracoast.app.core.remote.RemoteCustomInstructionsPutRequest
 import com.elementeracoast.app.core.remote.RemoteCustomInstructionsResponse
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptConfirmRequest
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptPatchRequest
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptResponse
 import com.elementeracoast.app.core.remote.RemoteMemoryEntry
 import com.elementeracoast.app.core.remote.RemoteMemoryEntryListResponse
 import com.elementeracoast.app.core.remote.RemoteMemoryEntryResponse
@@ -81,6 +84,31 @@ class MemoryRemoteDataSource(
         ).build(),
         RemoteCustomInstructionsResponse.serializer()
     ).instructions
+
+    suspend fun getGlobalExcerpt(): RemoteGlobalExcerptResponse = request(
+        Request.Builder().url(config.url("/api/memory/global-excerpt")).get().build(),
+        RemoteGlobalExcerptResponse.serializer()
+    )
+
+    suspend fun setGlobalExcerptWriteEnabled(enabled: Boolean): RemoteGlobalExcerptResponse = request(
+        Request.Builder().url(config.url("/api/memory/global-excerpt")).patch(
+            body(json.encodeToString(RemoteGlobalExcerptPatchRequest(writeEnabled = enabled)))
+        ).build(),
+        RemoteGlobalExcerptResponse.serializer()
+    )
+
+    suspend fun confirmGlobalExcerptCandidate(id: String, editedBody: String? = null): RemoteGlobalExcerptResponse = request(
+        Request.Builder().url(config.url("/api/memory/global-excerpt/candidates/${path(id)}")).patch(
+            body(json.encodeToString(RemoteGlobalExcerptConfirmRequest(editedBody = editedBody)))
+        ).build(),
+        RemoteGlobalExcerptResponse.serializer()
+    )
+
+    suspend fun discardGlobalExcerptCandidate(id: String) {
+        requestElement(
+            Request.Builder().url(config.url("/api/memory/global-excerpt/candidates/${path(id)}")).delete().build()
+        )
+    }
 
     suspend fun listWorldbook(): List<RemoteWorldbookEntry> = request(
         Request.Builder().url(config.url("/api/worldbook")).get().build(),
