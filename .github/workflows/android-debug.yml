@@ -330,13 +330,32 @@ jobs:
             exit 1
           fi
 
+      - name: Verify public repository hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Reject common real credential/key formats. Variable names such as
+          # COAST_ANDROID_KEYSTORE_PASSWORD are allowed; credential values are not.
+          secret_pattern='-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|(^|[^A-Za-z0-9_])(ghp_|github_pat_)[A-Za-z0-9_]{20,}|(^|[^A-Za-z0-9_-])sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[pbar]-[A-Za-z0-9-]{20,}|https?://[^[:space:]/:@]+:[^[:space:]/@]+@'
+          if git grep -I -n -E -- "$secret_pattern" -- .; then
+            echo 'A credential-like literal was found in tracked repository text.'
+            exit 1
+          fi
+
+          # Sensitive signing material must never be tracked.
+          if git ls-files | grep -Ei '(^|/)(\.env($|\.)|.*\.(jks|keystore|p12|pfx|pem|key)$|service[-_]?account.*\.json$)'; then
+            echo 'A secret-bearing file type is tracked by git.'
+            exit 1
+          fi
+
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify built package identity and signing mode
+      - name: Sign and verify distributable APK
         shell: bash
         run: |
           set -euo pipefail
@@ -344,15 +363,41 @@ jobs:
           test "${COAST_STABLE_SIGNING:-false}" = true
           test -f app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Stage debug APK
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$sdk_root"
+          build_tools_dir=$(find "$sdk_root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          apksigner="$build_tools_dir/apksigner"
+          test -x "$apksigner"
+
+          mkdir -p artifact
+          apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
+          "$apksigner" sign \
+            --ks "$COAST_ANDROID_KEYSTORE_PATH" \
+            --min-sdk-version 23 \
+            --ks-key-alias "$COAST_ANDROID_KEY_ALIAS" \
+            --ks-pass env:COAST_ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:COAST_ANDROID_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$apk" \
+            app/build/outputs/apk/debug/app-debug.apk
+
+          verify_output=$("$apksigner" verify --verbose --print-certs --min-sdk-version 23 "$apk")
+          printf '%s\n' "$verify_output"
+          grep -Fq 'Verified using v1 scheme (JAR signing): true' <<<"$verify_output"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' <<<"$verify_output"
+          grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' <<<"$verify_output"
+          unzip -Z1 "$apk" | grep -Eq '^META-INF/.*\.(SF|RSA|DSA|EC)$'
+
+      - name: Stage signed APK receipts
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p artifact
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
+          test -f "$apk"
           sha256sum "$apk" > artifact/SHA256SUMS.txt
-          printf 'stable_signing=%s\n' "${COAST_STABLE_SIGNING:-false}" > artifact/BUILD_INFO.txt
+          printf 'stable_signing=true\nsignature_verified=true\nv1_signature_file=true\n' > artifact/BUILD_INFO.txt
           printf 'versionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" >> artifact/BUILD_INFO.txt
 
       - name: Upload debug APK artifact
@@ -378,9 +423,13 @@ jobs:
           tag="coast-v1-closeout-native-${COAST_VERSION_CODE}"
           title="Elementera Coast Native ${COAST_VERSION_NAME}"
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
-          notes="V1 closeout signed debug APK. Stable signing: ${COAST_STABLE_SIGNING}. versionCode=${COAST_VERSION_CODE}."
+          notes="V1 closeout signed debug APK. Signature verified with v1/v2/v3. versionCode=${COAST_VERSION_CODE}."
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt --clobber
           else
-            gh release create "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt               --target "$GITHUB_SHA"               --title "$title"               --notes "$notes"               --prerelease
+            gh release create "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes "$notes" \
+              --prerelease
           fi

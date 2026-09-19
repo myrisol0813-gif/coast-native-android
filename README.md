@@ -1,6 +1,6 @@
 # coast-native-android
 
-Private native Android client for Elementera Coast / CoastGPT.
+Publicly visible native Android source for Elementera Coast / CoastGPT.
 
 ## Current status
 
@@ -69,6 +69,17 @@ Some older feature surfaces are still local prototypes and are scheduled for lat
 - in-app Refresh re-reads canonical Coast state through existing repositories instead of restarting the Activity.
 - launcher uses the Coast navy/gold horned GPT mark.
 
+## Source availability
+
+This repository is publicly viewable for inspection and build transparency, but
+it is **not** released under an open-source license. The project-specific source,
+brand, UI copy and visual identity remain reserved under the repository
+`LICENSE`. Third-party components keep their upstream licenses as documented in
+`THIRD_PARTY_NOTICES.md` and `third_party/`.
+
+Repository secrets, signing material, session credentials, private user data,
+conversations and memories are never part of the public-source license.
+
 ## Stable signing
 
 Gradle and GitHub Actions already support a persistent signing key. No keystore or password belongs in source control.
@@ -82,7 +93,7 @@ COAST_ANDROID_KEY_ALIAS
 COAST_ANDROID_KEY_PASSWORD
 ```
 
-Until those secrets are configured, CI intentionally reports `stable_signing=false` and falls back to the runner debug key. Different runner keys may prevent overwrite-install even when `versionCode` increases.
+Distributable APKs are not published merely because signing variables exist. CI explicitly signs the staged APK with Android `apksigner`, requires v1/v2/v3 verification to succeed, and checks for the JAR-signature files required by older/vendor package installers before release metadata may report `stable_signing=true`.
 
 ## Build
 
