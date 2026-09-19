@@ -21,10 +21,10 @@ class GateContractTest {
     }
 
     @Test
-    fun mailboxStateNeverCarriesCredentials() {
-        val opened = MailboxEntryState().open().show(MailboxEntryPage.Register)
-        assertEquals(true, opened.visible)
-        assertEquals(MailboxEntryPage.Register, opened.page)
-        assertEquals(MailboxEntryState(), opened.close())
+    fun mailboxUsesCanonicalCoastRoomInsteadOfLocalPlaceholderState() {
+        val target = MailboxWebTarget.production()
+        assertEquals(true, target.origin.startsWith("https://"))
+        assertEquals(true, target.mailboxUrl.endsWith("/mailbox"))
+        assertEquals(false, target.mailboxUrl.contains("placeholder", ignoreCase = true))
     }
 }
