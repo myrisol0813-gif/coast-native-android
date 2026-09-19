@@ -33,6 +33,7 @@ object GlobalArchive {
             "memory" to "记忆系统 · 全局摘录 · 自定义指令",
             "worldbook" to "世界书",
             "dogtalk" to "狗话 / 跨窗口相关数据",
+            "mailbox" to "朋友信箱 / 海岸来信（隐私摘要）",
             "daily" to "日常 / 日记",
             "model_profile" to "模型资料",
             "model_echo_summaries" to "模型回波摘要",
@@ -47,7 +48,7 @@ object GlobalArchive {
             "integrations" to "集成元数据"
         )
         val preferred = listOf(
-            "chat", "thinking_soil", "memory", "worldbook", "dogtalk", "daily",
+            "chat", "thinking_soil", "memory", "worldbook", "dogtalk", "mailbox", "daily",
             "model_profile", "model_echo_summaries", "tools", "attachments", "web_search",
             "update_records", "versions", "integrations", "included_modules", "excluded_modules", "redaction"
         )
