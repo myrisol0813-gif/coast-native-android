@@ -78,6 +78,7 @@ jobs:
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
           "$apksigner" sign \
             --ks "$COAST_ANDROID_KEYSTORE_PATH" \
+            --min-sdk-version 23 \
             --ks-key-alias "$COAST_ANDROID_KEY_ALIAS" \
             --ks-pass env:COAST_ANDROID_KEYSTORE_PASSWORD \
             --key-pass env:COAST_ANDROID_KEY_PASSWORD \
@@ -87,7 +88,7 @@ jobs:
             --out "$apk" \
             app/build/outputs/apk/debug/app-debug.apk
 
-          verify_output=$("$apksigner" verify --verbose --print-certs "$apk")
+          verify_output=$("$apksigner" verify --verbose --print-certs --min-sdk-version 23 "$apk")
           printf '%s\n' "$verify_output"
           grep -Fq 'Verified using v1 scheme (JAR signing): true' <<<"$verify_output"
           grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' <<<"$verify_output"
