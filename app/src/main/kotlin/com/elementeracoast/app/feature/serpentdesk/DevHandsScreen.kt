@@ -146,8 +146,12 @@ fun DevHandsScreen(
                         scope.launch {
                             try {
                                 val apk = repository.downloadApk(relative, expectedSha)
-                                installNativeApk(context, apk)
-                                message = "APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。"
+                                message = when (installNativeApk(context, apk)) {
+                                    NativeApkInstallLaunch.InstallerOpened ->
+                                        "APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。"
+                                    NativeApkInstallLaunch.PermissionSettingsOpened ->
+                                        "APK 已下载并通过 SHA-256 校验。请先允许海岸“安装未知应用”，返回后再点一次“下载并安装”。"
+                                }
                             } catch (error: Throwable) {
                                 message = error.message ?: "APK 下载或安装入口打开失败。"
                             } finally {
