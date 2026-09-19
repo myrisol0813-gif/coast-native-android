@@ -73,7 +73,7 @@ data class MailboxSeed(
 
 @Serializable
 data class MailboxPocket(
-    val id: String,
+    val id: String = "",
     val visitor_id: String = "",
     val title: String = "",
     val life_core: String = "",
