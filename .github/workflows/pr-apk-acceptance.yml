@@ -63,15 +63,60 @@ jobs:
       - name: Assemble signed debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Stage acceptance APK
+      - name: Sign and verify acceptance APK
         shell: bash
         run: |
           set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$sdk_root"
+          build_tools_dir=$(find "$sdk_root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          apksigner="$build_tools_dir/apksigner"
+          test -x "$apksigner"
+          test -f app/build/outputs/apk/debug/app-debug.apk
+
           mkdir -p artifact
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
+          "$apksigner" sign \
+            --ks "$COAST_ANDROID_KEYSTORE_PATH" \
+            --ks-key-alias "$COAST_ANDROID_KEY_ALIAS" \
+            --ks-pass env:COAST_ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:COAST_ANDROID_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$apk" \
+            app/build/outputs/apk/debug/app-debug.apk
+
+          verify_output=$("$apksigner" verify --verbose --print-certs "$apk")
+          printf '%s\n' "$verify_output"
+          grep -Fq 'Verified using v1 scheme (JAR signing): true' <<<"$verify_output"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' <<<"$verify_output"
+          grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' <<<"$verify_output"
+          unzip -Z1 "$apk" | grep -Eq '^META-INF/.*\.(SF|RSA|DSA|EC)
+
+      - name: Publish acceptance APK as prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="coast-post-v1-acceptance-${COAST_VERSION_CODE}"
+          title="Elementera Coast Native ${COAST_VERSION_NAME} acceptance"
+          apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
+          notes="Post-V1 real-device acceptance APK for PR #${{ github.event.pull_request.number }}. Stable-signed debug build. versionCode=${COAST_VERSION_CODE}."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt --clobber
+          else
+            gh release create "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt \
+              --target "${{ github.event.pull_request.head.sha }}" \
+              --title "$title" \
+              --notes "$notes" \
+              --prerelease
+          fi
+
+
           sha256sum "$apk" > artifact/SHA256SUMS.txt
-          printf 'stable_signing=true\nversionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" > artifact/BUILD_INFO.txt
+          printf 'stable_signing=true\nsignature_verified=true\nv1_signature_file=true\nversionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" > artifact/BUILD_INFO.txt
 
       - name: Publish acceptance APK as prerelease
         shell: bash
