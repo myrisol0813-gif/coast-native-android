@@ -30,6 +30,7 @@ internal fun FeatureLandingScreen(
     onUpdateMyriAvatar: (String) -> Unit,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
+    onLogout: () -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onLocalActionLogged: (String, String, String) -> Unit,
     onPlaceholder: (String) -> Unit
@@ -61,6 +62,7 @@ internal fun FeatureLandingScreen(
                 devHands = devHands,
                 onSelectModel = onSelectModel,
                 onRefreshModels = onRefreshModels,
+                onLogout = onLogout,
                 onImportMessages = onImportMessages,
                 onActionLogged = onLocalActionLogged,
                 onSnackbar = onPlaceholder
