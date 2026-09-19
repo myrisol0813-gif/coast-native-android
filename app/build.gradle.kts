@@ -19,8 +19,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 51
-        versionName = "0.1.49-cross-window-null-hotfix-01"
+        versionCode = 52
+        versionName = "0.1.50-v1-final-mailbox-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
