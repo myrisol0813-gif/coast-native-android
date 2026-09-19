@@ -49,6 +49,7 @@ fun WolfScreen(
     shellState: CoastShellState,
     messages: List<ChatMessage>,
     devHands: DevHandsRepository,
+    archive: GlobalArchiveRepository,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
     onLogout: () -> Unit,
@@ -79,6 +80,7 @@ fun WolfScreen(
                 WolfDestination.ChatRecords -> ChatRecordsScreen(
                     profile = state.profile,
                     messages = messages,
+                    archive = archive,
                     onImportMessages = onImportMessages,
                     onActionLogged = onActionLogged,
                     onSnackbar = onSnackbar
