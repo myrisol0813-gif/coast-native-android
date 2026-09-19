@@ -306,7 +306,7 @@ private fun DevHandsUpdate(
     ) {
         item {
             SoftPanel {
-                Text(native?.versionName ?: "暂无可下载 Native artifact", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                Text(native?.versionName ?: "暂无可下载 Native Release", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
                 Fact("Release", update?.release ?: "—")
                 Fact("PWA cache", update?.pwaCacheVersion ?: "—")
@@ -315,7 +315,9 @@ private fun DevHandsUpdate(
                 Fact("稳定签名", when (native?.stableSigning) { true -> "是"; false -> "否"; null -> "—" })
                 Fact("可覆盖安装", when (native?.overwriteInstallable) { true -> "是"; false -> "否"; null -> "—" })
                 Fact("APK SHA-256", native?.apkSha256 ?: "—", mono = true)
-                Fact("Artifact", native?.artifactName ?: "—")
+                Fact("交付来源", if (native?.deliverySource == "github_release") "GitHub Release / prerelease" else "—")
+                Fact("Release tag", native?.releaseTag ?: "—")
+                Fact("APK", native?.apkFilename ?: "—")
                 native?.updateNotes?.takeIf { it.isNotBlank() }?.let {
                     Spacer(Modifier.height(8.dp))
                     Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -333,7 +335,7 @@ private fun DevHandsUpdate(
                 }
             }
         }
-        if (update?.available != true) item { StatusMessage(update?.reason ?: message ?: "暂无 artifact。") }
+        if (update?.available != true) item { StatusMessage(update?.reason ?: message ?: "暂无可用 Release。") }
         else message?.let { item { StatusMessage(it) } }
     }
 }
