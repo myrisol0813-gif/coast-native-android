@@ -6,6 +6,8 @@ data class CoastShellState(
     val authenticated: Boolean = false,
     val authBusy: Boolean = true,
     val authMessage: String? = null,
+    val sessionPersistence: String = "",
+    val sessionExpiresAtEpochSeconds: Long = 0L,
     val backendOffline: Boolean = false,
     val historyLoading: Boolean = false,
     val password: String = "",
