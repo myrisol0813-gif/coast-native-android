@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
                         onDismissModels = vm::dismissModelPicker,
                         onSelectModel = vm::selectModel,
                         onRefreshModels = vm::refreshModels,
+                        onLogout = vm::logout,
                         onPlaceholder = vm::showPlaceholder,
                         onSnackbarShown = vm::clearSnackbar
                     )
