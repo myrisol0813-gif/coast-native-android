@@ -128,6 +128,7 @@ fun GateScreen(
         }
 
     }
+}
 
 @Composable
 private fun GateSmallEntry(label: String, enabled: Boolean, onClick: () -> Unit) {
