@@ -1,8 +1,10 @@
 package com.elementeracoast.app.feature.dogtalk
 
 import com.elementeracoast.app.core.model.CrossWindowLimits
+import com.elementeracoast.app.core.model.CrossWindowMessage
 import com.elementeracoast.app.core.model.CrossWindowSource
 import com.elementeracoast.app.core.model.CrossWindowSourceSnapshot
+import com.elementeracoast.app.core.model.CrossWindowTurn
 import com.elementeracoast.app.core.network.CoastApiConfig
 import com.elementeracoast.app.core.network.CoastApiErrorKind
 import com.elementeracoast.app.core.network.CoastApiException
@@ -29,13 +31,13 @@ class DefaultCrossWindowRepository(
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 ) : CrossWindowRepository {
     override suspend fun sources(currentConversationId: String): CrossWindowSourceSnapshot = withContext(Dispatchers.IO) {
-        val path = "/api/chat/cross-window/sources?current_conversation_id=${query(currentConversationId)}"
+        val path = "/api/chat/cross-window/messages?current_conversation_id=${query(currentConversationId)}"
         val remote = try {
             client.newCall(Request.Builder().url(config.url(path)).get().build()).execute().use { response ->
                 val text = response.body?.string().orEmpty()
                 if (!response.isSuccessful) throw responseError(response.code, text)
                 runCatching { json.decodeFromString(RemoteCrossWindowSourcesResponse.serializer(), text) }.getOrElse { cause ->
-                    throw CoastApiException(CoastApiErrorKind.Decode, "invalid_json", "跨窗口列表返回的数据格式无法读取。", response.code, cause)
+                    throw CoastApiException(CoastApiErrorKind.Decode, "invalid_json", "跨窗口旧信索引的数据格式无法读取。", response.code, cause)
                 }
             }
         } catch (error: CoastApiException) {
@@ -44,14 +46,11 @@ class DefaultCrossWindowRepository(
             throw CoastApiException(CoastApiErrorKind.Network, "network_unreachable", "无法连接海岸后端。", cause = error)
         }
         val limits = remote.limits
-        if (limits.defaultTurns < 1 || limits.technicalMaxTurnsPerSource < limits.defaultTurns) {
-            throw CoastApiException(CoastApiErrorKind.Decode, "invalid_cross_window_limits", "海岸返回了无效的跨窗口设置。")
-        }
         CrossWindowSourceSnapshot(
             description = remote.description,
             limits = CrossWindowLimits(
-                defaultTurns = limits.defaultTurns,
-                technicalMaxTurnsPerSource = limits.technicalMaxTurnsPerSource
+                defaultTurns = limits.defaultTurns.coerceAtLeast(1),
+                technicalMaxTurnsPerSource = limits.technicalMaxTurnsPerSource.coerceAtLeast(1)
             ),
             sources = remote.sources.map { source ->
                 CrossWindowSource(
@@ -64,7 +63,23 @@ class DefaultCrossWindowRepository(
                     messageCount = source.messageCount,
                     turnCount = source.turnCount,
                     readable = source.readable,
-                    disabledReason = source.disabledReason
+                    disabledReason = source.disabledReason,
+                    turns = source.turns.map { turn ->
+                        CrossWindowTurn(
+                            turnId = turn.turnId,
+                            turnNumber = turn.turnNumber,
+                            messages = turn.messages.map { message ->
+                                CrossWindowMessage(
+                                    messageId = message.messageId,
+                                    role = message.role,
+                                    displayAuthor = message.displayAuthor,
+                                    createdAt = message.createdAt,
+                                    length = message.length,
+                                    preview = message.preview
+                                )
+                            }
+                        )
+                    }
                 )
             }
         )
@@ -72,7 +87,7 @@ class DefaultCrossWindowRepository(
 
     private fun responseError(status: Int, text: String): CoastApiException {
         var type = if (status == 401) "unauthorized" else "request_failed"
-        var message = if (status == 401) "登录状态已失效。" else "跨窗口列表请求失败（$status）。"
+        var message = if (status == 401) "登录状态已失效。" else "跨窗口旧信索引请求失败（$status）。"
         runCatching {
             val error = json.parseToJsonElement(text).jsonObject["error"]
             if (error is JsonObject) {
