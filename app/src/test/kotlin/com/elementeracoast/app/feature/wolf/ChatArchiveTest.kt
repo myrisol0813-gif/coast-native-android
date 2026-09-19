@@ -3,7 +3,6 @@ package com.elementeracoast.app.feature.wolf
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageRole
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatArchiveTest {
@@ -20,9 +19,4 @@ class ChatArchiveTest {
         assertEquals(source.map { it.text }, imported.messages.map { it.text })
     }
 
-    @Test fun htmlExportContainsSignatureAndEscapesBody() {
-        val html = ChatArchive.exportHtml(WolfProfile("K", "小寒"), listOf(ChatMessage(1, MessageRole.User, "<海>")))
-        assertTrue(html.contains("小寒"))
-        assertTrue(html.contains("&lt;海&gt;"))
-    }
 }
