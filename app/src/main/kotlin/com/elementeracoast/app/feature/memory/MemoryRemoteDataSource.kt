@@ -99,7 +99,11 @@ class MemoryRemoteDataSource(
 
     suspend fun confirmGlobalExcerptCandidate(id: String, editedBody: String? = null): RemoteGlobalExcerptResponse = request(
         Request.Builder().url(config.url("/api/memory/global-excerpt/candidates/${path(id)}")).patch(
-            body(json.encodeToString(RemoteGlobalExcerptConfirmRequest(editedBody = editedBody)))
+            body(json.encodeToString(RemoteGlobalExcerptConfirmRequest(
+                action = "confirm",
+                editedBody = editedBody,
+                operator = "user"
+            )))
         ).build(),
         RemoteGlobalExcerptResponse.serializer()
     )
