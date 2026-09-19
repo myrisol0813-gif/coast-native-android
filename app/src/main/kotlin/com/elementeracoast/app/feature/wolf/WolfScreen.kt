@@ -249,7 +249,9 @@ private fun WolfUpdateScreen(
                     WolfUpdateFact("稳定签名", when (native?.stableSigning) { true -> "是"; false -> "否"; null -> "—" })
                     WolfUpdateFact("可覆盖安装", when (native?.overwriteInstallable) { true -> "是"; false -> "否"; null -> "—" })
                     WolfUpdateFact("APK SHA-256", native?.apkSha256 ?: "—", mono = true)
-                    WolfUpdateFact("Artifact", native?.artifactName ?: "—")
+                    WolfUpdateFact("交付来源", if (native?.deliverySource == "github_release") "GitHub Release / prerelease" else "—")
+                    WolfUpdateFact("Release", native?.releaseTag ?: native?.releaseName ?: "—")
+                    WolfUpdateFact("APK", native?.apkFilename ?: "—")
                     native?.updateTime?.let { WolfUpdateFact("更新时间", it) }
                     native?.updateNotes?.let {
                         Spacer(Modifier.height(8.dp))
