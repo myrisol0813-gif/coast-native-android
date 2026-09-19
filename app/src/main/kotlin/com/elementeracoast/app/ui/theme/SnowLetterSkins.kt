@@ -48,14 +48,11 @@ fun SnowLetterSurface(
     content: @Composable BoxScope.() -> Unit
 ) {
     val enabled = LocalCoastAppearance.current.preset.usesSnowLetterDecorations()
-    val shadowShape = snowLetterShadowShape(role, fallbackShape)
     val surfaceModifier = if (enabled) {
-        Modifier
-            .optionalShadow(snowLetterElevation(role), shadowShape)
-            .drawWithContent {
-                drawSnowLetterTemplateSurface(role)
-                drawContent()
-            }
+        Modifier.drawWithContent {
+            drawSnowLetterTemplateSurface(role)
+            drawContent()
+        }
     } else {
         Modifier
             .optionalShadow(fallbackElevation, fallbackShape)
@@ -106,25 +103,6 @@ fun snowLetterComposerGlyphColor(fallback: Color): Color =
 private fun Modifier.optionalShadow(elevation: Dp, shape: Shape): Modifier =
     if (elevation.value > 0f) shadow(elevation, shape, clip = false) else this
 
-private fun snowLetterShadowShape(role: SnowLetterSurfaceRole, fallback: Shape): Shape = when (role) {
-    SnowLetterSurfaceRole.ActionButton -> RoundedCornerShape(50)
-    SnowLetterSurfaceRole.ComposerButton -> RoundedCornerShape(50)
-    SnowLetterSurfaceRole.ComposerField -> RoundedCornerShape(32.dp)
-    SnowLetterSurfaceRole.DogtalkField -> RoundedCornerShape(22.dp)
-    else -> fallback
-}
-
-private fun snowLetterElevation(role: SnowLetterSurfaceRole): Dp = when (role) {
-    SnowLetterSurfaceRole.AssistantBubble -> 3.dp
-    SnowLetterSurfaceRole.UserBubble -> 2.dp
-    SnowLetterSurfaceRole.ComposerField -> 2.dp
-    SnowLetterSurfaceRole.ComposerButton -> 2.dp
-    SnowLetterSurfaceRole.ActionButton -> 1.dp
-    SnowLetterSurfaceRole.StatusCard -> 2.dp
-    SnowLetterSurfaceRole.DogtalkCard -> 2.dp
-    SnowLetterSurfaceRole.DogtalkField -> 1.dp
-}
-
 private fun DrawScope.drawSnowLetterTemplateSurface(role: SnowLetterSurfaceRole) {
     if (role == SnowLetterSurfaceRole.ActionButton || role == SnowLetterSurfaceRole.ComposerButton) {
         drawRoundStamp(role)
@@ -136,18 +114,41 @@ private fun DrawScope.drawSnowLetterTemplateSurface(role: SnowLetterSurfaceRole)
         return
     }
 
-    val shadow = tornPath(2.dp.toPx(), 3.dp.toPx(), size.width - 1.dp.toPx(), size.height, role)
+    // The torn paper already paints its own shadow. Keeping a second Compose
+    // shadow behind the full measured box made very tall cards/messages look
+    // detached from the paper and could swallow the lower action area.
+    // Reserve enough trailing room for the torn-edge wobble instead.
+    val trailingRoom = if (role.isSnowLetterStrip()) 2.dp.toPx() else 3.dp.toPx()
+    val shadow = tornPath(
+        2.dp.toPx(),
+        2.dp.toPx(),
+        size.width - trailingRoom,
+        size.height - trailingRoom,
+        role
+    )
     drawPath(shadow, Color(0xFFB7C8D8).copy(alpha = snowLetterShadowAlpha(role)))
 
-    val paper = tornPath(0f, 0f, size.width - 3.dp.toPx(), size.height - 3.dp.toPx(), role)
+    val paper = tornPath(
+        0f,
+        0f,
+        size.width - 5.dp.toPx(),
+        size.height - 5.dp.toPx(),
+        role
+    )
     drawPath(paper, snowLetterPaperColor(role))
     drawPath(paper, snowLetterEdgeColor(role), style = Stroke(width = 1.dp.toPx()))
 
     drawCornerTape(role)
 }
 
+private fun SnowLetterSurfaceRole.isSnowLetterStrip(): Boolean =
+    this == SnowLetterSurfaceRole.ComposerField ||
+        this == SnowLetterSurfaceRole.StatusCard ||
+        this == SnowLetterSurfaceRole.DogtalkCard ||
+        this == SnowLetterSurfaceRole.DogtalkField
+
 private fun DrawScope.tornPath(left: Float, top: Float, right: Float, bottom: Float, role: SnowLetterSurfaceRole): Path {
-    val isStrip = role == SnowLetterSurfaceRole.ComposerField || role == SnowLetterSurfaceRole.StatusCard || role == SnowLetterSurfaceRole.DogtalkCard || role == SnowLetterSurfaceRole.DogtalkField
+    val isStrip = role.isSnowLetterStrip()
     val step = if (isStrip) 18.dp.toPx() else 22.dp.toPx()
     val wobble = if (isStrip) 1.6.dp.toPx() else 2.4.dp.toPx()
     val safeLeft = left + 8.dp.toPx()
