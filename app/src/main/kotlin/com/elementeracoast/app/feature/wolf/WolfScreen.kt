@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +51,7 @@ fun WolfScreen(
     devHands: DevHandsRepository,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
+    onLogout: () -> Unit,
     onImportMessages: (List<ChatMessage>) -> Unit,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit
@@ -72,6 +75,7 @@ fun WolfScreen(
             when (current) {
                 WolfDestination.Profile -> ProfileScreen(state, store, onAppearance = { page = WolfDestination.Appearance }, onSnackbar = onSnackbar)
                 WolfDestination.Appearance -> AppearanceScreen(state, store, onSnackbar)
+                WolfDestination.Account -> AccountScreen(shellState, onLogout)
                 WolfDestination.ChatRecords -> ChatRecordsScreen(
                     profile = state.profile,
                     messages = messages,
@@ -111,6 +115,7 @@ private fun WolfHome(
             val subtitle = when (destination) {
                 WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
                 WolfDestination.Appearance -> "${state.appearance.theme.label} · 用户气泡 · 重点色"
+                WolfDestination.Account -> if (state.profile.nickname.isNotBlank()) "已登录 · 海岸屋主" else destination.subtitle
                 WolfDestination.ModelBox -> "当前：${model.substringAfterLast('/').take(32)}"
                 WolfDestination.Update -> destination.subtitle
                 else -> destination.subtitle
@@ -123,6 +128,72 @@ private fun WolfHome(
                 subtitle = "当前 Native：${BuildConfig.VERSION_NAME}"
             ) { onOpen(WolfDestination.Update) }
         }
+    }
+}
+
+@Composable
+private fun AccountScreen(
+    shellState: CoastShellState,
+    onLogout: () -> Unit
+) {
+    var confirming by remember { mutableStateOf(false) }
+    val persistence = when (shellState.sessionPersistence) {
+        "until_logout" -> "持续保持，直到主动退出"
+        "legacy_expiring" -> if (shellState.sessionExpiresAtEpochSeconds > 0L) {
+            "旧会话 · 会在原到期时间失效"
+        } else "旧会话"
+        else -> "当前会话"
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            SnowLetterSurface(
+                modifier = Modifier.fillMaxWidth(),
+                role = SnowLetterSurfaceRole.StatusCard,
+                fallbackColor = MaterialTheme.colorScheme.surfaceVariant,
+                fallbackShape = RoundedCornerShape(22.dp)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                    Text("当前账户", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(12.dp))
+                    WolfUpdateFact("登录状态", if (shellState.authenticated) "已登录" else "未登录")
+                    WolfUpdateFact("账号", "海岸屋主")
+                    WolfUpdateFact("登录保持", persistence)
+                    if (shellState.sessionPersistence == "legacy_expiring") {
+                        Text(
+                            "旧 cookie 不会自动升级；主动退出并重新登录后会进入 until-logout 长期会话。",
+                            modifier = Modifier.padding(top = 10.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Button(onClick = { confirming = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("退出账号")
+            }
+        }
+    }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("退出海岸账号？") },
+            text = { Text("只会清除当前登录态；聊天、记忆与海岸数据不会被删除。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onLogout()
+                }) { Text("退出账号") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text("取消") }
+            }
+        )
     }
 }
 
