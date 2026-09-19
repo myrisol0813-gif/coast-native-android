@@ -38,6 +38,19 @@ internal object TurnDeskMapper {
                 details = detail("全文", value.customInstructions.content)
             ),
             section(
+                title = value.globalExcerpt.label.ifBlank { "全局摘录" },
+                status = withDetail(
+                    value.globalExcerpt.status,
+                    if (value.globalExcerpt.estimatedTokens > 0) "约 ${value.globalExcerpt.estimatedTokens} tokens" else ""
+                ),
+                description = value.globalExcerpt.description,
+                details = buildList {
+                    if (value.globalExcerpt.injection.isNotBlank()) add(TurnDeskDetail("注入状态", value.globalExcerpt.injection))
+                    if (value.globalExcerpt.length > 0) add(TurnDeskDetail("正文长度", "${value.globalExcerpt.length} 字"))
+                    if (value.globalExcerpt.content.isNotBlank()) add(TurnDeskDetail("实际递给模型", value.globalExcerpt.content))
+                }
+            ),
+            section(
                 title = value.thinkingSoil.label.ifBlank { "思维壤" },
                 status = value.thinkingSoil.status,
                 description = value.thinkingSoil.description,
@@ -111,6 +124,12 @@ internal object TurnDeskMapper {
                     if (requestedTurns > 0 || loadedTurns > 0 || deliveredTurns > 0) {
                         add(TurnDeskDetail("本轮统计", "请求 ${requestedTurns}轮 · 读取 ${loadedTurns}轮 · 递给 ${deliveredTurns}轮"))
                     }
+                    if (value.crossWindow.requestedMessages > 0 || value.crossWindow.loadedMessages > 0 || value.crossWindow.deliveredToModelMessages > 0) {
+                        add(TurnDeskDetail(
+                            "消息级统计",
+                            "请求 ${value.crossWindow.requestedMessages}条 · 读取 ${value.crossWindow.loadedMessages}条 · 递给 ${value.crossWindow.deliveredToModelMessages}条"
+                        ))
+                    }
                     if (value.crossWindow.attemptedDeliveredTurns > 0) add(TurnDeskDetail("尝试递送", "${value.crossWindow.attemptedDeliveredTurns}轮"))
                     if (value.crossWindow.attemptedChars > 0) add(TurnDeskDetail("尝试字符", value.crossWindow.attemptedChars.toString()))
                     if (value.crossWindow.attemptedEstimatedTokens > 0) add(TurnDeskDetail("估算输入 token", value.crossWindow.attemptedEstimatedTokens.toString()))
@@ -152,6 +171,21 @@ internal object TurnDeskMapper {
                     value.workbench.toolResults.filter { it.delivered && it.content.isNotBlank() }.forEach { result ->
                         add(TurnDeskDetail("${result.name} · 工具结果 JSON", result.content))
                     }
+                }
+            ),
+            section(
+                title = value.contextBudget.label.ifBlank { "上下文预算" },
+                status = buildString {
+                    append("${value.contextBudget.estimatedTokens} / ${value.contextBudget.comfortCeiling} tokens")
+                    if (value.contextBudget.exceedsComfortCeiling) append(" · 超出舒服区间")
+                    else if (value.contextBudget.trimmed) append(" · 已裁剪")
+                    else append(" · 未裁剪")
+                },
+                description = "",
+                details = buildList {
+                    add(TurnDeskDetail("裁剪", if (value.contextBudget.trimmed) "是 · ${value.contextBudget.trimmedCount} 项" else "否"))
+                    if (value.contextBudget.sourcesPreserved.isNotEmpty()) add(TurnDeskDetail("保留来源", value.contextBudget.sourcesPreserved.joinToString("、")))
+                    if (value.contextBudget.globalExcerpt.isNotBlank()) add(TurnDeskDetail("全局摘录", value.contextBudget.globalExcerpt))
                 }
             ),
             section(
