@@ -66,13 +66,14 @@ class DefaultCrossWindowRepository(
                     disabledReason = source.disabledReason,
                     turns = source.turns.map { turn ->
                         CrossWindowTurn(
-                            turnId = turn.turnId,
+                            turnId = turn.turnId ?: "${source.conversationId}:turn:${turn.turnNumber}",
                             turnNumber = turn.turnNumber,
                             messages = turn.messages.map { message ->
                                 CrossWindowMessage(
                                     messageId = message.messageId,
                                     role = message.role,
-                                    displayAuthor = message.displayAuthor,
+                                    displayAuthor = message.displayAuthor?.takeIf(String::isNotBlank)
+                                        ?: if (message.role == "assistant") "Myri" else "user",
                                     createdAt = message.createdAt,
                                     length = message.length,
                                     preview = message.preview
