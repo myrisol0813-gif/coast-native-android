@@ -7,6 +7,8 @@ import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.core.model.CrossWindowLimits
 import com.elementeracoast.app.core.model.CrossWindowMode
 import com.elementeracoast.app.core.model.CrossWindowRequest
+import com.elementeracoast.app.core.model.CrossWindowMessage
+import com.elementeracoast.app.core.model.CrossWindowTurn
 import com.elementeracoast.app.core.model.CrossWindowSource
 import com.elementeracoast.app.core.model.CrossWindowSourceSnapshot
 import com.elementeracoast.app.core.model.MessageAction
@@ -33,7 +35,6 @@ import com.elementeracoast.app.feature.daily.DailyProfileImageField
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.daily.DailySnapshot
 import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
-import com.elementeracoast.app.feature.dogtalk.CrossWindowSelectionUi
 import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkRepository
 import com.elementeracoast.app.feature.dogtalk.DogtalkScope
@@ -44,6 +45,9 @@ import com.elementeracoast.app.feature.memory.MemoryRepository
 import com.elementeracoast.app.feature.memory.MemorySnapshot
 import com.elementeracoast.app.feature.memory.ThoughtSoilRepository
 import com.elementeracoast.app.feature.memory.WorldbookEntry
+import com.elementeracoast.app.feature.wolf.GlobalArchiveRepository
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -131,16 +135,26 @@ class CoastShellViewModelTest {
             source = "coast",
             sourceWindowId = null,
             updatedAt = null,
-            messageCount = 8,
-            turnCount = 4,
+            messageCount = 2,
+            turnCount = 1,
             readable = true,
-            disabledReason = ""
+            disabledReason = "",
+            turns = listOf(
+                CrossWindowTurn(
+                    turnId = "turn-1",
+                    turnNumber = 1,
+                    messages = listOf(
+                        CrossWindowMessage("old-user", "user", "小寒", null, 4, "旧信问题"),
+                        CrossWindowMessage("old-assistant", "assistant", "Myri", null, 4, "旧信回复")
+                    )
+                )
+            )
         )
         vm.updateCrossWindow(
             CrossWindowUiState(
                 mode = CrossWindowMode.Manual,
                 sources = listOf(source),
-                selections = mapOf("other-window" to CrossWindowSelectionUi(checked = true, turns = 4)),
+                selectedMessages = setOf("other-window::old-assistant"),
                 limits = CrossWindowLimits(4, 9999)
             )
         )
@@ -148,8 +162,9 @@ class CoastShellViewModelTest {
         vm.sendMessage("请带上另一窗")
 
         assertEquals(CrossWindowMode.Manual, fixture.chat.lastCrossWindow.mode)
-        assertEquals("other-window", fixture.chat.lastCrossWindow.sources.single().conversationId)
-        assertEquals(4, fixture.chat.lastCrossWindow.sources.single().turns)
+        assertEquals(1, fixture.chat.lastCrossWindow.messages.size)
+        assertEquals("other-window", fixture.chat.lastCrossWindow.messages.single().conversationId)
+        assertEquals("old-assistant", fixture.chat.lastCrossWindow.messages.single().messageId)
         assertEquals(CrossWindowMode.Off, vm.crossWindow.value.mode)
 
         vm.sendMessage("下一轮不要偷读")
@@ -270,6 +285,7 @@ class CoastShellViewModelTest {
         val memory = FakeMemoryRepository()
         val dogtalk = FakeDogtalkRepository()
         val crossWindow = FakeCrossWindowRepository()
+        val archive = FakeGlobalArchiveRepository()
         val persistence = MemoryLocalPersistence()
 
         fun vm(): CoastShellViewModel = CoastShellViewModel(
@@ -283,7 +299,8 @@ class CoastShellViewModelTest {
                 daily = daily,
                 memory = memory,
                 dogtalk = dogtalk,
-                crossWindow = crossWindow
+                crossWindow = crossWindow,
+                archive = archive
             ),
             workDispatcher = Dispatchers.Unconfined
         )
@@ -399,6 +416,10 @@ class CoastShellViewModelTest {
         override suspend fun refreshPockets(conversationId: String) = Unit
         override suspend fun refreshWorldbook() = Unit
         override suspend fun refreshInstructions() = Unit
+        override suspend fun refreshGlobalExcerpt() = Unit
+        override suspend fun setGlobalExcerptWriteEnabled(enabled: Boolean) = Unit
+        override suspend fun confirmGlobalExcerptCandidate(id: String, editedBody: String?) = Unit
+        override suspend fun discardGlobalExcerptCandidate(id: String) = Unit
         override suspend fun saveEntry(entry: MemoryEntry): MemoryEntry = unsupported()
         override suspend fun deleteEntry(id: String) = unsupported<Unit>()
         override suspend fun resolvePocket(id: String, action: String, tag: String?) = unsupported<Unit>()
@@ -434,6 +455,10 @@ class CoastShellViewModelTest {
             limits = CrossWindowLimits(4, 9999),
             sources = emptyList()
         )
+    }
+
+    private class FakeGlobalArchiveRepository : GlobalArchiveRepository {
+        override suspend fun snapshot(): JsonElement = Json.parseToJsonElement("{}")
     }
 
     private class FakeThoughtSoilRepository : ThoughtSoilRepository {
