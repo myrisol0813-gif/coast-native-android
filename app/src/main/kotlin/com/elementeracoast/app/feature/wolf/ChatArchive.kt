@@ -20,15 +20,6 @@ $rows
 }"""
     }
 
-    fun exportHtml(profile: WolfProfile, messages: List<ChatMessage>): String {
-        val rows = messages.joinToString("\n") { message ->
-            val author = if (message.role == MessageRole.User) profile.signature else "Myri"
-            val kind = if (message.role == MessageRole.User) "user" else "assistant"
-            "<article class=\"m $kind\"><b>${html(author)}</b><div>${html(message.text).replace("\n", "<br>")}</div></article>"
-        }
-        return """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Elementera Chat Export</title><meta name="elementera-display-name" content="${html(profile.signature)}"><style>body{font-family:system-ui,sans-serif;line-height:1.65}.w{max-width:820px;margin:auto;padding:22px 14px}.m{margin:0 0 18px}.m b{display:block;color:#777}.m div{display:inline-block;max-width:88%;padding:10px 14px;border:1px solid #ddd;border-radius:18px}.user{text-align:right}.user div{background:#f1f1f1}</style><div class="w"><h1>Elementera Chat Export</h1>$rows</div>"""
-    }
-
     fun importJson(raw: String, nextId: () -> Long): Result<ImportedArchive> = runCatching {
         val format = Regex("\\\"format\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(raw)?.groupValues?.get(1)
         if (format != null && format != "elementera-chat-export") error("不认识的导出格式")
