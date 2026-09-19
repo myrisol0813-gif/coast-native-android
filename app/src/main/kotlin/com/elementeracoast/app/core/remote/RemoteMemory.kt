@@ -188,3 +188,60 @@ data class RemoteWorldbookMatchResponse(
     val ok: Boolean = false,
     val matches: List<RemoteWorldbookEntry> = emptyList()
 )
+
+
+@Serializable
+data class RemoteGlobalExcerpt(
+    @SerialName("write_guidance") val writeGuidance: String = "",
+    val body: String = "",
+    @SerialName("write_enabled") val writeEnabled: Boolean = false,
+    val revision: Int = 1,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class RemoteGlobalExcerptCandidate(
+    val id: String,
+    @SerialName("proposed_body") val proposedBody: String = "",
+    @SerialName("change_kind") val changeKind: String = "rewrite",
+    val reason: String = "",
+    @SerialName("source_conversation_id") val sourceConversationId: String? = null,
+    @SerialName("source_message_id") val sourceMessageId: String? = null,
+    @SerialName("source_model") val sourceModel: String = "",
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class RemoteGlobalExcerptRevision(
+    val id: String,
+    val revision: Int = 0,
+    @SerialName("before_body") val beforeBody: String = "",
+    @SerialName("after_body") val afterBody: String = "",
+    @SerialName("source_conversation_id") val sourceConversationId: String? = null,
+    @SerialName("source_message_id") val sourceMessageId: String? = null,
+    @SerialName("model_reason") val modelReason: String = "",
+    @SerialName("confirmation_mode") val confirmationMode: String = "",
+    val operator: String = "",
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class RemoteGlobalExcerptResponse(
+    val ok: Boolean = false,
+    val excerpt: RemoteGlobalExcerpt = RemoteGlobalExcerpt(),
+    val candidates: List<RemoteGlobalExcerptCandidate> = emptyList(),
+    val revisions: List<RemoteGlobalExcerptRevision> = emptyList()
+)
+
+@Serializable
+data class RemoteGlobalExcerptPatchRequest(
+    @SerialName("write_enabled") val writeEnabled: Boolean
+)
+
+@Serializable
+data class RemoteGlobalExcerptConfirmRequest(
+    val action: String = "confirm",
+    @SerialName("edited_body") val editedBody: String? = null,
+    val operator: String = "user"
+)
