@@ -11,7 +11,7 @@ import com.elementeracoast.app.core.remote.RemoteAttachment
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteCrossWindowRequest
-import com.elementeracoast.app.core.remote.RemoteCrossWindowSelection
+import com.elementeracoast.app.core.remote.RemoteCrossWindowMessageSelection
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteHistory
@@ -240,8 +240,8 @@ class DefaultChatRepository(
         if (mode == CrossWindowMode.Off) return null
         return RemoteCrossWindowRequest(
             mode = mode.wireValue,
-            sources = if (mode == CrossWindowMode.Manual) {
-                sources.map { source -> RemoteCrossWindowSelection(source.conversationId, source.turns) }
+            messages = if (mode == CrossWindowMode.Manual) {
+                messages.map { item -> RemoteCrossWindowMessageSelection(item.conversationId, item.messageId) }
             } else emptyList()
         )
     }
