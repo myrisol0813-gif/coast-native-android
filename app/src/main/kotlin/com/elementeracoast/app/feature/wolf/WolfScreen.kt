@@ -29,7 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,6 +38,8 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.remote.RemoteDevUpdate
 import com.elementeracoast.app.feature.serpentdesk.DevHandsRepository
+import com.elementeracoast.app.feature.serpentdesk.NativeApkInstallLaunch
+import com.elementeracoast.app.feature.serpentdesk.installNativeApk
 import com.elementeracoast.app.feature.shell.FeatureLocalBackBar
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
@@ -205,7 +207,7 @@ private fun WolfUpdateScreen(
     onSnackbar: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     var update by remember { mutableStateOf<RemoteDevUpdate?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -219,6 +221,31 @@ private fun WolfUpdateScreen(
                 update = repository.latestUpdate().update
             } catch (cause: Throwable) {
                 error = cause.message ?: "更新信息读取失败。"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun downloadAndInstall() {
+        if (busy) return
+        val native = update?.native ?: return
+        val path = native.downloadUrl?.takeIf(String::isNotBlank) ?: return
+        busy = true
+        error = null
+        scope.launch {
+            try {
+                val apk = repository.downloadApk(path, native.apkSha256)
+                when (installNativeApk(context, apk)) {
+                    NativeApkInstallLaunch.InstallerOpened ->
+                        onSnackbar("APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。")
+                    NativeApkInstallLaunch.PermissionSettingsOpened ->
+                        onSnackbar("APK 已下载并通过 SHA-256 校验。请先允许海岸“安装未知应用”，返回后再点一次“下载并安装”。")
+                }
+            } catch (cause: Throwable) {
+                val message = cause.message ?: "APK 下载或安装入口打开失败。"
+                error = message
+                onSnackbar(message)
             } finally {
                 busy = false
             }
@@ -271,12 +298,13 @@ private fun WolfUpdateScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = ::refresh, enabled = !busy) { Text(if (busy) "刷新中" else "刷新") }
+                        Button(onClick = ::refresh, enabled = !busy) {
+                            Text(if (busy) "处理中" else "刷新")
+                        }
                         if (update?.available == true && !native?.downloadUrl.isNullOrBlank()) {
-                            Button(onClick = {
-                                runCatching { uriHandler.openUri(repository.absoluteUrl(native!!.downloadUrl!!)) }
-                                    .onFailure { onSnackbar("APK 下载入口暂时无法打开：${it.message ?: "未知错误"}") }
-                            }) { Text("下载 APK") }
+                            Button(onClick = ::downloadAndInstall, enabled = !busy) {
+                                Text(if (busy) "处理中" else "下载并安装")
+                            }
                         }
                     }
                 }

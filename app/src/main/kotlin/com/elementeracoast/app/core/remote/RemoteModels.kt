@@ -8,7 +8,7 @@ data class RemoteSessionInfo(
     val kind: String = "",
     @SerialName("issued_at") val issuedAt: String? = null,
     val persistence: String = "",
-    @SerialName("expires_at") val expiresAt: Long = 0L
+    @SerialName("expires_at") val expiresAtIso: String? = null
 )
 
 @Serializable
@@ -25,7 +25,11 @@ data class RemoteSessionResponse(
     val session: RemoteSessionInfo = RemoteSessionInfo(),
     val account: RemoteAccountInfo = RemoteAccountInfo()
 ) {
-    val expiresAt: Long get() = session.expiresAt.takeIf { it > 0L } ?: legacyExpiresAt
+    val expiresAt: Long
+        get() = session.expiresAtIso
+            ?.let { value -> runCatching { java.time.Instant.parse(value).epochSecond }.getOrNull() }
+            ?.takeIf { it > 0L }
+            ?: legacyExpiresAt
     val persistsUntilLogout: Boolean get() = session.persistence == "until_logout"
 }
 

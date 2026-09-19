@@ -563,7 +563,7 @@ class CoastShellViewModel(
                             sessionPersistence = if (restored.session.expiresAtEpochSeconds == 0L) "until_logout" else "legacy_expiring",
                             sessionExpiresAtEpochSeconds = restored.session.expiresAtEpochSeconds,
                             backendOffline = true,
-                            snackbarMessage = "暂时无法验证海岸连接，先使用本机缓存。"
+                            snackbarMessage = "暂时无法验证登录态：${restored.message}；先使用本机缓存。"
                         )
                     }
                     applyCachedBootstrap()
