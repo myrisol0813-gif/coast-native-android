@@ -52,7 +52,9 @@ object GlobalArchive {
             "update_records", "versions", "integrations", "included_modules", "excluded_modules", "redaction"
         )
         val keys = (preferred + root.keys.filterNot { it in preferred }).distinct().filter { it in root }
-        val exportedAt = root["exported_at"]?.runCatching { jsonPrimitive.content }.getOrNull().orEmpty()
+        val exportedAt = root["exported_at"]?.let { element ->
+            runCatching { element.jsonPrimitive.content }.getOrNull()
+        }.orEmpty()
         val sections = keys.joinToString("\n") { key ->
             val value = root[key] ?: return@joinToString ""
             """<section><h2>${html(titles[key] ?: key)}</h2><pre>${html(prettyJson.encodeToString(JsonElement.serializer(), value))}</pre></section>"""
