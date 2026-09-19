@@ -26,7 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,7 +50,7 @@ fun DevHandsScreen(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     var page by remember { mutableStateOf(DevHandsPage.Home) }
     var selfCheck by remember { mutableStateOf<RemoteDevSelfCheckResponse?>(null) }
     var update by remember { mutableStateOf<RemoteDevUpdate?>(null) }
@@ -139,7 +139,23 @@ fun DevHandsScreen(
                 busy = busy,
                 message = message,
                 onRefresh = { scope.launch { refreshUpdate() } },
-                onDownload = { relative -> uriHandler.openUri(repository.absoluteUrl(relative)) }
+                onDownload = { relative, expectedSha ->
+                    if (!busy) {
+                        busy = true
+                        message = null
+                        scope.launch {
+                            try {
+                                val apk = repository.downloadApk(relative, expectedSha)
+                                installNativeApk(context, apk)
+                                message = "APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。"
+                            } catch (error: Throwable) {
+                                message = error.message ?: "APK 下载或安装入口打开失败。"
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                }
             )
         }
     }
@@ -296,7 +312,7 @@ private fun DevHandsUpdate(
     busy: Boolean,
     message: String?,
     onRefresh: () -> Unit,
-    onDownload: (String) -> Unit
+    onDownload: (String, String?) -> Unit
 ) {
     val native = update?.native
     LazyColumn(
@@ -330,7 +346,10 @@ private fun DevHandsUpdate(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(onClick = onRefresh, enabled = !busy) { Text("刷新") }
                     if (update?.available == true && !native?.downloadUrl.isNullOrBlank()) {
-                        Button(onClick = { onDownload(native!!.downloadUrl!!) }) { Text("下载 APK") }
+                        Button(
+                            onClick = { onDownload(native!!.downloadUrl!!, native.apkSha256) },
+                            enabled = !busy
+                        ) { Text(if (busy) "处理中" else "下载并安装") }
                     }
                 }
             }
