@@ -89,8 +89,10 @@ class CoastApiClient(
         }
         val provisional = AuthSession(cookie, 0L)
         val verified = getSession(provisional)
-        if (!verified.authenticated || verified.expiresAt <= 0L) throw CoastApiException(CoastApiErrorKind.Unauthorized, "invalid_session", "海岸登录凭据未通过验证。", 401)
-        return AuthSession(cookie, verified.expiresAt)
+        if (!verified.authenticated || (!verified.persistsUntilLogout && verified.expiresAt <= 0L)) {
+            throw CoastApiException(CoastApiErrorKind.Unauthorized, "invalid_session", "海岸登录凭据未通过验证。", 401)
+        }
+        return AuthSession(cookie, if (verified.persistsUntilLogout) 0L else verified.expiresAt)
     }
 
     suspend fun getSession(overrideSession: AuthSession? = null): RemoteSessionResponse {
