@@ -18,7 +18,7 @@ class DefaultGlobalArchiveRepository(
 }
 
 object GlobalArchive {
-    private val prettyJson = Json { prettyPrint = true; prettyPrintIndent = "  " }
+    private val prettyJson = Json { prettyPrint = true }
 
     fun exportJson(snapshot: JsonElement): String =
         prettyJson.encodeToString(JsonElement.serializer(), snapshot)
