@@ -2,10 +2,18 @@ package com.elementeracoast.app.feature.serpentdesk
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import java.io.File
 
-fun installNativeApk(context: Context, download: NativeApkDownload) {
+enum class NativeApkInstallLaunch {
+    InstallerOpened,
+    PermissionSettingsOpened
+}
+
+fun installNativeApk(context: Context, download: NativeApkDownload): NativeApkInstallLaunch {
     val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
     val safeName = download.filename
         .substringAfterLast('/')
@@ -16,6 +24,15 @@ fun installNativeApk(context: Context, download: NativeApkDownload) {
         .let { if (it.endsWith(".apk", ignoreCase = true)) it else "$it.apk" }
     val apkFile = File(updatesDir, safeName)
     apkFile.writeBytes(download.bytes)
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
+        val settingsIntent = Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            Uri.parse("package:${context.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(settingsIntent)
+        return NativeApkInstallLaunch.PermissionSettingsOpened
+    }
 
     val uri = FileProvider.getUriForFile(
         context,
@@ -28,4 +45,5 @@ fun installNativeApk(context: Context, download: NativeApkDownload) {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
     context.startActivity(intent)
+    return NativeApkInstallLaunch.InstallerOpened
 }
