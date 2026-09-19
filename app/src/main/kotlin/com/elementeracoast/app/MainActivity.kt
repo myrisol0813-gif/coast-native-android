@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.elementeracoast.app.feature.gate.GateScreen
-import com.elementeracoast.app.feature.gate.MailboxWebSurface
+import com.elementeracoast.app.feature.gate.MailboxNativeSurface
 import com.elementeracoast.app.feature.serpentdesk.DevHandsProvider
 import com.elementeracoast.app.feature.shell.CoastShellViewModel
 import com.elementeracoast.app.feature.shell.MainShell
@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 userBubbleHex = wolf.appearance.userBubbleHex
             ) {
                 if (mailboxOpen) {
-                    MailboxWebSurface(onClose = { mailboxOpen = false })
+                    MailboxNativeSurface(onClose = { mailboxOpen = false })
                 } else if (!state.authenticated) {
                     GateScreen(
                         password = state.password,
