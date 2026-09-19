@@ -107,6 +107,18 @@ class CoastApiClient(
         runCatching { execute(builder.build()) { Unit } }
     }
 
+    suspend fun getGlobalSnapshot(): JsonElement {
+        val envelope = jsonRequestElement(
+            Request.Builder().url(config.url("/api/export/v1-snapshot")).get().build()
+        )
+        return envelope.runCatching { jsonObject["snapshot"] }.getOrNull()
+            ?: throw CoastApiException(
+                CoastApiErrorKind.Decode,
+                "snapshot_missing",
+                "海岸全局快照没有返回 snapshot 正文。"
+            )
+    }
+
     suspend fun getProfile(): RemoteProfile = jsonRequest(Request.Builder().url(config.url("/api/chat/profile")).get().build(), RemoteProfileResponse.serializer()).profile
 
     suspend fun putProfile(profile: RemoteProfile): RemoteProfile {
