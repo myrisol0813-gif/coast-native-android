@@ -241,7 +241,7 @@ data class RemoteGlobalExcerptPatchRequest(
 
 @Serializable
 data class RemoteGlobalExcerptConfirmRequest(
-    val action: String = "confirm",
+    val action: String,
     @SerialName("edited_body") val editedBody: String? = null,
-    val operator: String = "user"
+    val operator: String
 )
