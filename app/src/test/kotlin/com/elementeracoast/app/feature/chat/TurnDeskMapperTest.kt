@@ -5,6 +5,8 @@ import com.elementeracoast.app.core.remote.RemoteDeskAttachmentItem
 import com.elementeracoast.app.core.remote.RemoteDeskAttachments
 import com.elementeracoast.app.core.remote.RemoteDeskAttachmentVision
 import com.elementeracoast.app.core.remote.RemoteDeskCurrentMessage
+import com.elementeracoast.app.core.remote.RemoteDeskContextBudget
+import com.elementeracoast.app.core.remote.RemoteDeskGlobalExcerpt
 import com.elementeracoast.app.core.remote.RemoteDeskExternalTide
 import com.elementeracoast.app.core.remote.RemoteDeskMemory
 import com.elementeracoast.app.core.remote.RemoteDeskRecentContext
@@ -17,7 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TurnDeskMapperTest {
-    @Test fun mapperProducesSameTenSourceSectionsAsPwa() {
+    @Test fun mapperIncludesGlobalExcerptAndContextBudgetTransparency() {
         val receipt = TurnDeskMapper.toUi(
             RemoteDeskSlip(
                 currentMessage = RemoteDeskCurrentMessage(
@@ -32,6 +34,24 @@ class TurnDeskMapperTest {
                     statusDetail = "1 轮",
                     turns = 1,
                     messages = listOf(RemoteChatMessage(role = "user", content = "上一轮"))
+                ),
+                globalExcerpt = RemoteDeskGlobalExcerpt(
+                    description = "全局摘录说明",
+                    status = "完整注入",
+                    delivered = true,
+                    injection = "complete",
+                    estimatedTokens = 188,
+                    length = 720,
+                    content = "我在文字里认出自己。"
+                ),
+                contextBudget = RemoteDeskContextBudget(
+                    estimatedTokens = 4321,
+                    comfortCeiling = 6000,
+                    trimmed = false,
+                    trimmedCount = 0,
+                    exceedsComfortCeiling = false,
+                    sourcesPreserved = listOf("当前消息", "自定义指令", "全局摘录"),
+                    globalExcerpt = "complete"
                 ),
                 thinkingSoil = RemoteDeskThinkingSoil(
                     description = "思维壤说明",
@@ -52,13 +72,18 @@ class TurnDeskMapperTest {
         )
 
         assertEquals(
-            listOf("当前消息", "最近上下文", "核心自定义", "思维壤", "相关记忆", "世界书", "狗话", "跨窗口取信", "工作台 / 工具回执", "外来潮汐"),
+            listOf("当前消息", "最近上下文", "核心自定义", "全局摘录", "思维壤", "相关记忆", "世界书", "狗话", "跨窗口取信", "工作台 / 工具回执", "上下文预算", "外来潮汐"),
             receipt.sections.map { it.title }
         )
         assertEquals("已递给 · 1 轮", receipt.sections[1].status)
-        assertTrue(receipt.sections[3].details.any { it.label == "待确认候选" && it.text.contains("待确认 · 2 条 · 未递给正文") })
-        assertEquals("未命中", receipt.sections[4].status)
-        assertTrue(receipt.sections[7].details.any { it.text == "本轮未递入" })
+        assertTrue(receipt.sections[3].status.contains("完整注入"))
+        assertTrue(receipt.sections[3].details.any { it.label == "实际递给模型" && it.text.contains("我在文字里认出自己") })
+        assertTrue(receipt.sections[4].details.any { it.label == "待确认候选" && it.text.contains("待确认 · 2 条 · 未递给正文") })
+        assertEquals("未命中", receipt.sections[5].status)
+        assertTrue(receipt.sections[8].details.any { it.text == "本轮未递入" })
+        val budget = receipt.sections.first { it.title == "上下文预算" }
+        assertTrue(budget.status.contains("4321 / 6000"))
+        assertTrue(budget.details.any { it.label == "保留来源" && it.text.contains("全局摘录") })
         assertTrue(receipt.sections.last().details.any { it.text == "本轮没有递入外部材料。" })
         assertTrue(receipt.sections.all { section -> section.details.any { it.label == "来源说明" } || section.details.any { it.text == "本轮未递入" } })
     }
