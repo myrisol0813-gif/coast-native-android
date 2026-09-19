@@ -9,7 +9,7 @@ import org.junit.Test
 class WolfLocalParityTest {
     @Test fun wolfDenKeepsItsExistingEntrancesAndAddsVersionUpdate() {
         assertEquals(
-            listOf("个人资料", "外观", "聊天记录", "模型箱", "基本设置", "关于与诊断", "版本与更新"),
+            listOf("个人资料", "外观", "账户", "聊天记录", "模型箱", "基本设置", "关于与诊断", "版本与更新"),
             WolfDestination.entries.map { it.title }
         )
     }
