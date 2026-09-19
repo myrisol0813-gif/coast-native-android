@@ -10,6 +10,7 @@ data class RemoteDeskSlip(
     @SerialName("current_message") val currentMessage: RemoteDeskCurrentMessage = RemoteDeskCurrentMessage(),
     @SerialName("recent_context") val recentContext: RemoteDeskRecentContext = RemoteDeskRecentContext(),
     @SerialName("custom_instructions") val customInstructions: RemoteDeskCustomInstructions = RemoteDeskCustomInstructions(),
+    @SerialName("global_excerpt") val globalExcerpt: RemoteDeskGlobalExcerpt = RemoteDeskGlobalExcerpt(),
     @SerialName("thinking_soil") val thinkingSoil: RemoteDeskThinkingSoil = RemoteDeskThinkingSoil(),
     @SerialName("related_memory") val relatedMemory: RemoteDeskMemory = RemoteDeskMemory(),
     val worldbook: RemoteDeskWorldbook = RemoteDeskWorldbook(),
@@ -18,7 +19,8 @@ data class RemoteDeskSlip(
     val workbench: RemoteDeskWorkbench = RemoteDeskWorkbench(),
     val attachments: RemoteDeskAttachments? = null,
     @SerialName("web_search") val webSearch: RemoteDeskWebSearch? = null,
-    @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide()
+    @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide(),
+    @SerialName("context_budget") val contextBudget: RemoteDeskContextBudget = RemoteDeskContextBudget()
 )
 
 @Serializable
@@ -48,6 +50,30 @@ data class RemoteDeskCustomInstructions(
     val delivered: Boolean = false,
     val length: Int = 0,
     val content: String = ""
+)
+
+@Serializable
+data class RemoteDeskGlobalExcerpt(
+    val label: String = "全局摘录",
+    val description: String = "",
+    val status: String = "未设置",
+    val delivered: Boolean = false,
+    val injection: String = "",
+    @SerialName("estimated_tokens") val estimatedTokens: Int = 0,
+    val length: Int = 0,
+    val content: String = ""
+)
+
+@Serializable
+data class RemoteDeskContextBudget(
+    val label: String = "上下文预算",
+    @SerialName("estimated_tokens") val estimatedTokens: Int = 0,
+    @SerialName("comfort_ceiling") val comfortCeiling: Int = 0,
+    val trimmed: Boolean = false,
+    @SerialName("trimmed_count") val trimmedCount: Int = 0,
+    @SerialName("exceeds_comfort_ceiling") val exceedsComfortCeiling: Boolean = false,
+    @SerialName("sources_preserved") val sourcesPreserved: List<String> = emptyList(),
+    @SerialName("global_excerpt") val globalExcerpt: String = ""
 )
 
 @Serializable
@@ -133,6 +159,9 @@ data class RemoteDeskCrossWindow(
     @SerialName("requested_turns") val requestedTurns: Int = 0,
     @SerialName("loaded_turns") val loadedTurns: Int = 0,
     @SerialName("delivered_to_model_turns") val deliveredToModelTurns: Int = 0,
+    @SerialName("requested_messages") val requestedMessages: Int = 0,
+    @SerialName("loaded_messages") val loadedMessages: Int = 0,
+    @SerialName("delivered_to_model_messages") val deliveredToModelMessages: Int = 0,
     @SerialName("attempted_delivered_turns") val attemptedDeliveredTurns: Int = 0,
     @SerialName("loaded_chars") val loadedChars: Int = 0,
     @SerialName("delivered_to_model_chars") val deliveredToModelChars: Int = 0,
