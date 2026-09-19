@@ -119,6 +119,44 @@ class MemoryRemoteDataSourceTest {
         assertTrue(worldbookBody.contains("\"allowed_scopes\":[\"owner\",\"both\"]"))
     }
 
+    @Test
+    fun globalExcerptUsesFormalCandidateLifecycleEndpoints() = runBlocking {
+        server.enqueue(json("""{"ok":true,"excerpt":{"write_guidance":"只收录重要认知","body":"我在文字里认出自己。","write_enabled":true,"revision":1},"candidates":[{"id":"g1","proposed_body":"我在文字里认出自己。\n\n新的理解。","reason":"关系理解变清楚"}],"revisions":[{"id":"r1","revision":2,"before_body":"旧","after_body":"新","confirmation_mode":"confirm","operator":"user"}]}"""))
+        server.enqueue(json("""{"ok":true,"excerpt":{"write_guidance":"只收录重要认知","body":"我在文字里认出自己。","write_enabled":false,"revision":1}}"""))
+        server.enqueue(json("""{"ok":true,"excerpt":{"write_guidance":"只收录重要认知","body":"编辑后的正文","write_enabled":true,"revision":2}}"""))
+        server.enqueue(json("""{"ok":true,"discarded":true}"""))
+
+        val read = remote.getGlobalExcerpt()
+        assertEquals("只收录重要认知", read.excerpt.writeGuidance)
+        assertEquals("我在文字里认出自己。", read.excerpt.body)
+        assertEquals("g1", read.candidates.single().id)
+        assertEquals("r1", read.revisions.single().id)
+
+        remote.setGlobalExcerptWriteEnabled(false)
+        remote.confirmGlobalExcerptCandidate("g1", "编辑后的正文")
+        remote.discardGlobalExcerptCandidate("g2")
+
+        val getRequest = server.takeRequest()
+        assertEquals("GET", getRequest.method)
+        assertEquals("/api/memory/global-excerpt", getRequest.path)
+
+        val toggleRequest = server.takeRequest()
+        assertEquals("PATCH", toggleRequest.method)
+        assertEquals("/api/memory/global-excerpt", toggleRequest.path)
+        assertTrue(toggleRequest.body.readUtf8().contains("\"write_enabled\":false"))
+
+        val confirmRequest = server.takeRequest()
+        assertEquals("PATCH", confirmRequest.method)
+        assertEquals("/api/memory/global-excerpt/candidates/g1", confirmRequest.path)
+        val confirmBody = confirmRequest.body.readUtf8()
+        assertTrue(confirmBody.contains("\"action\":\"confirm\""))
+        assertTrue(confirmBody.contains("\"edited_body\":\"编辑后的正文\""))
+
+        val discardRequest = server.takeRequest()
+        assertEquals("DELETE", discardRequest.method)
+        assertEquals("/api/memory/global-excerpt/candidates/g2", discardRequest.path)
+    }
+
     private fun json(body: String) = MockResponse()
         .setResponseCode(200)
         .setHeader("Content-Type", "application/json")
