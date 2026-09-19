@@ -7,8 +7,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.elementeracoast.app.feature.gate.GateScreen
+import com.elementeracoast.app.feature.gate.MailboxWebSurface
 import com.elementeracoast.app.feature.serpentdesk.DevHandsProvider
 import com.elementeracoast.app.feature.shell.CoastShellViewModel
 import com.elementeracoast.app.feature.shell.MainShell
@@ -23,6 +27,7 @@ class MainActivity : ComponentActivity() {
             val state by vm.state.collectAsState()
             val crossWindow by vm.crossWindow.collectAsState()
             val wolf by vm.local.wolf.state.collectAsState()
+            var mailboxOpen by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
 
             CoastTheme(
@@ -30,13 +35,16 @@ class MainActivity : ComponentActivity() {
                 accentHex = wolf.appearance.accentHex,
                 userBubbleHex = wolf.appearance.userBubbleHex
             ) {
-                if (!state.authenticated) {
+                if (mailboxOpen) {
+                    MailboxWebSurface(onClose = { mailboxOpen = false })
+                } else if (!state.authenticated) {
                     GateScreen(
                         password = state.password,
                         authBusy = state.authBusy,
                         authMessage = state.authMessage,
                         onPasswordChange = vm::setPassword,
-                        onEnter = vm::enterCoast
+                        onEnter = vm::enterCoast,
+                        onOpenMailbox = { mailboxOpen = true }
                     )
                 } else {
                     MainShell(

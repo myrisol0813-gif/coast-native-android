@@ -39,21 +39,7 @@ object GateVisualTokens {
     val PasswordActionRadius = 13.dp
     val PasswordTextSize = 15.sp
 
-    val DialogWidthFraction = 0.90f
-    val DialogMaxWidth = 390.dp
-    val DialogMaxHeight = 680.dp
-    val DialogRadius = 24.dp
-    val DialogHeaderHorizontal = 20.dp
-    val DialogHeaderTop = 19.dp
-    val DialogHeaderBottom = 13.dp
-    val DialogCloseSize = 34.dp
-    val DialogCloseRadius = 11.dp
-    val DialogBodyPadding = 20.dp
-    val DialogChoiceGap = 10.dp
-    val DialogChoiceMinHeight = 82.dp
-    val DialogChoiceRadius = 15.dp
-    val DialogFieldHeight = 46.dp
-    val DialogFieldRadius = 13.dp
-    val DialogActionHeight = 46.dp
-    val DialogActionRadius = 14.dp
+    val MailboxWebTopPadding = 12.dp
+    val MailboxWebErrorGap = 6.dp
+
 }

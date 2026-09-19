@@ -14,15 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.ui.brand.CoastBrandMarkAnimation
 import com.elementeracoast.app.ui.brand.CoastMuted
 import com.elementeracoast.app.ui.brand.rememberCoastGateMotion
-import kotlinx.coroutines.launch
 
 @Composable
 fun GateScreen(
@@ -42,13 +34,11 @@ fun GateScreen(
     authBusy: Boolean,
     authMessage: String?,
     onPasswordChange: (String) -> Unit,
-    onEnter: () -> Unit
+    onEnter: () -> Unit,
+    onOpenMailbox: () -> Unit
 ) {
     val motion = rememberCoastGateMotion()
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-    var mailboxState by remember { mutableStateOf(MailboxEntryState()) }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -133,30 +123,11 @@ fun GateScreen(
                 }
 
                 Spacer(Modifier.height(GateVisualTokens.PasswordToMailbox))
-                GateSmallEntry("海岸信箱", gateEnabled) {
-                    mailboxState = mailboxState.open()
-                }
+                GateSmallEntry("海岸信箱", gateEnabled, onOpenMailbox)
             }
         }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
-        )
     }
-
-    MailboxEntryDialog(
-        state = mailboxState,
-        onDismiss = { mailboxState = mailboxState.close() },
-        onNavigate = { page -> mailboxState = mailboxState.show(page) },
-        onPlaceholderSubmit = {
-            scope.launch {
-                snackbarHostState.showSnackbar("海岸信箱后续接入；本轮不会发送或保存暗号。")
-            }
-        }
-    )
 }
 
 @Composable

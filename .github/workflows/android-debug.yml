@@ -202,10 +202,18 @@ jobs:
           grep -q '还没有导入 RikkaHub 窗口' "$shell/CoastDrawer.kt"
           ! grep -R -q 'DogtalkFixtureState' "$dogtalk"
           ! grep -q 'GateSmallEntry("更新"' "$gate/GateScreen.kt"
+          grep -q 'GateSmallEntry("海岸信箱"' "$gate/GateScreen.kt"
+          test -f "$gate/MailboxWebSurface.kt"
+          grep -q 'config.url("/mailbox")' "$gate/MailboxWebSurface.kt"
+          grep -q 'setAcceptThirdPartyCookies(this, false)' "$gate/MailboxWebSurface.kt"
+          grep -q 'allowFileAccess = false' "$gate/MailboxWebSurface.kt"
+          test ! -e "$gate/MailboxEntryDialog.kt"
+          test ! -e "$gate/MailboxEntryState.kt"
+          ! grep -R -q '海岸信箱后续接入' "$gate"
           grep -q 'title = "版本与更新"' "$wolf/WolfScreen.kt"
           grep -q 'BuildConfig.VERSION_NAME' "$wolf/WolfScreen.kt"
 
-          # Context-label and turn-desk contract: cross-window is a first-class tenth source section.
+          # Context-label and turn-desk contract: all current source sections remain explicit and inspectable.
           grep -q 'SerialName("external_tide")' "$remote/RemoteTurnContext.kt"
           grep -q 'ifBlank { "当前消息" }' "$chat/TurnDeskMapper.kt"
           grep -q 'ifBlank { "最近上下文" }' "$chat/TurnDeskMapper.kt"

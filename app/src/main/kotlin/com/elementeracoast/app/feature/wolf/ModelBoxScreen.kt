@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
@@ -27,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -43,7 +43,7 @@ internal fun ModelBoxScreen(
 
     LazyColumn(
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -76,21 +76,49 @@ internal fun ModelBoxScreen(
 
         item {
             Text("模型目录", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            ModelCatalogCard(
-                grouped = grouped,
-                expandedModel = expandedModel,
-                onToggle = { id -> expandedModel = if (expandedModel == id) null else id },
-                onSelect = { id ->
-                    onSelect(id)
-                    expandedModel = null
+        }
+
+        ModelSeries.entries.forEach { series ->
+            item(key = "model-series-${series.name}") {
+                Text(
+                    series.title,
+                    modifier = Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            val entries = grouped[series].orEmpty()
+            if (entries.isEmpty()) {
+                item(key = "model-series-${series.name}-empty") {
+                    Text(
+                        "暂无目录项",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
-            )
+            } else {
+                items(
+                    items = entries,
+                    key = { item -> "${series.name}:${item.id}" }
+                ) { item ->
+                    ModelCatalogBubble(
+                        item = item,
+                        expanded = expandedModel == item.id,
+                        onToggle = { expandedModel = if (expandedModel == item.id) null else item.id },
+                        onSelect = {
+                            onSelect(item.id)
+                            expandedModel = null
+                        }
+                    )
+                }
+            }
         }
 
         item {
             Text(
                 "刷新读取海岸 /api/models；设为当前后写回共享 profile，PWA 与 Native 会读取同一状态。",
+                modifier = Modifier.padding(top = 4.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -119,43 +147,6 @@ private fun CurrentModelCard(model: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
-        }
-    }
-}
-
-@Composable
-private fun ModelCatalogCard(
-    grouped: Map<ModelSeries, List<LocalModelCatalogItem>>,
-    expandedModel: String?,
-    onToggle: (String) -> Unit,
-    onSelect: (String) -> Unit
-) {
-    val shape = RoundedCornerShape(24.dp)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(2.dp, shape, clip = false)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        ModelSeries.entries.forEach { series ->
-            val entries = grouped[series].orEmpty()
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text(series.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                if (entries.isEmpty()) {
-                    Text("暂无目录项", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                } else {
-                    entries.forEach { item ->
-                        ModelCatalogBubble(
-                            item = item,
-                            expanded = expandedModel == item.id,
-                            onToggle = { onToggle(item.id) },
-                            onSelect = { onSelect(item.id) }
-                        )
-                    }
-                }
-            }
         }
     }
 }
