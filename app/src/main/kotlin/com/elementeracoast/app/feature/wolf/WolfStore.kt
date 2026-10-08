@@ -4,6 +4,7 @@ import com.elementeracoast.app.core.local.LocalPersistence
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import com.elementeracoast.app.ui.theme.CoastFontMode
 import com.elementeracoast.app.ui.theme.CoastPaperMode
+import com.elementeracoast.app.ui.theme.CoastReadingWeight
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,10 @@ class WolfStore(private val persistence: LocalPersistence) {
 
     fun setFontMode(value: CoastFontMode) = update {
         it.copy(appearance = it.appearance.copy(fontMode = value))
+    }
+
+    fun setReadingWeight(value: CoastReadingWeight) = update {
+        it.copy(appearance = it.appearance.copy(readingWeight = value))
     }
 
     fun setLocalFont(displayName: String, path: String) = update {
@@ -90,6 +95,7 @@ class WolfStore(private val persistence: LocalPersistence) {
                     if (mode == CoastFontMode.CustomLocal && localFontPath.isBlank()) CoastFontMode.Myraes else mode
                 },
                 paperMode = CoastPaperMode.fromStored(persistence.get(KEY_PAPER_MODE)),
+                readingWeight = CoastReadingWeight.fromStored(persistence.get(KEY_READING_WEIGHT)),
                 localFontName = persistence.get(KEY_LOCAL_FONT_NAME).take(120),
                 localFontPath = localFontPath
             ),
@@ -117,6 +123,7 @@ class WolfStore(private val persistence: LocalPersistence) {
         persistence.put(KEY_ACCENT, value.appearance.accentHex)
         persistence.put(KEY_FONT_MODE, value.appearance.fontMode.name)
         persistence.put(KEY_PAPER_MODE, value.appearance.paperMode.name)
+        persistence.put(KEY_READING_WEIGHT, value.appearance.readingWeight.name)
         persistence.put(KEY_LOCAL_FONT_NAME, value.appearance.localFontName)
         persistence.put(KEY_LOCAL_FONT_PATH, value.appearance.localFontPath)
         val basic = value.basic
@@ -160,6 +167,7 @@ class WolfStore(private val persistence: LocalPersistence) {
         private const val KEY_ACCENT = ROOT + "accent"
         private const val KEY_FONT_MODE = ROOT + "fontMode"
         private const val KEY_PAPER_MODE = ROOT + "paperMode"
+        private const val KEY_READING_WEIGHT = ROOT + "readingWeight"
         private const val KEY_LOCAL_FONT_NAME = ROOT + "localFontName"
         private const val KEY_LOCAL_FONT_PATH = ROOT + "localFontPath"
         private const val KEY_RECENT_TURNS = ROOT + "recentTurns"
