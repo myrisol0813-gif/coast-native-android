@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +62,11 @@ internal fun ModelMetadataTraceCard(
         loading = false
     }
 
-    Column(modifier = modifier.fillMaxWidth().padding(top = CoastChatTokens.MetadataTopGap)) {
+    val rootModifier = if (expanded) modifier.fillMaxWidth() else modifier
+    Column(
+        modifier = rootModifier.padding(top = CoastChatTokens.MetadataTopGap),
+        horizontalAlignment = if (expanded) Alignment.Start else Alignment.End
+    ) {
         Text(
             text = "推理痕迹与模型回波",
             modifier = Modifier
