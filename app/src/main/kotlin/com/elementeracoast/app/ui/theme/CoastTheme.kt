@@ -20,7 +20,7 @@ import androidx.core.view.WindowCompat
 import java.io.File
 
 private const val ZHUQUE_FONT_RESOURCE = "zhuque_fangsong_regular"
-private const val NANO_OLD_SONG_RESOURCE = "nano_old_song_c_regular"
+private const val NANO_OLD_SONG_RESOURCE = "nano_old_song_a_regular"
 private const val CHILL_HUO_SONG_RESOURCE = "chill_huo_song_regular"
 private val CoastSans = FontFamily.SansSerif
 private val CoastTypography = Typography(
