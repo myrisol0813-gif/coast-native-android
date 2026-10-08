@@ -55,6 +55,10 @@ internal fun AssistantMessage(
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
+    val metadataTraceState = metadataMessageId
+        ?.takeIf { it.isNotBlank() }
+        ?.let { rememberModelMetadataTraceState(conversationId = conversationId, messageId = it, source = metadataSource) }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AssistantAvatar(avatarBitmap, onAvatarClick)
@@ -94,14 +98,14 @@ internal fun AssistantMessage(
                 MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
                 MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
+                if (metadataTraceState != null) {
+                    Spacer(Modifier.weight(1f))
+                    ModelMetadataTraceChip(state = metadataTraceState)
+                }
             }
-            if (!metadataMessageId.isNullOrBlank()) {
-                ModelMetadataTraceCard(
-                    conversationId = conversationId,
-                    messageId = metadataMessageId,
-                    source = metadataSource,
-                    modifier = Modifier.align(Alignment.End)
-                )
+            if (metadataTraceState?.expanded == true) {
+                Spacer(Modifier.height(CoastChatTokens.MetadataRowGap))
+                ModelMetadataTracePanel(state = metadataTraceState, modifier = Modifier.fillMaxWidth())
             }
             if (message.variantCount > 1) {
                 Spacer(Modifier.height(4.dp))
