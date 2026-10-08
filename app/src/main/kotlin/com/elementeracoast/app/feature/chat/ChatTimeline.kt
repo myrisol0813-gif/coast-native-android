@@ -24,7 +24,6 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
-import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 
 @Composable
@@ -32,7 +31,6 @@ internal fun ChatTimeline(
     conversationId: String,
     messages: List<ChatMessage>,
     thoughtSoil: ThoughtSoilSnapshot?,
-    turnDeskReceipt: TurnDeskReceipt?,
     isStreaming: Boolean,
     streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
@@ -45,7 +43,6 @@ internal fun ChatTimeline(
     onFootprint: (ChatMessage) -> Unit,
     onOpenActionLog: (Set<String>) -> Unit,
     onOpenThoughtSoil: () -> Unit,
-    onOpenTurnDesk: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -81,7 +78,11 @@ internal fun ChatTimeline(
                     val streamingTail = isStreaming && message.id == streamingMessageId
                     val isLatestAssistant = index == latestAssistantIndex && message.role == MessageRole.Assistant
                     val inlineSoil = if (isLatestAssistant) thoughtSoil else null
-                    val inlineDesk = if (isLatestAssistant) (turnDeskReceipt ?: message.deskReceipt) else message.deskReceipt
+                    val metadataMessageId = if (
+                        message.role == MessageRole.Assistant &&
+                        !streamingTail &&
+                        message.generationSource in setOf("chat", "landing", "radio", "lighthouse")
+                    ) message.remoteVariantId else null
                     if (message.role == MessageRole.Assistant && !streamingTail && message.furnitureRuns.isNotEmpty()) {
                         FurnitureBubble(
                             runs = message.furnitureRuns,
@@ -95,32 +96,20 @@ internal fun ChatTimeline(
                         isStreamingTail = streamingTail,
                         avatarBitmap = avatarBitmap,
                         thoughtSoil = inlineSoil,
-                        turnDeskReceipt = inlineDesk,
+                        metadataMessageId = metadataMessageId,
+                        metadataSource = metadataSource,
                         attachmentPreviewSource = attachmentPreviewSource,
                         onAvatarClick = onAvatarClick,
                         onOpenThoughtSoil = onOpenThoughtSoil,
-                        onOpenTurnDesk = onOpenTurnDesk,
                         onCopy = onCopy,
                         onEdit = onEdit,
                         onAction = onAction,
                         onFootprint = onFootprint
                     )
-                    val remoteMessageId = message.remoteVariantId
-                    if (
-                        message.role == MessageRole.Assistant &&
-                        !streamingTail &&
-                        message.generationSource in setOf("chat", "landing", "radio", "lighthouse") &&
-                        !remoteMessageId.isNullOrBlank()
-                    ) {
-                        ModelMetadataTraceCard(
-                            conversationId = conversationId,
-                            messageId = remoteMessageId,
-                            source = metadataSource,
-                            modifier = Modifier.align(Alignment.End).padding(top = 1.dp)
-                        )
+                    if (!metadataMessageId.isNullOrBlank()) {
                         ModelUsageFooter(
                             conversationId = conversationId,
-                            messageId = remoteMessageId,
+                            messageId = metadataMessageId,
                             source = metadataSource,
                             modifier = Modifier.align(Alignment.End).padding(top = 1.dp)
                         )
