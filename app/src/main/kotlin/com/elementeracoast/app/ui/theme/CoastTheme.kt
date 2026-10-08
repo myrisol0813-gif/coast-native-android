@@ -2,6 +2,7 @@ package com.elementeracoast.app.ui.theme
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Typeface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import java.io.File
 
 private const val ZHUQUE_FONT_RESOURCE = "zhuque_fangsong_regular"
 private const val NANO_OLD_SONG_RESOURCE = "nano_old_song_c_regular"
@@ -38,18 +40,27 @@ private fun bundledFontFamily(context: Context, resourceName: String): FontFamil
     return if (fontId == 0) null else FontFamily(Font(fontId))
 }
 
-private fun readingFontFamily(mode: CoastFontMode, context: Context): FontFamily = when (mode) {
-    CoastFontMode.Myraes -> bundledFontFamily(context, ZHUQUE_FONT_RESOURCE) ?: FontFamily.Serif
-    CoastFontMode.NanoOldSong -> bundledFontFamily(context, NANO_OLD_SONG_RESOURCE) ?: FontFamily.Serif
-    CoastFontMode.ChillHuoSong -> bundledFontFamily(context, CHILL_HUO_SONG_RESOURCE) ?: FontFamily.Serif
+private fun localFontFamily(path: String): FontFamily? = runCatching {
+    val file = File(path)
+    if (file.isFile && file.length() > 0L) FontFamily(Typeface.createFromFile(file)) else null
+}.getOrNull()
+
+private fun zhuqueFallback(context: Context): FontFamily = bundledFontFamily(context, ZHUQUE_FONT_RESOURCE) ?: FontFamily.Serif
+
+private fun readingFontFamily(mode: CoastFontMode, context: Context, localFontPath: String): FontFamily = when (mode) {
+    CoastFontMode.Myraes -> zhuqueFallback(context)
+    CoastFontMode.NanoOldSong -> bundledFontFamily(context, NANO_OLD_SONG_RESOURCE) ?: zhuqueFallback(context)
+    CoastFontMode.ChillHuoSong -> bundledFontFamily(context, CHILL_HUO_SONG_RESOURCE) ?: zhuqueFallback(context)
+    CoastFontMode.CustomLocal -> localFontFamily(localFontPath) ?: zhuqueFallback(context)
 }
 
-private fun readingTypography(mode: CoastFontMode, context: Context): Typography {
-    val family = readingFontFamily(mode, context)
+private fun readingTypography(mode: CoastFontMode, context: Context, localFontPath: String): Typography {
+    val family = readingFontFamily(mode, context, localFontPath)
     val tracking = when (mode) {
         CoastFontMode.Myraes -> 0.18.sp
         CoastFontMode.NanoOldSong -> 0.08.sp
         CoastFontMode.ChillHuoSong -> 0.06.sp
+        CoastFontMode.CustomLocal -> 0.08.sp
     }
     val base = CoastTypography
     return Typography(
@@ -78,6 +89,7 @@ fun CoastTheme(
     userBubbleHex: String = "",
     fontMode: CoastFontMode = CoastFontMode.Myraes,
     paperMode: CoastPaperMode = CoastPaperMode.Wave,
+    localFontPath: String = "",
     content: @Composable () -> Unit
 ) {
     val basePalette = preset.palette()
@@ -108,6 +120,6 @@ fun CoastTheme(
             paperMode = paperMode
         )
     ) {
-        MaterialTheme(colorScheme = colors, typography = readingTypography(fontMode, context), content = content)
+        MaterialTheme(colorScheme = colors, typography = readingTypography(fontMode, context, localFontPath), content = content)
     }
 }
