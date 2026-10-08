@@ -1,13 +1,17 @@
 package com.elementeracoast.app.ui.theme
 
-/** Local reading preferences; names match the PWA appearance options. */
+/** Local reading preferences; names match the Native paper-font wardrobe. */
 enum class CoastFontMode(val label: String) {
-    Myraes("Myraes 纸页"),
-    Soft("柔和现代"),
-    Note("小狗手札");
+    Myraes("朱雀仿宋"),
+    NanoOldSong("纳米老宋"),
+    ChillHuoSong("寒蝉活宋");
 
     companion object {
-        fun fromStored(value: String): CoastFontMode = entries.firstOrNull { it.name == value } ?: Myraes
+        fun fromStored(value: String): CoastFontMode = when (value) {
+            "Soft" -> NanoOldSong
+            "Note" -> ChillHuoSong
+            else -> entries.firstOrNull { it.name == value } ?: Myraes
+        }
     }
 }
 
