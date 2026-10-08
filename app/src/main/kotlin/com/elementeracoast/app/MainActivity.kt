@@ -37,6 +37,9 @@ class MainActivity : ComponentActivity() {
                 fontMode = wolf.appearance.fontMode,
                 paperMode = wolf.appearance.paperMode,
                 readingWeight = wolf.appearance.readingWeight,
+                messageSurfaceAlpha = wolf.appearance.messageSurfaceAlpha,
+                chatBackgroundImagePath = wolf.appearance.chatBackgroundImagePath,
+                chatBackgroundDimAlpha = wolf.appearance.chatBackgroundDimAlpha,
                 localFontPath = wolf.appearance.localFontPath
             ) {
                 if (mailboxOpen) {
