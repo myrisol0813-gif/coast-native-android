@@ -112,19 +112,17 @@ internal fun ChatTimeline(
                         message.generationSource in setOf("chat", "landing", "radio", "lighthouse") &&
                         !remoteMessageId.isNullOrBlank()
                     ) {
-                        ModelUsageFooter(
+                        ModelMetadataTraceCard(
                             conversationId = conversationId,
                             messageId = remoteMessageId,
                             source = metadataSource,
                             modifier = Modifier.align(Alignment.End).padding(top = 1.dp)
                         )
-                        ModelMetadataTraceCard(
+                        ModelUsageFooter(
                             conversationId = conversationId,
                             messageId = remoteMessageId,
                             source = metadataSource,
-                            modifier = Modifier.padding(
-                                start = CoastChatTokens.AssistantAvatarSize + CoastChatTokens.AssistantAvatarGap
-                            )
+                            modifier = Modifier.align(Alignment.End).padding(top = 1.dp)
                         )
                     }
                 }
