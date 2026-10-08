@@ -24,8 +24,8 @@ val zhuqueFangsongZipUrl = "https://github.com/TrionesType/zhuque/releases/downl
 val zhuqueFangsongTarget = layout.projectDirectory.file("src/main/res/font/zhuque_fangsong_regular.ttf")
 
 val nanoOldSongVersion = "v1.3"
-val nanoOldSongUrl = "https://github.com/Hansha2011/NanoOldSong/releases/download/$nanoOldSongVersion/NanoOldSongC-Regular.ttf"
-val nanoOldSongTarget = layout.projectDirectory.file("src/main/res/font/nano_old_song_c_regular.ttf")
+val nanoOldSongUrl = "https://github.com/Hansha2011/NanoOldSong/releases/download/$nanoOldSongVersion/NanoOldSongA-Regular.ttf"
+val nanoOldSongTarget = layout.projectDirectory.file("src/main/res/font/nano_old_song_a_regular.ttf")
 
 val chillHuoSongVersion = "HuoSongv1.000"
 val chillHuoSongZipUrl = "https://github.com/Warren2060/ChillMovableType/releases/download/$chillHuoSongVersion/ChillHuoSong_F.zip"
@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 67
-        versionName = "0.1.65-composer-drawer-handle-01"
+        versionCode = 68
+        versionName = "0.1.66-nano-old-song-a-glyph-fix-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
@@ -130,7 +130,15 @@ val installReadingFonts by tasks.registering {
         installZipFont(zhuqueFangsongZipUrl, zhuqueFangsongTarget.asFile, "Zhuque Fangsong $zhuqueFangsongVersion", zhuqueFangsongZipSha256) { name ->
             name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf", ignoreCase = true))
         }
-        installDirectFont(nanoOldSongUrl, nanoOldSongTarget.asFile, "Nano Old Song $nanoOldSongVersion")
+        installDirectFont(nanoOldSongUrl, nanoOldSongTarget.asFile, "Nano Old Song A $nanoOldSongVersion")
+                // Verify real common-Chinese coverage, not just successful font-file download.
+                val nanoFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, nanoOldSongTarget.asFile)
+                val chineseSample = "小寒你好我们在海岸写信，聊天文字与回忆都留在这里。"
+                val missingIndex = nanoFont.canDisplayUpTo(chineseSample)
+                check(missingIndex == -1) {
+                    "NanoOldSong A lacks common Chinese glyph at position $missingIndex: " + chineseSample[missingIndex]
+                }
+                println("Verified NanoOldSong A common Chinese glyph coverage: ${chineseSample.length} chars")
         installZipFont(chillHuoSongZipUrl, chillHuoSongTarget.asFile, "Chill Huo Song $chillHuoSongVersion") { name ->
             val lower = name.lowercase()
             val isFont = lower.endsWith(".ttf") || lower.endsWith(".otf")
