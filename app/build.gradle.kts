@@ -23,6 +23,14 @@ val zhuqueFangsongZipSha256 = "bb8b661a7643d2296a72d9d10530a00949419c4e527fb6178
 val zhuqueFangsongZipUrl = "https://github.com/TrionesType/zhuque/releases/download/$zhuqueFangsongVersion/ZhuqueFangsong-$zhuqueFangsongVersion.zip"
 val zhuqueFangsongTarget = layout.projectDirectory.file("src/main/res/font/zhuque_fangsong_regular.ttf")
 
+val nanoOldSongVersion = "v1.3"
+val nanoOldSongUrl = "https://github.com/Hansha2011/NanoOldSong/releases/download/$nanoOldSongVersion/NanoOldSongC-Regular.ttf"
+val nanoOldSongTarget = layout.projectDirectory.file("src/main/res/font/nano_old_song_c_regular.ttf")
+
+val chillHuoSongVersion = "HuoSongv1.000"
+val chillHuoSongZipUrl = "https://github.com/Warren2060/ChillMovableType/releases/download/$chillHuoSongVersion/ChillHuoSong_F.zip"
+val chillHuoSongTarget = layout.projectDirectory.file("src/main/res/font/chill_huo_song_regular.ttf")
+
 android {
     namespace = "com.elementeracoast.app"
     compileSdk = 34
@@ -31,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 57
-        versionName = "0.1.55-zhuque-fangsong-01"
+        versionCode = 58
+        versionName = "0.1.56-three-paper-fonts-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
@@ -73,42 +81,85 @@ android {
     }
 }
 
-val installZhuqueFangsong by tasks.registering {
-    description = "Download the official Zhuque Fangsong preview font into Android resources."
-    outputs.file(zhuqueFangsongTarget)
-    doLast {
-        val workDir = layout.buildDirectory.dir("zhuque-fangsong").get().asFile
-        workDir.mkdirs()
-        val zipFile = File(workDir, "ZhuqueFangsong-$zhuqueFangsongVersion.zip")
-        URI(zhuqueFangsongZipUrl).toURL().openStream().use { input: InputStream ->
-            zipFile.outputStream().use { output: OutputStream -> input.copyTo(output) }
-        }
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(zipFile.readBytes())
-            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
-        check(digest == zhuqueFangsongZipSha256) { "Zhuque Fangsong zip SHA-256 mismatch: $digest" }
+fun sha256(file: File): String = MessageDigest.getInstance("SHA-256")
+    .digest(file.readBytes())
+    .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
-        val target = zhuqueFangsongTarget.asFile
-        target.parentFile.mkdirs()
-        var copied = false
-        ZipInputStream(zipFile.inputStream()).use { zip: ZipInputStream ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                val name = entry.name.substringAfterLast('/')
-                if (!entry.isDirectory && !copied && (name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf")))) {
-                    target.outputStream().use { output: OutputStream -> zip.copyTo(output) }
-                    copied = true
-                }
-                zip.closeEntry()
+fun downloadFile(url: String, target: File) {
+    URI(url).toURL().openStream().use { input: InputStream ->
+        target.outputStream().use { output: OutputStream -> input.copyTo(output) }
+    }
+}
+
+fun installDirectFont(url: String, target: File, displayName: String) {
+    target.parentFile.mkdirs()
+    downloadFile(url, target)
+    check(target.length() > 0L) { "$displayName TTF download was empty: $url" }
+    println("Installed $displayName into ${target.relativeTo(projectDir)} sha256=${sha256(target)}")
+}
+
+fun installZipFont(
+    url: String,
+    target: File,
+    displayName: String,
+    expectedZipSha256: String? = null,
+    selectEntry: (String) -> Boolean
+) {
+    val workDir = layout.buildDirectory.dir("reading-fonts").get().asFile
+    workDir.mkdirs()
+    val zipFile = File(workDir, url.substringAfterLast('/'))
+    downloadFile(url, zipFile)
+    val digest = sha256(zipFile)
+    if (expectedZipSha256 != null) {
+        check(digest == expectedZipSha256) { "$displayName zip SHA-256 mismatch: $digest" }
+    }
+
+    target.parentFile.mkdirs()
+    var copied = false
+    ZipInputStream(zipFile.inputStream()).use { zip: ZipInputStream ->
+        while (true) {
+            val entry = zip.nextEntry ?: break
+            val name = entry.name.substringAfterLast('/')
+            if (!entry.isDirectory && !copied && selectEntry(name)) {
+                target.outputStream().use { output: OutputStream -> zip.copyTo(output) }
+                copied = true
             }
+            zip.closeEntry()
         }
-        check(copied && target.length() > 0L) { "Zhuque Fangsong TTF was not found in $zhuqueFangsongZipUrl" }
-        println("Installed Zhuque Fangsong $zhuqueFangsongVersion into ${target.relativeTo(projectDir)}")
+    }
+    check(copied && target.length() > 0L) { "$displayName TTF was not found in $url" }
+    println("Installed $displayName into ${target.relativeTo(projectDir)} zipSha256=$digest fontSha256=${sha256(target)}")
+}
+
+val installReadingFonts by tasks.registering {
+    description = "Download the three paper-reading fonts into Android resources."
+    outputs.files(zhuqueFangsongTarget, nanoOldSongTarget, chillHuoSongTarget)
+    doLast {
+        installZipFont(
+            url = zhuqueFangsongZipUrl,
+            target = zhuqueFangsongTarget.asFile,
+            displayName = "Zhuque Fangsong $zhuqueFangsongVersion",
+            expectedZipSha256 = zhuqueFangsongZipSha256,
+        ) { name -> name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf")) }
+
+        installDirectFont(
+            url = nanoOldSongUrl,
+            target = nanoOldSongTarget.asFile,
+            displayName = "Nano Old Song $nanoOldSongVersion"
+        )
+
+        installZipFont(
+            url = chillHuoSongZipUrl,
+            target = chillHuoSongTarget.asFile,
+            displayName = "Chill Huo Song $chillHuoSongVersion",
+        ) { name ->
+            name.endsWith(".ttf") && name.contains("ChillHuoSong", ignoreCase = true) && !name.contains("Con", ignoreCase = true)
+        }
     }
 }
 
 tasks.matching { it.name in setOf("preBuild", "preDebugBuild", "preReleaseBuild") }.configureEach {
-    dependsOn(installZhuqueFangsong)
+    dependsOn(installReadingFonts)
 }
 
 dependencies {
