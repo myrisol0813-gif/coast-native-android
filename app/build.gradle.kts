@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 66
-        versionName = "0.1.64-drawer-turn-desk-01"
+        versionCode = 67
+        versionName = "0.1.65-composer-drawer-handle-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
