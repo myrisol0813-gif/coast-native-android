@@ -39,8 +39,10 @@ fun SnowLetterSurface(
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val isLetter = role == SnowLetterSurfaceRole.AssistantBubble &&
-        LocalCoastAppearance.current.paperMode == CoastPaperMode.Wave
+    val appearance = LocalCoastAppearance.current
+    val isMessageSurface = role == SnowLetterSurfaceRole.AssistantBubble || role == SnowLetterSurfaceRole.UserBubble
+    val messageAlpha = appearance.messageSurfaceAlpha.coerceIn(.55f, 1f)
+    val isLetter = role == SnowLetterSurfaceRole.AssistantBubble && appearance.paperMode == CoastPaperMode.Wave
 
     // The letter is a straight rounded surface: no skew, irregular cut path, or protruding edges.
     // A very soft shadow and thin edge preserve its paper feeling without competing with text.
@@ -52,15 +54,16 @@ fun SnowLetterSurface(
                 elevation = 2.dp,
                 shape = paperShape,
                 clip = false,
-                ambientColor = shadowTint.copy(alpha = .10f),
-                spotColor = shadowTint.copy(alpha = .07f)
+                ambientColor = shadowTint.copy(alpha = .10f * messageAlpha),
+                spotColor = shadowTint.copy(alpha = .07f * messageAlpha)
             )
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = .94f), paperShape)
-            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .23f), paperShape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = messageAlpha), paperShape)
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .23f * messageAlpha), paperShape)
     } else {
+        val color = if (isMessageSurface) fallbackColor.copy(alpha = fallbackColor.alpha * messageAlpha) else fallbackColor
         Modifier
             .optionalShadow(fallbackElevation, fallbackShape)
-            .background(fallbackColor, fallbackShape)
+            .background(color, fallbackShape)
             .then(if (fallbackBorder != null) Modifier.border(fallbackBorder, fallbackShape) else Modifier)
     }
 
