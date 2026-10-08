@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 68
-        versionName = "0.1.66-nano-old-song-a-glyph-fix-01"
+        versionCode = 69
+        versionName = "0.1.67-unified-letter-bubbles-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
