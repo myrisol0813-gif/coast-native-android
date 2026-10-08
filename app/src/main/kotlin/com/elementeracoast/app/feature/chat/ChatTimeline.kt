@@ -24,6 +24,7 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
+import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 
 @Composable
@@ -31,6 +32,7 @@ internal fun ChatTimeline(
     conversationId: String,
     messages: List<ChatMessage>,
     thoughtSoil: ThoughtSoilSnapshot?,
+    turnDeskReceipt: TurnDeskReceipt?,
     isStreaming: Boolean,
     streamingMessageId: Long?,
     avatarBitmap: ImageBitmap?,
@@ -43,6 +45,7 @@ internal fun ChatTimeline(
     onFootprint: (ChatMessage) -> Unit,
     onOpenActionLog: (Set<String>) -> Unit,
     onOpenThoughtSoil: () -> Unit,
+    onOpenTurnDesk: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -76,17 +79,13 @@ internal fun ChatTimeline(
             itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
                 Column {
                     val streamingTail = isStreaming && message.id == streamingMessageId
+                    val isLatestAssistant = index == latestAssistantIndex && message.role == MessageRole.Assistant
+                    val inlineSoil = if (isLatestAssistant) thoughtSoil else null
+                    val inlineDesk = if (isLatestAssistant) (turnDeskReceipt ?: message.deskReceipt) else message.deskReceipt
                     if (message.role == MessageRole.Assistant && !streamingTail && message.furnitureRuns.isNotEmpty()) {
                         FurnitureBubble(
                             runs = message.furnitureRuns,
                             onOpenActionLog = onOpenActionLog,
-                            modifier = Modifier.padding(bottom = 5.dp)
-                        )
-                    }
-                    if (index == latestAssistantIndex && thoughtSoil != null) {
-                        ThoughtSoilEntry(
-                            soil = thoughtSoil,
-                            onClick = onOpenThoughtSoil,
                             modifier = Modifier.padding(bottom = 5.dp)
                         )
                     }
@@ -95,8 +94,12 @@ internal fun ChatTimeline(
                         message = message,
                         isStreamingTail = streamingTail,
                         avatarBitmap = avatarBitmap,
+                        thoughtSoil = inlineSoil,
+                        turnDeskReceipt = inlineDesk,
                         attachmentPreviewSource = attachmentPreviewSource,
                         onAvatarClick = onAvatarClick,
+                        onOpenThoughtSoil = onOpenThoughtSoil,
+                        onOpenTurnDesk = onOpenTurnDesk,
                         onCopy = onCopy,
                         onEdit = onEdit,
                         onAction = onAction,
