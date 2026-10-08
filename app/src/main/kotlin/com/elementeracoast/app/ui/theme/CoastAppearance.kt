@@ -10,6 +10,7 @@ data class CoastAppearance(
     val userBubbleColor: Color? = null,
     val fontMode: CoastFontMode = CoastFontMode.Myraes,
     val paperMode: CoastPaperMode = CoastPaperMode.Wave,
+    val readingWeight: CoastReadingWeight = CoastReadingWeight.Normal,
     val readingFontFamily: FontFamily? = null
 )
 
