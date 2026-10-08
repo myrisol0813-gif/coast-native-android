@@ -1,14 +1,17 @@
 package com.elementeracoast.app.feature.wolf
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,14 +23,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -80,6 +88,15 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
             }
             .onFailure { error -> onSnackbar(error.message ?: "本机字体导入失败") }
     }
+    val chatBackgroundLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { importChatBackground(context, uri) }
+            .onSuccess { imported ->
+                store.setChatBackground(imported.displayName, imported.path)
+                onSnackbar("聊天背景已保存到本机：${imported.displayName}")
+            }
+            .onFailure { error -> onSnackbar(error.message ?: "聊天背景导入失败") }
+    }
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         item { Text("外观", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item {
@@ -103,6 +120,63 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
             SettingGroup("重点色") {
                 listOf("" to "默认 · 跟随主题", "#ff6a21" to "橙色", "#f28b2e" to "金色", "#3b82f6" to "蓝色", "#ec4899" to "粉色").forEach { (value, label) ->
                     ChoiceRow(label, state.appearance.accentHex == value) { store.setAccent(value) }
+                }
+            }
+        }
+        item {
+            SettingGroup("消息底透明度 · 双方消息") {
+                Text(
+                    "当前：${(state.appearance.messageSurfaceAlpha * 100).toInt()}%",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Slider(
+                    value = state.appearance.messageSurfaceAlpha,
+                    onValueChange = store::setMessageSurfaceAlpha,
+                    valueRange = .55f..1f
+                )
+                Text(
+                    "用户气泡和模型纸底共用这一项。最低保留 55%，避免长文被背景吃掉。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        item {
+            SettingGroup("聊天背景图 · 本机 APK") {
+                if (state.appearance.chatBackgroundImagePath.isNotBlank()) {
+                    ChatBackgroundPreview(
+                        path = state.appearance.chatBackgroundImagePath,
+                        dimAlpha = state.appearance.chatBackgroundDimAlpha
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        state.appearance.chatBackgroundImageName.ifBlank { "已保存本机背景图" },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    ChoiceRow("更换背景图", false, "只保存在此设备，不上传后端") {
+                        chatBackgroundLauncher.launch(arrayOf("image/png", "image/jpeg", "image/webp"))
+                    }
+                    ChoiceRow("移除背景图", false, "删除 APP 私有目录里的背景副本") {
+                        removeChatBackground(context, state.appearance.chatBackgroundImagePath)
+                        store.clearChatBackground()
+                        onSnackbar("聊天背景已移除")
+                    }
+                    Text(
+                        "背景柔化：${(state.appearance.chatBackgroundDimAlpha * 100).toInt()}%",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Slider(
+                        value = state.appearance.chatBackgroundDimAlpha,
+                        onValueChange = store::setChatBackgroundDimAlpha,
+                        valueRange = 0f..0.65f
+                    )
+                } else {
+                    ChoiceRow("选择背景图", false, "使用系统相册选择，按聊天区比例填充裁剪预览") {
+                        chatBackgroundLauncher.launch(arrayOf("image/png", "image/jpeg", "image/webp"))
+                    }
                 }
             }
         }
@@ -160,7 +234,27 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
                 }
             }
         }
-        item { Text("以上都只保存在本机，不接后端。本机字体只保存于此设备；覆盖安装会保留，卸载或清除数据后需要重新导入。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+        item { Text("以上都只保存在本机，不接后端。本机字体与背景图只保存于此设备；覆盖安装会保留，卸载或清除数据后需要重新导入。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+    }
+}
+
+@Composable
+private fun ChatBackgroundPreview(path: String, dimAlpha: Float) {
+    val bitmap = remember(path) { runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(118.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap != null) {
+            Image(bitmap = bitmap, contentDescription = "聊天背景预览", modifier = Modifier.fillMaxWidth().height(118.dp), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxWidth().height(118.dp).background(MaterialTheme.colorScheme.background.copy(alpha = dimAlpha.coerceIn(0f, .65f))))
+        } else {
+            Text("背景图预览失败", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -222,6 +316,7 @@ internal fun PrimaryLocalButton(label: String, onClick: () -> Unit) {
 }
 
 private data class ImportedLocalFont(val displayName: String, val path: String)
+private data class ImportedChatBackground(val displayName: String, val path: String)
 
 private fun importLocalFont(context: Context, uri: Uri): ImportedLocalFont {
     val displayName = readDisplayName(context, uri).ifBlank { "本机字体" }.take(120)
@@ -246,6 +341,31 @@ private fun importLocalFont(context: Context, uri: Uri): ImportedLocalFont {
     return ImportedLocalFont(displayName.removeSuffix(".ttf").removeSuffix(".TTF").removeSuffix(".otf").removeSuffix(".OTF"), target.absolutePath)
 }
 
+private fun importChatBackground(context: Context, uri: Uri): ImportedChatBackground {
+    val displayName = readDisplayName(context, uri).ifBlank { "聊天背景" }.take(120)
+    val extension = displayName.substringAfterLast('.', "").lowercase()
+    val mime = context.contentResolver.getType(uri).orEmpty().lowercase()
+    val targetExtension = when {
+        extension in setOf("png", "jpg", "jpeg", "webp") -> if (extension == "jpeg") "jpg" else extension
+        mime.contains("png") -> "png"
+        mime.contains("webp") -> "webp"
+        mime.contains("jpeg") || mime.contains("jpg") -> "jpg"
+        else -> throw IllegalArgumentException("请选择 PNG、JPG 或 WEBP 图片")
+    }
+    val directory = File(context.filesDir, "chat-background").apply { mkdirs() }
+    directory.listFiles()?.forEach { it.delete() }
+    val temp = File(directory, "background.tmp")
+    val target = File(directory, "background.$targetExtension")
+    context.contentResolver.openInputStream(uri)?.use { input -> temp.outputStream().use { output -> input.copyTo(output) } }
+        ?: throw IllegalArgumentException("无法读取所选背景图")
+    check(temp.length() > 0L) { "背景图为空" }
+    check(temp.length() <= 12L * 1024L * 1024L) { "背景图超过 12 MB" }
+    check(BitmapFactory.decodeFile(temp.absolutePath) != null) { "图片无法被 Android 读取" }
+    temp.copyTo(target, overwrite = true)
+    temp.delete()
+    return ImportedChatBackground(displayName, target.absolutePath)
+}
+
 private fun readDisplayName(context: Context, uri: Uri): String {
     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
         val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -257,4 +377,9 @@ private fun readDisplayName(context: Context, uri: Uri): String {
 private fun removeLocalFont(context: Context, path: String) {
     runCatching { File(path).delete() }
     runCatching { File(context.filesDir, "local-fonts").listFiles()?.forEach { it.delete() } }
+}
+
+private fun removeChatBackground(context: Context, path: String) {
+    runCatching { File(path).delete() }
+    runCatching { File(context.filesDir, "chat-background").listFiles()?.forEach { it.delete() } }
 }
