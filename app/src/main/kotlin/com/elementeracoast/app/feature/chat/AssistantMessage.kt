@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
+import com.elementeracoast.app.ui.theme.LocalCoastAppearance
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
@@ -47,15 +48,16 @@ internal fun AssistantMessage(
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
+    val readingFont = LocalCoastAppearance.current.readingFontFamily
     Column(modifier = Modifier.fillMaxWidth()) {
         AssistantAvatar(avatarBitmap, onAvatarClick)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.fillMaxWidth()) {
             SnowLetterSurface(
                 modifier = Modifier.fillMaxWidth(),
                 role = SnowLetterSurfaceRole.AssistantBubble,
-                fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .30f),
-                fallbackShape = RoundedCornerShape(22.dp)
+                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = .86f),
+                fallbackShape = RoundedCornerShape(20.dp)
             ) {
                 Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
                     Text(
@@ -66,10 +68,11 @@ internal fun AssistantMessage(
                         },
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.bodyLarge.copy(
+                            fontFamily = readingFont ?: MaterialTheme.typography.bodyLarge.fontFamily,
                             fontSize = CoastChatTokens.ChatBodySize,
                             lineHeight = CoastChatTokens.ChatBodyLineHeight,
                             fontWeight = FontWeight.Normal,
-                            letterSpacing = 0.22.sp
+                            letterSpacing = 0.04.sp
                         )
                     )
                     message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
@@ -105,8 +108,8 @@ internal fun AssistantMessage(
 @Composable
 private fun AssistantAvatar(bitmap: ImageBitmap?, onClick: () -> Unit) {
     val modifier = Modifier.size(CoastChatTokens.AssistantAvatarSize).clip(CircleShape)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-        .background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .65f), CircleShape)
+        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .82f)).clickable(onClick = onClick)
     if (bitmap != null) {
         Image(bitmap = bitmap, contentDescription = "更换助手头像", contentScale = ContentScale.Crop, modifier = modifier)
     } else {
