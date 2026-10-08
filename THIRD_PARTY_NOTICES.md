@@ -39,3 +39,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## NanoOldSong (纳米老宋)
+
+Original project: https://github.com/Hansha2011/NanoOldSong
+v1.3 font source: https://github.com/Hansha2011/NanoOldSong/releases/tag/v1.3
+
+The Native app uses the unmodified NanoOldSongA-Regular.ttf (primary Chinese glyphs).
+The build downloads the font from the upstream release; no font binary is committed here.
+
+Upstream author permits free commercial/non-commercial use and embedding in software or devices.
+Separate font-file resale is prohibited. Modified derivatives must follow the author's
+reserved-name and redistribution conditions. Refer to the upstream README for full terms.
