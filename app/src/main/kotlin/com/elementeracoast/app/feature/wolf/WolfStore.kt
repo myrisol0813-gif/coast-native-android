@@ -40,6 +40,23 @@ class WolfStore(private val persistence: LocalPersistence) {
         it.copy(appearance = it.appearance.copy(fontMode = value))
     }
 
+    fun setLocalFont(displayName: String, path: String) = update {
+        it.copy(appearance = it.appearance.copy(
+            fontMode = CoastFontMode.CustomLocal,
+            localFontName = displayName.trim().ifBlank { "本机字体" }.take(120),
+            localFontPath = path
+        ))
+    }
+
+    fun clearLocalFont() = update {
+        val nextMode = if (it.appearance.fontMode == CoastFontMode.CustomLocal) CoastFontMode.Myraes else it.appearance.fontMode
+        it.copy(appearance = it.appearance.copy(
+            fontMode = nextMode,
+            localFontName = "",
+            localFontPath = ""
+        ))
+    }
+
     fun setPaperMode(value: CoastPaperMode) = update {
         it.copy(appearance = it.appearance.copy(paperMode = value))
     }
@@ -59,6 +76,7 @@ class WolfStore(private val persistence: LocalPersistence) {
         fun bool(key: String, fallback: Boolean) = persistence.get(key, fallback.toString()).toBooleanStrictOrNull() ?: fallback
         val storedPreset = persistence.get(KEY_THEME_PRESET).ifBlank { persistence.get(KEY_LEGACY_THEME, CoastThemePreset.CoastDefault.name) }
         val theme = CoastThemePreset.fromStored(storedPreset)
+        val localFontPath = persistence.get(KEY_LOCAL_FONT_PATH)
         return WolfState(
             profile = WolfProfile(
                 nickname = persistence.get(KEY_NICKNAME, "小寒").take(80),
@@ -68,8 +86,12 @@ class WolfStore(private val persistence: LocalPersistence) {
                 theme = theme,
                 userBubbleHex = sanitizeHex(persistence.get(KEY_BUBBLE)),
                 accentHex = sanitizeHex(persistence.get(KEY_ACCENT)),
-                fontMode = CoastFontMode.fromStored(persistence.get(KEY_FONT_MODE)),
-                paperMode = CoastPaperMode.fromStored(persistence.get(KEY_PAPER_MODE))
+                fontMode = CoastFontMode.fromStored(persistence.get(KEY_FONT_MODE)).let { mode ->
+                    if (mode == CoastFontMode.CustomLocal && localFontPath.isBlank()) CoastFontMode.Myraes else mode
+                },
+                paperMode = CoastPaperMode.fromStored(persistence.get(KEY_PAPER_MODE)),
+                localFontName = persistence.get(KEY_LOCAL_FONT_NAME).take(120),
+                localFontPath = localFontPath
             ),
             basic = BasicSettings(
                 recentTurns = int(KEY_RECENT_TURNS, 8),
@@ -95,6 +117,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         persistence.put(KEY_ACCENT, value.appearance.accentHex)
         persistence.put(KEY_FONT_MODE, value.appearance.fontMode.name)
         persistence.put(KEY_PAPER_MODE, value.appearance.paperMode.name)
+        persistence.put(KEY_LOCAL_FONT_NAME, value.appearance.localFontName)
+        persistence.put(KEY_LOCAL_FONT_PATH, value.appearance.localFontPath)
         val basic = value.basic
         persistence.put(KEY_RECENT_TURNS, basic.recentTurns.toString())
         persistence.put(KEY_CONTEXT_BUDGET, basic.contextBudget.toString())
@@ -136,6 +160,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         private const val KEY_ACCENT = ROOT + "accent"
         private const val KEY_FONT_MODE = ROOT + "fontMode"
         private const val KEY_PAPER_MODE = ROOT + "paperMode"
+        private const val KEY_LOCAL_FONT_NAME = ROOT + "localFontName"
+        private const val KEY_LOCAL_FONT_PATH = ROOT + "localFontPath"
         private const val KEY_RECENT_TURNS = ROOT + "recentTurns"
         private const val KEY_CONTEXT_BUDGET = ROOT + "contextBudget"
         private const val KEY_OUTPUT_LENGTH = ROOT + "outputLength"
