@@ -16,6 +16,9 @@ captures/
 *.apk
 output-metadata.json
 
+# Generated font resources
+app/src/main/res/font/zhuque_fangsong_regular.ttf
+
 # IntelliJ
 *.iml
 .idea/
