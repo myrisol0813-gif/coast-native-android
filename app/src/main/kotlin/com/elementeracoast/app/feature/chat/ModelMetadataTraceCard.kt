@@ -223,7 +223,14 @@ private fun UsageSection(metadata: RemoteModelMetadata?) {
         usage?.promptTokens?.let { add("输入" to "$it tokens") }
         usage?.completionTokens?.let { add("输出" to "$it tokens") }
         usage?.reasoningTokens?.let { add("推理" to "$it tokens") }
-        usage?.cachedTokens?.let { add("缓存" to "$it tokens") }
+        usage?.cachedTokens?.let { add("缓存读取" to "$it tokens") }
+        usage?.cacheWriteTokens?.let { add("缓存写入" to "$it tokens") }
+        val rate = promptCacheHitRate(usage?.promptTokens, usage?.cachedTokens)
+        if (rate != null) add("缓存命中率" to rate)
+        else if (usage?.promptTokens != null) add("缓存命中率" to "供应商未报告有效缓存读取数据")
+        usage?.cacheDiscount?.let {
+            add("缓存折扣" to "$it USD（供应商回执；负数表示额外写入成本）")
+        }
         usage?.totalTokens?.let { add("总计" to "$it tokens") }
         usage?.cost?.let { add("成本" to it.toString()) }
     }
