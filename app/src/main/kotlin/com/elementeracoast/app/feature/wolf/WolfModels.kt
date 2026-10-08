@@ -3,6 +3,7 @@ package com.elementeracoast.app.feature.wolf
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import com.elementeracoast.app.ui.theme.CoastFontMode
 import com.elementeracoast.app.ui.theme.CoastPaperMode
+import com.elementeracoast.app.ui.theme.CoastReadingWeight
 
 enum class WolfDestination(val title: String, val subtitle: String) {
     Profile("个人资料", "昵称、聊天署名与显示资料"),
@@ -26,6 +27,7 @@ data class WolfAppearance(
     val accentHex: String = "",
     val fontMode: CoastFontMode = CoastFontMode.Myraes,
     val paperMode: CoastPaperMode = CoastPaperMode.Wave,
+    val readingWeight: CoastReadingWeight = CoastReadingWeight.Normal,
     val localFontName: String = "",
     val localFontPath: String = ""
 )
