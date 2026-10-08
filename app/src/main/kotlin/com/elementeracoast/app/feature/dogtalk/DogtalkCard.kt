@@ -60,6 +60,8 @@ fun DogtalkCard(
     crossWindow: CrossWindowUiState,
     onCrossWindowChange: (CrossWindowUiState) -> Unit,
     turnDeskReceipt: TurnDeskReceipt?,
+    open: Boolean,
+    onOpenChange: (Boolean) -> Unit,
     onOpenTurnDesk: () -> Unit,
     historyLoading: Boolean,
     isStreaming: Boolean,
@@ -67,7 +69,6 @@ fun DogtalkCard(
     modifier: Modifier = Modifier
 ) {
     val canUse = scope != DogtalkScope.Main || conversationId.isNotBlank()
-    var open by rememberSaveable(scope, conversationId) { mutableStateOf(false) }
     var drawerPane by rememberSaveable(scope, conversationId) { mutableStateOf("dogtalk") }
     var pane by rememberSaveable(scope, conversationId) { mutableStateOf("dogtalk") }
     var draft by remember(scope, conversationId) { mutableStateOf(repository.cached(scope, conversationId)) }
@@ -85,44 +86,11 @@ fun DogtalkCard(
         }
     }
 
-    if (!open) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = CoastChatTokens.DogtalkOuterVerticalPadding),
-            contentAlignment = Alignment.Center
-        ) {
-            SnowLetterSurface(
-                modifier = Modifier
-                    .widthIn(min = 142.dp, max = 292.dp)
-                    .clickable { open = true },
-                role = SnowLetterSurfaceRole.DogtalkCard,
-                fallbackColor = cardColor,
-                fallbackShape = RoundedCornerShape(999.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (turnDeskReceipt == null) "小寒 · 狗话 / 跨窗口" else "小寒 · 狗话 / 本轮",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .86f),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = CoastChatTokens.DogtalkMetaSize),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Icon(
-                        imageVector = Icons.Default.ExpandMore,
-                        contentDescription = "展开狗话抽屉",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .66f),
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-        }
-        return
+    LaunchedEffect(open, turnDeskReceipt) {
+        if (open && drawerPane == "desk" && turnDeskReceipt == null) drawerPane = "dogtalk"
     }
+
+    if (!open) return
 
     SnowLetterSurface(
         modifier = modifier
@@ -136,7 +104,7 @@ fun DogtalkCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { open = false }
+                    .clickable { onOpenChange(false) }
                     .padding(
                         horizontal = CoastChatTokens.DogtalkCollapsedHorizontalPadding,
                         vertical = CoastChatTokens.DogtalkCollapsedVerticalPadding
@@ -145,7 +113,7 @@ fun DogtalkCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "小寒 · 狗话 / 跨窗口",
+                        text = "小寒 · 抽屉",
                         style = MaterialTheme.typography.labelMedium.copy(fontSize = CoastChatTokens.DogtalkTitleSize),
                         fontWeight = FontWeight.SemiBold
                     )
