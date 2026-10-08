@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 64
-        versionName = "0.1.62-compact-chat-chrome-01"
+        versionCode = 65
+        versionName = "0.1.63-metadata-chip-edge-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
