@@ -38,17 +38,25 @@ class WolfLocalParityTest {
         store.setTheme(CoastThemePreset.BlushMyri)
         store.setUserBubble("#f5e8ee")
         store.setAccent("#ec4899")
-        store.setFontMode(CoastFontMode.ChillHuoSong)
+        store.setLocalFont("方正FW筑紫明朝 简 L", "/data/user/0/com.elementeracoast.app/files/local-fonts/reading-font.ttf")
         store.setPaperMode(CoastPaperMode.Smooth)
         store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
         val reloaded = WolfStore(persistence).state.value
         assertEquals("Kryo", reloaded.profile.nickname)
         assertEquals(CoastThemePreset.BlushMyri, reloaded.appearance.theme)
         assertEquals("#f5e8ee", reloaded.appearance.userBubbleHex)
-        assertEquals(CoastFontMode.ChillHuoSong, reloaded.appearance.fontMode)
+        assertEquals(CoastFontMode.CustomLocal, reloaded.appearance.fontMode)
+        assertEquals("方正FW筑紫明朝 简 L", reloaded.appearance.localFontName)
+        assertEquals("/data/user/0/com.elementeracoast.app/files/local-fonts/reading-font.ttf", reloaded.appearance.localFontPath)
         assertEquals(CoastPaperMode.Smooth, reloaded.appearance.paperMode)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
+    }
+
+    @Test fun localFontSlotFallsBackWhenPathIsMissing() {
+        val persistence = MemoryLocalPersistence()
+        persistence.put("wolf.fontMode", CoastFontMode.CustomLocal.name)
+        assertEquals(CoastFontMode.Myraes, WolfStore(persistence).state.value.appearance.fontMode)
     }
 
     @Test fun legacyThreeModeThemeReadsIntoPresetWardrobeOnce() {
