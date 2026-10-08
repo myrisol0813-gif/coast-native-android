@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
                 userBubbleHex = wolf.appearance.userBubbleHex,
                 fontMode = wolf.appearance.fontMode,
                 paperMode = wolf.appearance.paperMode,
+                readingWeight = wolf.appearance.readingWeight,
                 localFontPath = wolf.appearance.localFontPath
             ) {
                 if (mailboxOpen) {
