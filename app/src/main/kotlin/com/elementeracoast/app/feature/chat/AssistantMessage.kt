@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,13 +29,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
+import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.ui.theme.CoastChatTokens
-import com.elementeracoast.app.ui.theme.coastReadingMessageStyle
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
+import com.elementeracoast.app.ui.theme.coastReadingMessageStyle
 import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
 
 @Composable
@@ -42,13 +46,23 @@ internal fun AssistantMessage(
     message: ChatMessage,
     isStreamingTail: Boolean,
     avatarBitmap: ImageBitmap?,
+    thoughtSoil: ThoughtSoilSnapshot?,
+    turnDeskReceipt: TurnDeskReceipt?,
     onAvatarClick: () -> Unit,
+    onOpenThoughtSoil: () -> Unit,
+    onOpenTurnDesk: () -> Unit,
     onCopy: () -> Unit,
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        AssistantAvatar(avatarBitmap, onAvatarClick)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AssistantAvatar(avatarBitmap, onAvatarClick)
+            if (thoughtSoil != null) {
+                Spacer(Modifier.width(8.dp))
+                ThoughtSoilHeaderPill(soil = thoughtSoil, onClick = onOpenThoughtSoil)
+            }
+        }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.fillMaxWidth()) {
             SnowLetterSurface(
@@ -74,12 +88,16 @@ internal fun AssistantMessage(
                 }
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
-            MessageActionRow {
+            MessageActionRow(modifier = Modifier.fillMaxWidth()) {
                 MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
                 MessageActionButton(Icons.Default.ThumbUp, "点赞", active = message.liked, onClick = { onAction(MessageAction.ToggleLike(message.id)) })
                 MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
                 MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
+                if (turnDeskReceipt != null) {
+                    Spacer(Modifier.weight(1f))
+                    TurnDeskInlinePill(receipt = turnDeskReceipt, onClick = onOpenTurnDesk)
+                }
             }
             if (message.variantCount > 1) {
                 Spacer(Modifier.height(4.dp))
@@ -94,6 +112,45 @@ internal fun AssistantMessage(
             }
             GenerationFootprint(message, onFootprint, Modifier.align(Alignment.End))
         }
+    }
+}
+
+@Composable
+private fun ThoughtSoilHeaderPill(soil: ThoughtSoilSnapshot, onClick: () -> Unit) {
+    val label = "思维壤 · ${soil.handSeeds.size.coerceAtMost(7)} 粒手持种"
+    SnowLetterSurface(
+        modifier = Modifier.clickable(onClick = onClick),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .42f),
+        fallbackShape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .88f),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun TurnDeskInlinePill(receipt: TurnDeskReceipt, onClick: () -> Unit) {
+    SnowLetterSurface(
+        modifier = Modifier.clickable(onClick = onClick),
+        role = SnowLetterSurfaceRole.StatusCard,
+        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .38f),
+        fallbackShape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = receipt.summary.ifBlank { "推理痕迹与模型回波" },
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .82f),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
