@@ -86,9 +86,7 @@ fun sha256(file: File): String = MessageDigest.getInstance("SHA-256")
     .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
 
 fun downloadFile(url: String, target: File) {
-    URI(url).toURL().openStream().use { input: InputStream ->
-        target.outputStream().use { output: OutputStream -> input.copyTo(output) }
-    }
+    URI(url).toURL().openStream().use { input: InputStream -> target.outputStream().use { output: OutputStream -> input.copyTo(output) } }
 }
 
 fun installDirectFont(url: String, target: File, displayName: String) {
@@ -98,33 +96,24 @@ fun installDirectFont(url: String, target: File, displayName: String) {
     println("Installed $displayName into ${target.relativeTo(projectDir)} sha256=${sha256(target)}")
 }
 
-fun installZipFont(
-    url: String,
-    target: File,
-    displayName: String,
-    expectedZipSha256: String? = null,
-    selectEntry: (String) -> Boolean
-) {
+fun installZipFont(url: String, target: File, displayName: String, expectedZipSha256: String? = null, selectEntry: (String) -> Boolean) {
     val workDir = layout.buildDirectory.dir("reading-fonts").get().asFile
     workDir.mkdirs()
     val zipFile = File(workDir, url.substringAfterLast('/'))
     downloadFile(url, zipFile)
     val digest = sha256(zipFile)
-    if (expectedZipSha256 != null) {
-        check(digest == expectedZipSha256) { "$displayName zip SHA-256 mismatch: $digest" }
-    }
-
+    if (expectedZipSha256 != null) check(digest == expectedZipSha256) { "$displayName zip SHA-256 mismatch: $digest" }
     target.parentFile.mkdirs()
     var copied = false
     val seenFontEntries = mutableListOf<String>()
-    ZipInputStream(zipFile.inputStream()).use { zip: ZipInputStream ->
+    ZipInputStream(zipFile.inputStream()).use { zip ->
         while (true) {
             val entry = zip.nextEntry ?: break
             val name = entry.name.substringAfterLast('/')
             val isFont = name.endsWith(".ttf", ignoreCase = true) || name.endsWith(".otf", ignoreCase = true)
             if (!entry.isDirectory && isFont) seenFontEntries += name
             if (!entry.isDirectory && !copied && selectEntry(name)) {
-                target.outputStream().use { output: OutputStream -> zip.copyTo(output) }
+                target.outputStream().use { output -> zip.copyTo(output) }
                 copied = true
             }
             zip.closeEntry()
@@ -138,24 +127,11 @@ val installReadingFonts by tasks.registering {
     description = "Download the three paper-reading fonts into Android resources."
     outputs.files(zhuqueFangsongTarget, nanoOldSongTarget, chillHuoSongTarget)
     doLast {
-        installZipFont(
-            url = zhuqueFangsongZipUrl,
-            target = zhuqueFangsongTarget.asFile,
-            displayName = "Zhuque Fangsong $zhuqueFangsongVersion",
-            expectedZipSha256 = zhuqueFangsongZipSha256,
-        ) { name -> name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf", ignoreCase = true)) }
-
-        installDirectFont(
-            url = nanoOldSongUrl,
-            target = nanoOldSongTarget.asFile,
-            displayName = "Nano Old Song $nanoOldSongVersion"
-        )
-
-        installZipFont(
-            url = chillHuoSongZipUrl,
-            target = chillHuoSongTarget.asFile,
-            displayName = "Chill Huo Song $chillHuoSongVersion",
-        ) { name ->
+        installZipFont(zhuqueFangsongZipUrl, zhuqueFangsongTarget.asFile, "Zhuque Fangsong $zhuqueFangsongVersion", zhuqueFangsongZipSha256) { name ->
+            name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf", ignoreCase = true))
+        }
+        installDirectFont(nanoOldSongUrl, nanoOldSongTarget.asFile, "Nano Old Song $nanoOldSongVersion")
+        installZipFont(chillHuoSongZipUrl, chillHuoSongTarget.asFile, "Chill Huo Song $chillHuoSongVersion") { name ->
             val lower = name.lowercase()
             val isFont = lower.endsWith(".ttf") || lower.endsWith(".otf")
             isFont && !lower.contains("con")
@@ -163,9 +139,7 @@ val installReadingFonts by tasks.registering {
     }
 }
 
-tasks.matching { it.name in setOf("preBuild", "preDebugBuild", "preReleaseBuild") }.configureEach {
-    dependsOn(installReadingFonts)
-}
+tasks.matching { it.name in setOf("preBuild", "preDebugBuild", "preReleaseBuild") }.configureEach { dependsOn(installReadingFonts) }
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
@@ -179,6 +153,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     testImplementation("junit:junit:4.13.2")
