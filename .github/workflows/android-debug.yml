@@ -352,6 +352,9 @@ jobs:
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
+      - name: Verify NanoOldSong common Chinese glyphs
+        run: python3 scripts/verify_nano_old_song.py app/src/main/res/font/nano_old_song_a_regular.ttf
+
       - name: Assemble debug
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
