@@ -9,8 +9,8 @@ import androidx.compose.ui.unit.sp
 object CoastChatTokens {
     val TopBarHeight = 48.dp
     val TopBarHorizontalPadding = 4.dp
-    val TopBarTitleSize = 18.sp
-    val TopBarModelSize = 15.sp
+    val TopBarTitleSize = 17.sp
+    val TopBarModelSize = 13.sp
     val TopBarModelMaxWidth = 158.dp
     val TopBarRoomSize = 11.sp
     val TopBarMenuGlyph = 22.dp
@@ -19,26 +19,26 @@ object CoastChatTokens {
     val TopBarModelHorizontalPadding = 0.dp
     val TopBarModelVerticalPadding = 2.dp
     val TopBarDividerThickness = 0.5.dp
-    const val TopBarDividerAlpha = 0.62f
+    const val TopBarDividerAlpha = 0.50f
 
     val TimelineMaxWidth = 760.dp
-    val TimelineHorizontalPadding = 24.dp
-    val TimelineTopPadding = 28.dp
-    val TimelineBottomPadding = 20.dp
-    val MessageGap = 28.dp
-    val ChatBodySize = 17.sp
-    val ChatBodyLineHeight = 32.sp
+    val TimelineHorizontalPadding = 16.dp
+    val TimelineTopPadding = 16.dp
+    val TimelineBottomPadding = 18.dp
+    val MessageGap = 22.dp
+    val ChatBodySize = 16.sp
+    val ChatBodyLineHeight = 26.sp
     val UserBodyLineHeight = 24.sp
-    const val UserBubbleWidth = .86f
-    val UserBubbleRadius = 20.dp
-    val UserBubbleHorizontalPadding = 15.dp
-    val UserBubbleVerticalPadding = 10.dp
-    val UserActionTopGap = 7.dp
+    const val UserBubbleWidth = .88f
+    val UserBubbleRadius = 18.dp
+    val UserBubbleHorizontalPadding = 14.dp
+    val UserBubbleVerticalPadding = 9.dp
+    val UserActionTopGap = 6.dp
     val VariantActionGap = 3.dp
-    val AssistantAvatarSize = 34.dp
-    val AssistantAvatarGap = 14.dp
+    val AssistantAvatarSize = 30.dp
+    val AssistantAvatarGap = 10.dp
     val AssistantStarSize = 13.sp
-    val MessageActionTopGap = 10.dp
+    val MessageActionTopGap = 8.dp
     val StreamingGap = 5.dp
 
     val MetadataTopGap = 8.dp
@@ -54,12 +54,12 @@ object CoastChatTokens {
     val MetadataDeskVerticalPadding = 8.dp
 
     val DogtalkHorizontalPadding = 0.dp
-    val DogtalkOuterVerticalPadding = 4.dp
-    val DogtalkRadius = 16.dp
-    val DogtalkCollapsedHorizontalPadding = 13.dp
-    val DogtalkCollapsedVerticalPadding = 8.dp
-    val DogtalkExpandedHorizontalPadding = 13.dp
-    val DogtalkExpandedBottomPadding = 9.dp
+    val DogtalkOuterVerticalPadding = 3.dp
+    val DogtalkRadius = 14.dp
+    val DogtalkCollapsedHorizontalPadding = 12.dp
+    val DogtalkCollapsedVerticalPadding = 7.dp
+    val DogtalkExpandedHorizontalPadding = 12.dp
+    val DogtalkExpandedBottomPadding = 8.dp
     val DogtalkExpandedMaxHeight = 292.dp
     val DogtalkFieldRadius = 11.dp
     val DogtalkSingleLineHeight = 36.dp
@@ -134,7 +134,7 @@ object CoastChatTokens {
 }
 
 @Composable
-fun coastDogtalkCardColor(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .72f)
+fun coastDogtalkCardColor(): Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .60f)
 
 @Composable
-fun coastDogtalkFieldColor(): Color = MaterialTheme.colorScheme.surface.copy(alpha = .94f)
+fun coastDogtalkFieldColor(): Color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)
