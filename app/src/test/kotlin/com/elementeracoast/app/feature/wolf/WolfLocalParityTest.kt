@@ -38,14 +38,14 @@ class WolfLocalParityTest {
         store.setTheme(CoastThemePreset.BlushMyri)
         store.setUserBubble("#f5e8ee")
         store.setAccent("#ec4899")
-        store.setFontMode(CoastFontMode.Note)
+        store.setFontMode(CoastFontMode.ChillHuoSong)
         store.setPaperMode(CoastPaperMode.Smooth)
         store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
         val reloaded = WolfStore(persistence).state.value
         assertEquals("Kryo", reloaded.profile.nickname)
         assertEquals(CoastThemePreset.BlushMyri, reloaded.appearance.theme)
         assertEquals("#f5e8ee", reloaded.appearance.userBubbleHex)
-        assertEquals(CoastFontMode.Note, reloaded.appearance.fontMode)
+        assertEquals(CoastFontMode.ChillHuoSong, reloaded.appearance.fontMode)
         assertEquals(CoastPaperMode.Smooth, reloaded.appearance.paperMode)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
