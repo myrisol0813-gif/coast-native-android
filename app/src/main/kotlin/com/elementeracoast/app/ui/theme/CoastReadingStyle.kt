@@ -4,7 +4,8 @@ package com.elementeracoast.app.ui.theme
 enum class CoastFontMode(val label: String) {
     Myraes("朱雀仿宋"),
     NanoOldSong("纳米老宋"),
-    ChillHuoSong("寒蝉活宋");
+    ChillHuoSong("寒蝉活宋"),
+    CustomLocal("本机字体");
 
     companion object {
         fun fromStored(value: String): CoastFontMode = when (value) {
