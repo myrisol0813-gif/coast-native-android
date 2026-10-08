@@ -61,6 +61,7 @@ fun CoastTheme(
     userBubbleHex: String = "",
     fontMode: CoastFontMode = CoastFontMode.Myraes,
     paperMode: CoastPaperMode = CoastPaperMode.Wave,
+    readingWeight: CoastReadingWeight = CoastReadingWeight.Normal,
     localFontPath: String = "",
     content: @Composable () -> Unit
 ) {
@@ -91,6 +92,7 @@ fun CoastTheme(
             userBubbleColor = parseCoastHex(userBubbleHex),
             fontMode = fontMode,
             paperMode = paperMode,
+            readingWeight = readingWeight,
             readingFontFamily = readingFamily
         )
     ) {
