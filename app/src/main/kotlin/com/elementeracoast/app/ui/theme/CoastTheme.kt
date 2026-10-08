@@ -27,9 +27,9 @@ private val CoastTypography = Typography(
     headlineMedium = TextStyle(fontFamily = CoastSans, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
     titleLarge = TextStyle(fontFamily = CoastSans, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
     titleMedium = TextStyle(fontFamily = CoastSans, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.18).sp),
-    bodyLarge = TextStyle(fontFamily = CoastSans, fontSize = 16.sp, lineHeight = 25.sp, fontWeight = FontWeight.Medium),
-    bodyMedium = TextStyle(fontFamily = CoastSans, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium),
-    bodySmall = TextStyle(fontFamily = CoastSans, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
+    bodyLarge = TextStyle(fontFamily = CoastSans, fontSize = 16.sp, lineHeight = 25.sp, fontWeight = FontWeight.Normal),
+    bodyMedium = TextStyle(fontFamily = CoastSans, fontSize = 14.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal),
+    bodySmall = TextStyle(fontFamily = CoastSans, fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Normal),
     labelLarge = TextStyle(fontFamily = CoastSans, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
     labelMedium = TextStyle(fontFamily = CoastSans, fontSize = 12.sp, fontWeight = FontWeight.Medium),
     labelSmall = TextStyle(fontFamily = CoastSans, fontSize = 11.sp, fontWeight = FontWeight.Medium)
@@ -54,34 +54,6 @@ private fun readingFontFamily(mode: CoastFontMode, context: Context, localFontPa
     CoastFontMode.CustomLocal -> localFontFamily(localFontPath) ?: zhuqueFallback(context)
 }
 
-private fun readingTypography(mode: CoastFontMode, context: Context, localFontPath: String): Typography {
-    val family = readingFontFamily(mode, context, localFontPath)
-    val tracking = when (mode) {
-        CoastFontMode.Myraes -> 0.18.sp
-        CoastFontMode.NanoOldSong -> 0.08.sp
-        CoastFontMode.ChillHuoSong -> 0.06.sp
-        CoastFontMode.CustomLocal -> 0.08.sp
-    }
-    val base = CoastTypography
-    return Typography(
-        displayLarge = base.displayLarge.copy(fontFamily = family),
-        displayMedium = base.displayMedium.copy(fontFamily = family),
-        displaySmall = base.displaySmall.copy(fontFamily = family),
-        headlineLarge = base.headlineLarge.copy(fontFamily = family),
-        headlineMedium = base.headlineMedium.copy(fontFamily = family),
-        headlineSmall = base.headlineSmall.copy(fontFamily = family),
-        titleLarge = base.titleLarge.copy(fontFamily = family, letterSpacing = tracking),
-        titleMedium = base.titleMedium.copy(fontFamily = family, letterSpacing = tracking),
-        titleSmall = base.titleSmall.copy(fontFamily = family, letterSpacing = tracking),
-        bodyLarge = base.bodyLarge.copy(fontFamily = family, lineHeight = 28.sp, letterSpacing = tracking),
-        bodyMedium = base.bodyMedium.copy(fontFamily = family, lineHeight = 23.sp, letterSpacing = tracking),
-        bodySmall = base.bodySmall.copy(fontFamily = family, lineHeight = 19.sp, letterSpacing = tracking),
-        labelLarge = base.labelLarge.copy(fontFamily = family),
-        labelMedium = base.labelMedium.copy(fontFamily = family),
-        labelSmall = base.labelSmall.copy(fontFamily = family)
-    )
-}
-
 @Composable
 fun CoastTheme(
     preset: CoastThemePreset,
@@ -98,6 +70,7 @@ fun CoastTheme(
     val colors = palette.toColorScheme()
     val view = LocalView.current
     val context = LocalContext.current
+    val readingFamily = readingFontFamily(fontMode, context, localFontPath)
     if (!view.isInEditMode) {
         SideEffect {
             val activity = view.context as? Activity ?: return@SideEffect
@@ -117,9 +90,10 @@ fun CoastTheme(
             palette = palette,
             userBubbleColor = parseCoastHex(userBubbleHex),
             fontMode = fontMode,
-            paperMode = paperMode
+            paperMode = paperMode,
+            readingFontFamily = readingFamily
         )
     ) {
-        MaterialTheme(colorScheme = colors, typography = readingTypography(fontMode, context, localFontPath), content = content)
+        MaterialTheme(colorScheme = colors, typography = CoastTypography, content = content)
     }
 }
