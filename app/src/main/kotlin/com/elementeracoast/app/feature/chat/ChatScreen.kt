@@ -74,33 +74,19 @@ fun ChatWindow(
         attachmentScope.launch {
             uris.take(12).forEach { uri ->
                 when (val picked = readPickedAttachment(context, uri)) {
-                    is PickedAttachmentResult.Ready -> onUploadAttachment(
-                        picked.name,
-                        picked.mime,
-                        picked.bytes
-                    )
+                    is PickedAttachmentResult.Ready -> onUploadAttachment(picked.name, picked.mime, picked.bytes)
                     is PickedAttachmentResult.Failed -> onPlaceholder(picked.message)
                 }
             }
         }
     }
 
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        acceptPickedUris(uris)
-    }
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        acceptPickedUris(uris)
-    }
-    val metadataSource = remember(context.applicationContext) {
-        ModelMetadataRemoteDataSource.production(context.applicationContext)
-    }
-    val attachmentPreviewSource = remember(context.applicationContext) {
-        AttachmentPreviewRemoteDataSource.production(context.applicationContext)
-    }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> acceptPickedUris(uris) }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> acceptPickedUris(uris) }
+    val metadataSource = remember(context.applicationContext) { ModelMetadataRemoteDataSource.production(context.applicationContext) }
+    val attachmentPreviewSource = remember(context.applicationContext) { AttachmentPreviewRemoteDataSource.production(context.applicationContext) }
     val avatarSource = state.myriAvatarDataUrl
-    val persistedDeskReceipt = state.messages.lastOrNull()
-        ?.takeIf { it.role == MessageRole.Assistant }
-        ?.deskReceipt
+    val persistedDeskReceipt = state.messages.lastOrNull()?.takeIf { it.role == MessageRole.Assistant }?.deskReceipt
     val deskReceipt = persistedDeskReceipt ?: state.turnDeskReceipt
 
     LaunchedEffect(toolNotice?.id) {
@@ -119,7 +105,6 @@ fun ChatWindow(
                 conversationId = state.activeConversationId,
                 messages = state.messages,
                 thoughtSoil = state.thoughtSoil,
-                turnDeskReceipt = deskReceipt,
                 isStreaming = state.isStreaming,
                 streamingMessageId = state.streamingMessageId,
                 avatarBitmap = avatarBitmap,
@@ -140,16 +125,10 @@ fun ChatWindow(
                 },
                 onOpenActionLog = onOpenActionLog,
                 onOpenThoughtSoil = { if (state.thoughtSoil != null) soilOpen = true },
-                onOpenTurnDesk = { if (deskReceipt != null) deskOpen = true },
                 modifier = Modifier.weight(1f)
             )
 
-            toolNotice?.let { notice ->
-                ToolActivityPopup(
-                    notice = notice,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-            }
+            toolNotice?.let { notice -> ToolActivityPopup(notice = notice, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
             DogtalkCard(
                 scope = DogtalkScope.from(state.activeRoomType),
                 conversationId = state.activeConversationId,
@@ -157,6 +136,8 @@ fun ChatWindow(
                 crossWindowRepository = crossWindowRepository,
                 crossWindow = crossWindow,
                 onCrossWindowChange = onCrossWindowChange,
+                turnDeskReceipt = deskReceipt,
+                onOpenTurnDesk = { if (deskReceipt != null) deskOpen = true },
                 historyLoading = state.historyLoading,
                 isStreaming = state.isStreaming,
                 onNotice = onPlaceholder
@@ -183,11 +164,7 @@ fun ChatWindow(
 
     val soil = state.thoughtSoil
     if (soilOpen && soil != null) {
-        SoilBottomSheet(
-            soil = soil,
-            onOpenPendingBag = onOpenPendingMemory,
-            onDismiss = { soilOpen = false }
-        )
+        SoilBottomSheet(soil = soil, onOpenPendingBag = onOpenPendingMemory, onDismiss = { soilOpen = false })
     }
 
     if (deskOpen && deskReceipt != null) TurnDeskBottomSheet(receipt = deskReceipt, onDismiss = { deskOpen = false })
@@ -212,19 +189,11 @@ fun ChatWindow(
 }
 
 private sealed interface PickedAttachmentResult {
-    data class Ready(
-        val name: String,
-        val mime: String,
-        val bytes: ByteArray
-    ) : PickedAttachmentResult
-
+    data class Ready(val name: String, val mime: String, val bytes: ByteArray) : PickedAttachmentResult
     data class Failed(val message: String) : PickedAttachmentResult
 }
 
-private suspend fun readPickedAttachment(
-    context: android.content.Context,
-    uri: Uri
-): PickedAttachmentResult = withContext(Dispatchers.IO) {
+private suspend fun readPickedAttachment(context: android.content.Context, uri: Uri): PickedAttachmentResult = withContext(Dispatchers.IO) {
     runCatching {
         val resolver = context.contentResolver
         var name = "附件"
@@ -237,23 +206,16 @@ private suspend fun readPickedAttachment(
                 if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) declaredSize = cursor.getLong(sizeIndex)
             }
         }
-        if (declaredSize > 8L * 1024L * 1024L) {
-            return@withContext PickedAttachmentResult.Failed("${name} 超过海岸当前 8 MB 上传上限。")
-        }
-        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: return@withContext PickedAttachmentResult.Failed("${name} 无法读取。")
+        if (declaredSize > 8L * 1024L * 1024L) return@withContext PickedAttachmentResult.Failed("${name} 超过海岸当前 8 MB 上传上限。")
+        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@withContext PickedAttachmentResult.Failed("${name} 无法读取。")
         if (bytes.isEmpty()) return@withContext PickedAttachmentResult.Failed("${name} 是空文件。")
-        if (bytes.size > 8 * 1024 * 1024) {
-            return@withContext PickedAttachmentResult.Failed("${name} 超过海岸当前 8 MB 上传上限。")
-        }
+        if (bytes.size > 8 * 1024 * 1024) return@withContext PickedAttachmentResult.Failed("${name} 超过海岸当前 8 MB 上传上限。")
         PickedAttachmentResult.Ready(
             name = name.take(180),
             mime = resolver.getType(uri).orEmpty().ifBlank { "application/octet-stream" },
             bytes = bytes
         )
-    }.getOrElse { error ->
-        PickedAttachmentResult.Failed("附件读取失败：${error.message ?: "未知错误"}")
-    }
+    }.getOrElse { error -> PickedAttachmentResult.Failed("附件读取失败：${error.message ?: "未知错误"}") }
 }
 
 private fun decodeImageSource(context: android.content.Context, source: String): ImageBitmap? = runCatching {
