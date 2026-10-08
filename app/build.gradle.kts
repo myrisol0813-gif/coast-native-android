@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 62
-        versionName = "0.1.60-straight-letter-font-parity-01"
+        versionCode = 63
+        versionName = "0.1.61-chat-background-controls-01"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
