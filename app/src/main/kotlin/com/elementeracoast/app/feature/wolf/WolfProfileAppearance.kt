@@ -107,7 +107,7 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
             }
         }
         item {
-            SettingGroup("文字气质") {
+            SettingGroup("聊天正文字体 · 双方消息") {
                 CoastFontMode.entries.forEach { mode ->
                     if (mode == CoastFontMode.CustomLocal) {
                         val imported = state.appearance.localFontPath.isNotBlank()
@@ -137,7 +137,7 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
             }
         }
         item {
-            SettingGroup("正文字重") {
+            SettingGroup("聊天正文字重 · 双方消息") {
                 CoastReadingWeight.entries.forEach { weight ->
                     ChoiceRow(
                         label = weight.label,
