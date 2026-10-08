@@ -11,6 +11,9 @@ data class CoastAppearance(
     val fontMode: CoastFontMode = CoastFontMode.Myraes,
     val paperMode: CoastPaperMode = CoastPaperMode.Wave,
     val readingWeight: CoastReadingWeight = CoastReadingWeight.Normal,
+    val messageSurfaceAlpha: Float = .94f,
+    val chatBackgroundImagePath: String = "",
+    val chatBackgroundDimAlpha: Float = .18f,
     val readingFontFamily: FontFamily? = null
 )
 
