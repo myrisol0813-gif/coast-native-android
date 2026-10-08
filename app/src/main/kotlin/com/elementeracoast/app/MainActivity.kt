@@ -35,7 +35,8 @@ class MainActivity : ComponentActivity() {
                 accentHex = wolf.appearance.accentHex,
                 userBubbleHex = wolf.appearance.userBubbleHex,
                 fontMode = wolf.appearance.fontMode,
-                paperMode = wolf.appearance.paperMode
+                paperMode = wolf.appearance.paperMode,
+                localFontPath = wolf.appearance.localFontPath
             ) {
                 if (mailboxOpen) {
                     MailboxNativeSurface(onClose = { mailboxOpen = false })
