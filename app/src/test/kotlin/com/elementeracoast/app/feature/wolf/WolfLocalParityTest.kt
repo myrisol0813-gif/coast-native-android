@@ -4,6 +4,7 @@ import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import com.elementeracoast.app.ui.theme.CoastFontMode
 import com.elementeracoast.app.ui.theme.CoastPaperMode
+import com.elementeracoast.app.ui.theme.CoastReadingWeight
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -39,6 +40,7 @@ class WolfLocalParityTest {
         store.setUserBubble("#f5e8ee")
         store.setAccent("#ec4899")
         store.setLocalFont("方正FW筑紫明朝 简 L", "/data/user/0/com.elementeracoast.app/files/local-fonts/reading-font.ttf")
+        store.setReadingWeight(CoastReadingWeight.Medium)
         store.setPaperMode(CoastPaperMode.Smooth)
         store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
         val reloaded = WolfStore(persistence).state.value
@@ -48,6 +50,7 @@ class WolfLocalParityTest {
         assertEquals(CoastFontMode.CustomLocal, reloaded.appearance.fontMode)
         assertEquals("方正FW筑紫明朝 简 L", reloaded.appearance.localFontName)
         assertEquals("/data/user/0/com.elementeracoast.app/files/local-fonts/reading-font.ttf", reloaded.appearance.localFontPath)
+        assertEquals(CoastReadingWeight.Medium, reloaded.appearance.readingWeight)
         assertEquals(CoastPaperMode.Smooth, reloaded.appearance.paperMode)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
