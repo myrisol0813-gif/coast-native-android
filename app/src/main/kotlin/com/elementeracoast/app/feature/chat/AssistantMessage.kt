@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
-import com.elementeracoast.app.core.model.TurnDeskReceipt
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
@@ -43,14 +42,15 @@ import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
 
 @Composable
 internal fun AssistantMessage(
+    conversationId: String,
     message: ChatMessage,
     isStreamingTail: Boolean,
     avatarBitmap: ImageBitmap?,
     thoughtSoil: ThoughtSoilSnapshot?,
-    turnDeskReceipt: TurnDeskReceipt?,
+    metadataMessageId: String?,
+    metadataSource: ModelMetadataRemoteDataSource,
     onAvatarClick: () -> Unit,
     onOpenThoughtSoil: () -> Unit,
-    onOpenTurnDesk: () -> Unit,
     onCopy: () -> Unit,
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
@@ -94,10 +94,14 @@ internal fun AssistantMessage(
                 MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
                 MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
-                if (turnDeskReceipt != null) {
-                    Spacer(Modifier.weight(1f))
-                    TurnDeskInlinePill(receipt = turnDeskReceipt, onClick = onOpenTurnDesk)
-                }
+            }
+            if (!metadataMessageId.isNullOrBlank()) {
+                ModelMetadataTraceCard(
+                    conversationId = conversationId,
+                    messageId = metadataMessageId,
+                    source = metadataSource,
+                    modifier = Modifier.align(Alignment.End)
+                )
             }
             if (message.variantCount > 1) {
                 Spacer(Modifier.height(4.dp))
@@ -128,25 +132,6 @@ private fun ThoughtSoilHeaderPill(soil: ThoughtSoilSnapshot, onClick: () -> Unit
             text = label,
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .88f),
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun TurnDeskInlinePill(receipt: TurnDeskReceipt, onClick: () -> Unit) {
-    SnowLetterSurface(
-        modifier = Modifier.clickable(onClick = onClick),
-        role = SnowLetterSurfaceRole.StatusCard,
-        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .38f),
-        fallbackShape = RoundedCornerShape(999.dp)
-    ) {
-        Text(
-            text = receipt.summary.ifBlank { "推理痕迹与模型回波" },
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .82f),
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
