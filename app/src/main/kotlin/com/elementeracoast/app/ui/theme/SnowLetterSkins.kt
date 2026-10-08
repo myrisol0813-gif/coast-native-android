@@ -28,6 +28,11 @@ enum class SnowLetterSurfaceRole {
     DogtalkField
 }
 
+/** Shared paper treatment; other controls must never inherit chat-bubble styling. */
+internal fun SnowLetterSurfaceRole.usesLetterPaper(paperMode: CoastPaperMode): Boolean =
+    paperMode == CoastPaperMode.Wave &&
+        (this == SnowLetterSurfaceRole.AssistantBubble || this == SnowLetterSurfaceRole.UserBubble)
+
 @Composable
 fun SnowLetterSurface(
     modifier: Modifier = Modifier,
@@ -42,12 +47,17 @@ fun SnowLetterSurface(
     val appearance = LocalCoastAppearance.current
     val isMessageSurface = role == SnowLetterSurfaceRole.AssistantBubble || role == SnowLetterSurfaceRole.UserBubble
     val messageAlpha = appearance.messageSurfaceAlpha.coerceIn(.55f, 1f)
-    val isLetter = role == SnowLetterSurfaceRole.AssistantBubble && appearance.paperMode == CoastPaperMode.Wave
+    val isLetter = role.usesLetterPaper(appearance.paperMode)
 
-    // The letter is a straight rounded surface: no skew, irregular cut path, or protruding edges.
-    // A very soft shadow and thin edge preserve its paper feeling without competing with text.
+    // Both chat roles use the same restrained letter-paper treatment in Wave mode.
+    // User messages keep their own right-aligned rounded outline and custom color.
     val surfaceModifier = if (isLetter) {
-        val paperShape = RoundedCornerShape(17.dp)
+        val paperShape = if (role == SnowLetterSurfaceRole.UserBubble) fallbackShape else RoundedCornerShape(17.dp)
+        val paperFill = if (role == SnowLetterSurfaceRole.UserBubble) {
+            appearance.userBubbleColor ?: MaterialTheme.colorScheme.surface
+        } else {
+            MaterialTheme.colorScheme.surface
+        }
         val shadowTint = Color(0xFF8495A6)
         Modifier
             .shadow(
@@ -57,7 +67,7 @@ fun SnowLetterSurface(
                 ambientColor = shadowTint.copy(alpha = .10f * messageAlpha),
                 spotColor = shadowTint.copy(alpha = .07f * messageAlpha)
             )
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = messageAlpha), paperShape)
+            .background(paperFill.copy(alpha = paperFill.alpha * messageAlpha), paperShape)
             .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .23f * messageAlpha), paperShape)
     } else {
         val color = if (isMessageSurface) fallbackColor.copy(alpha = fallbackColor.alpha * messageAlpha) else fallbackColor
