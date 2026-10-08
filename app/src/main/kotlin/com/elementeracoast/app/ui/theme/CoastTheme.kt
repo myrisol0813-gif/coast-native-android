@@ -1,19 +1,23 @@
 package com.elementeracoast.app.ui.theme
 
 import android.app.Activity
+import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
+private const val ZHUQUE_FONT_RESOURCE = "zhuque_fangsong_regular"
 private val CoastSans = FontFamily.SansSerif
 private val CoastTypography = Typography(
     headlineMedium = TextStyle(fontFamily = CoastSans, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
@@ -27,14 +31,21 @@ private val CoastTypography = Typography(
     labelSmall = TextStyle(fontFamily = CoastSans, fontSize = 11.sp, fontWeight = FontWeight.Medium)
 )
 
-private fun readingTypography(mode: CoastFontMode): Typography {
-    val family = when (mode) {
-        CoastFontMode.Myraes -> FontFamily.Serif
-        CoastFontMode.Soft -> FontFamily.SansSerif
-        CoastFontMode.Note -> FontFamily.Cursive
-    }
+private fun zhuqueFangsongFamily(context: Context): FontFamily? {
+    val fontId = context.resources.getIdentifier(ZHUQUE_FONT_RESOURCE, "font", context.packageName)
+    return if (fontId == 0) null else FontFamily(Font(fontId))
+}
+
+private fun readingFontFamily(mode: CoastFontMode, context: Context): FontFamily = when (mode) {
+    CoastFontMode.Myraes -> zhuqueFangsongFamily(context) ?: FontFamily.Serif
+    CoastFontMode.Soft -> FontFamily.SansSerif
+    CoastFontMode.Note -> FontFamily.Cursive
+}
+
+private fun readingTypography(mode: CoastFontMode, context: Context): Typography {
+    val family = readingFontFamily(mode, context)
     val tracking = when (mode) {
-        CoastFontMode.Myraes -> 0.22.sp
+        CoastFontMode.Myraes -> 0.18.sp
         CoastFontMode.Soft -> 0.06.sp
         CoastFontMode.Note -> 0.18.sp
     }
@@ -72,6 +83,7 @@ fun CoastTheme(
     val palette = if (customAccent == null) basePalette else basePalette.copy(primary = customAccent, accent = customAccent)
     val colors = palette.toColorScheme()
     val view = LocalView.current
+    val context = LocalContext.current
     if (!view.isInEditMode) {
         SideEffect {
             val activity = view.context as? Activity ?: return@SideEffect
@@ -94,6 +106,6 @@ fun CoastTheme(
             paperMode = paperMode
         )
     ) {
-        MaterialTheme(colorScheme = colors, typography = readingTypography(fontMode), content = content)
+        MaterialTheme(colorScheme = colors, typography = readingTypography(fontMode, context), content = content)
     }
 }
