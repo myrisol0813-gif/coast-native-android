@@ -48,7 +48,9 @@ internal fun AssistantMessage(
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
-    val readingFont = LocalCoastAppearance.current.readingFontFamily
+    val appearance = LocalCoastAppearance.current
+    val readingFont = appearance.readingFontFamily
+    val readingWeight = appearance.readingWeight.fontWeight
     Column(modifier = Modifier.fillMaxWidth()) {
         AssistantAvatar(avatarBitmap, onAvatarClick)
         Spacer(Modifier.height(8.dp))
@@ -56,8 +58,8 @@ internal fun AssistantMessage(
             SnowLetterSurface(
                 modifier = Modifier.fillMaxWidth(),
                 role = SnowLetterSurfaceRole.AssistantBubble,
-                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = .86f),
-                fallbackShape = RoundedCornerShape(20.dp)
+                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = .34f),
+                fallbackShape = RoundedCornerShape(18.dp)
             ) {
                 Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
                     Text(
@@ -71,8 +73,8 @@ internal fun AssistantMessage(
                             fontFamily = readingFont ?: MaterialTheme.typography.bodyLarge.fontFamily,
                             fontSize = CoastChatTokens.ChatBodySize,
                             lineHeight = CoastChatTokens.ChatBodyLineHeight,
-                            fontWeight = FontWeight.Normal,
-                            letterSpacing = 0.04.sp
+                            fontWeight = readingWeight,
+                            letterSpacing = 0.02.sp
                         )
                     )
                     message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
