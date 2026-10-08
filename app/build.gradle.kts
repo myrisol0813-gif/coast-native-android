@@ -116,10 +116,13 @@ fun installZipFont(
 
     target.parentFile.mkdirs()
     var copied = false
+    val seenFontEntries = mutableListOf<String>()
     ZipInputStream(zipFile.inputStream()).use { zip: ZipInputStream ->
         while (true) {
             val entry = zip.nextEntry ?: break
             val name = entry.name.substringAfterLast('/')
+            val isFont = name.endsWith(".ttf", ignoreCase = true) || name.endsWith(".otf", ignoreCase = true)
+            if (!entry.isDirectory && isFont) seenFontEntries += name
             if (!entry.isDirectory && !copied && selectEntry(name)) {
                 target.outputStream().use { output: OutputStream -> zip.copyTo(output) }
                 copied = true
@@ -127,7 +130,7 @@ fun installZipFont(
             zip.closeEntry()
         }
     }
-    check(copied && target.length() > 0L) { "$displayName TTF was not found in $url" }
+    check(copied && target.length() > 0L) { "$displayName TTF/OTF was not found in $url; font entries=$seenFontEntries" }
     println("Installed $displayName into ${target.relativeTo(projectDir)} zipSha256=$digest fontSha256=${sha256(target)}")
 }
 
@@ -140,7 +143,7 @@ val installReadingFonts by tasks.registering {
             target = zhuqueFangsongTarget.asFile,
             displayName = "Zhuque Fangsong $zhuqueFangsongVersion",
             expectedZipSha256 = zhuqueFangsongZipSha256,
-        ) { name -> name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf")) }
+        ) { name -> name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf", ignoreCase = true)) }
 
         installDirectFont(
             url = nanoOldSongUrl,
@@ -153,7 +156,9 @@ val installReadingFonts by tasks.registering {
             target = chillHuoSongTarget.asFile,
             displayName = "Chill Huo Song $chillHuoSongVersion",
         ) { name ->
-            name.endsWith(".ttf") && name.contains("ChillHuoSong", ignoreCase = true) && !name.contains("Con", ignoreCase = true)
+            val lower = name.lowercase()
+            val isFont = lower.endsWith(".ttf") || lower.endsWith(".otf")
+            isFont && !lower.contains("con")
         }
     }
 }
