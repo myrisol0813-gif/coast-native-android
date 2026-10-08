@@ -119,6 +119,7 @@ fun ChatWindow(
                 conversationId = state.activeConversationId,
                 messages = state.messages,
                 thoughtSoil = state.thoughtSoil,
+                turnDeskReceipt = deskReceipt,
                 isStreaming = state.isStreaming,
                 streamingMessageId = state.streamingMessageId,
                 avatarBitmap = avatarBitmap,
@@ -139,6 +140,7 @@ fun ChatWindow(
                 },
                 onOpenActionLog = onOpenActionLog,
                 onOpenThoughtSoil = { if (state.thoughtSoil != null) soilOpen = true },
+                onOpenTurnDesk = { if (deskReceipt != null) deskOpen = true },
                 modifier = Modifier.weight(1f)
             )
 
@@ -148,7 +150,6 @@ fun ChatWindow(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
-            deskReceipt?.let { receipt -> TurnDeskStatusStrip(receipt = receipt, onClick = { deskOpen = true }) }
             DogtalkCard(
                 scope = DogtalkScope.from(state.activeRoomType),
                 conversationId = state.activeConversationId,
