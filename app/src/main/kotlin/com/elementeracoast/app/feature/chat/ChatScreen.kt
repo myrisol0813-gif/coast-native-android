@@ -64,6 +64,7 @@ fun ChatWindow(
     var editingMessage by remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
     var deskOpen by rememberSaveable { mutableStateOf(false) }
+    var dogtalkDrawerOpen by rememberSaveable(state.activeConversationId) { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val attachmentScope = rememberCoroutineScope()
@@ -137,6 +138,8 @@ fun ChatWindow(
                 crossWindow = crossWindow,
                 onCrossWindowChange = onCrossWindowChange,
                 turnDeskReceipt = deskReceipt,
+                open = dogtalkDrawerOpen,
+                onOpenChange = { dogtalkDrawerOpen = it },
                 onOpenTurnDesk = { if (deskReceipt != null) deskOpen = true },
                 historyLoading = state.historyLoading,
                 isStreaming = state.isStreaming,
@@ -152,6 +155,8 @@ fun ChatWindow(
                 previewSource = attachmentPreviewSource,
                 isStreaming = state.isStreaming,
                 enabled = !state.historyLoading,
+                drawerOpen = dogtalkDrawerOpen,
+                onToggleDrawer = { dogtalkDrawerOpen = !dogtalkDrawerOpen },
                 onPickImage = { imagePicker.launch(arrayOf("image/png", "image/jpeg", "image/webp")) },
                 onPickFile = { filePicker.launch(arrayOf("*/*")) },
                 onRemoveAttachment = onRemovePendingAttachment,
