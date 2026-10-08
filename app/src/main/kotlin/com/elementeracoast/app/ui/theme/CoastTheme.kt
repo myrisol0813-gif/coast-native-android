@@ -62,6 +62,9 @@ fun CoastTheme(
     fontMode: CoastFontMode = CoastFontMode.Myraes,
     paperMode: CoastPaperMode = CoastPaperMode.Wave,
     readingWeight: CoastReadingWeight = CoastReadingWeight.Normal,
+    messageSurfaceAlpha: Float = .94f,
+    chatBackgroundImagePath: String = "",
+    chatBackgroundDimAlpha: Float = .18f,
     localFontPath: String = "",
     content: @Composable () -> Unit
 ) {
@@ -93,6 +96,9 @@ fun CoastTheme(
             fontMode = fontMode,
             paperMode = paperMode,
             readingWeight = readingWeight,
+            messageSurfaceAlpha = messageSurfaceAlpha.coerceIn(.55f, 1f),
+            chatBackgroundImagePath = chatBackgroundImagePath,
+            chatBackgroundDimAlpha = chatBackgroundDimAlpha.coerceIn(0f, .65f),
             readingFontFamily = readingFamily
         )
     ) {
