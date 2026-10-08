@@ -29,11 +29,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
-import com.elementeracoast.app.ui.theme.LocalCoastAppearance
+import com.elementeracoast.app.ui.theme.coastReadingMessageStyle
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
 import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
@@ -48,9 +47,6 @@ internal fun AssistantMessage(
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
-    val appearance = LocalCoastAppearance.current
-    val readingFont = appearance.readingFontFamily
-    val readingWeight = appearance.readingWeight.fontWeight
     Column(modifier = Modifier.fillMaxWidth()) {
         AssistantAvatar(avatarBitmap, onAvatarClick)
         Spacer(Modifier.height(8.dp))
@@ -69,13 +65,7 @@ internal fun AssistantMessage(
                             else -> message.text
                         },
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontFamily = readingFont ?: MaterialTheme.typography.bodyLarge.fontFamily,
-                            fontSize = CoastChatTokens.ChatBodySize,
-                            lineHeight = CoastChatTokens.ChatBodyLineHeight,
-                            fontWeight = readingWeight,
-                            letterSpacing = 0.02.sp
-                        )
+                        style = coastReadingMessageStyle(CoastChatTokens.ChatBodyLineHeight)
                     )
                     message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
                         Spacer(Modifier.height(5.dp))
