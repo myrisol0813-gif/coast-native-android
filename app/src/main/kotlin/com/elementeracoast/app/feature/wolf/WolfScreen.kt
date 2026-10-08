@@ -118,7 +118,7 @@ private fun WolfHome(
         items(WolfDestination.entries.filterNot { it == WolfDestination.Update }) { destination ->
             val subtitle = when (destination) {
                 WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
-                WolfDestination.Appearance -> "${state.appearance.theme.label} · 用户气泡 · 重点色"
+                WolfDestination.Appearance -> "${state.appearance.theme.label} · 字体 · 纸页 · 重点色"
                 WolfDestination.Account -> if (state.profile.nickname.isNotBlank()) "已登录 · 海岸屋主" else destination.subtitle
                 WolfDestination.ModelBox -> "当前：${model.substringAfterLast('/').take(32)}"
                 WolfDestination.Update -> destination.subtitle

@@ -2,6 +2,8 @@ package com.elementeracoast.app.feature.wolf
 
 import com.elementeracoast.app.core.local.MemoryLocalPersistence
 import com.elementeracoast.app.ui.theme.CoastThemePreset
+import com.elementeracoast.app.ui.theme.CoastFontMode
+import com.elementeracoast.app.ui.theme.CoastPaperMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -36,11 +38,15 @@ class WolfLocalParityTest {
         store.setTheme(CoastThemePreset.BlushMyri)
         store.setUserBubble("#f5e8ee")
         store.setAccent("#ec4899")
+        store.setFontMode(CoastFontMode.Note)
+        store.setPaperMode(CoastPaperMode.Smooth)
         store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
         val reloaded = WolfStore(persistence).state.value
         assertEquals("Kryo", reloaded.profile.nickname)
         assertEquals(CoastThemePreset.BlushMyri, reloaded.appearance.theme)
         assertEquals("#f5e8ee", reloaded.appearance.userBubbleHex)
+        assertEquals(CoastFontMode.Note, reloaded.appearance.fontMode)
+        assertEquals(CoastPaperMode.Smooth, reloaded.appearance.paperMode)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
     }

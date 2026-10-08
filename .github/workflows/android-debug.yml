@@ -400,19 +400,6 @@ jobs:
           printf 'stable_signing=true\nsignature_verified=true\nv1_signature_file=true\n' > artifact/BUILD_INFO.txt
           printf 'versionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" >> artifact/BUILD_INFO.txt
 
-      - name: Upload debug APK artifact
-        if: github.event_name == 'push' && github.ref_name == 'main'
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoastGPT-native-${{ steps.app_version.outputs.version_name }}-debug
-          path: |
-            artifact/CoastGPT-native-${{ steps.app_version.outputs.version_name }}-debug.apk
-            artifact/SHA256SUMS.txt
-            artifact/BUILD_INFO.txt
-          if-no-files-found: error
-          retention-days: 7
-
       - name: Publish closeout APK as prerelease asset
         if: github.event_name == 'push' && (github.ref_name == 'main' || (github.ref_name == 'coast-v1-final-closeout' && contains(github.event.head_commit.message, '[apk-release]')))
         shell: bash

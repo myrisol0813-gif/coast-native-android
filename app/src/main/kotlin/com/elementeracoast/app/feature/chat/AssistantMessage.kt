@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,11 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.ui.theme.CoastChatTokens
@@ -48,14 +47,15 @@ internal fun AssistantMessage(
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         AssistantAvatar(avatarBitmap, onAvatarClick)
-        Spacer(Modifier.width(CoastChatTokens.AssistantAvatarGap))
-        Column(modifier = Modifier.weight(1f)) {
+        Spacer(Modifier.height(10.dp))
+        Column(modifier = Modifier.fillMaxWidth()) {
             SnowLetterSurface(
+                modifier = Modifier.fillMaxWidth(),
                 role = SnowLetterSurfaceRole.AssistantBubble,
-                fallbackColor = Color.Transparent,
-                fallbackShape = RoundedCornerShape(20.dp)
+                fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .30f),
+                fallbackShape = RoundedCornerShape(22.dp)
             ) {
                 Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
                     Text(
@@ -68,7 +68,8 @@ internal fun AssistantMessage(
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = CoastChatTokens.ChatBodySize,
                             lineHeight = CoastChatTokens.ChatBodyLineHeight,
-                            fontWeight = FontWeight.Normal
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 0.22.sp
                         )
                     )
                     message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->

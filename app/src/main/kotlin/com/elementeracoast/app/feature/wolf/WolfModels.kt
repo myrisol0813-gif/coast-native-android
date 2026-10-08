@@ -1,10 +1,12 @@
 package com.elementeracoast.app.feature.wolf
 
 import com.elementeracoast.app.ui.theme.CoastThemePreset
+import com.elementeracoast.app.ui.theme.CoastFontMode
+import com.elementeracoast.app.ui.theme.CoastPaperMode
 
 enum class WolfDestination(val title: String, val subtitle: String) {
     Profile("个人资料", "昵称、聊天署名与显示资料"),
-    Appearance("外观", "主题、用户气泡与重点色"),
+    Appearance("外观", "主题、纸页、文字气质与重点色"),
     Account("账户", "当前登录状态与主动退出"),
     ChatRecords("聊天记录", "导出 JSON / HTML · 导入 JSON"),
     ModelBox("模型箱", "当前模型与 OpenRouter 目录分区"),
@@ -21,7 +23,9 @@ data class WolfProfile(
 data class WolfAppearance(
     val theme: CoastThemePreset = CoastThemePreset.CoastDefault,
     val userBubbleHex: String = "",
-    val accentHex: String = ""
+    val accentHex: String = "",
+    val fontMode: CoastFontMode = CoastFontMode.Myraes,
+    val paperMode: CoastPaperMode = CoastPaperMode.Wave
 )
 
 data class BasicSettings(

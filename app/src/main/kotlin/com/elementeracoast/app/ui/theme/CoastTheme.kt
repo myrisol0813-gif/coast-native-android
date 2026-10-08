@@ -27,11 +27,44 @@ private val CoastTypography = Typography(
     labelSmall = TextStyle(fontFamily = CoastSans, fontSize = 11.sp, fontWeight = FontWeight.Medium)
 )
 
+private fun readingTypography(mode: CoastFontMode): Typography {
+    val family = when (mode) {
+        CoastFontMode.Myraes -> FontFamily.Serif
+        CoastFontMode.Soft -> FontFamily.SansSerif
+        CoastFontMode.Note -> FontFamily.Cursive
+    }
+    val tracking = when (mode) {
+        CoastFontMode.Myraes -> 0.22.sp
+        CoastFontMode.Soft -> 0.06.sp
+        CoastFontMode.Note -> 0.18.sp
+    }
+    val base = CoastTypography
+    return Typography(
+        displayLarge = base.displayLarge.copy(fontFamily = family),
+        displayMedium = base.displayMedium.copy(fontFamily = family),
+        displaySmall = base.displaySmall.copy(fontFamily = family),
+        headlineLarge = base.headlineLarge.copy(fontFamily = family),
+        headlineMedium = base.headlineMedium.copy(fontFamily = family),
+        headlineSmall = base.headlineSmall.copy(fontFamily = family),
+        titleLarge = base.titleLarge.copy(fontFamily = family, letterSpacing = tracking),
+        titleMedium = base.titleMedium.copy(fontFamily = family, letterSpacing = tracking),
+        titleSmall = base.titleSmall.copy(fontFamily = family, letterSpacing = tracking),
+        bodyLarge = base.bodyLarge.copy(fontFamily = family, lineHeight = 28.sp, letterSpacing = tracking),
+        bodyMedium = base.bodyMedium.copy(fontFamily = family, lineHeight = 23.sp, letterSpacing = tracking),
+        bodySmall = base.bodySmall.copy(fontFamily = family, lineHeight = 19.sp, letterSpacing = tracking),
+        labelLarge = base.labelLarge.copy(fontFamily = family),
+        labelMedium = base.labelMedium.copy(fontFamily = family),
+        labelSmall = base.labelSmall.copy(fontFamily = family)
+    )
+}
+
 @Composable
 fun CoastTheme(
     preset: CoastThemePreset,
     accentHex: String = "",
     userBubbleHex: String = "",
+    fontMode: CoastFontMode = CoastFontMode.Myraes,
+    paperMode: CoastPaperMode = CoastPaperMode.Wave,
     content: @Composable () -> Unit
 ) {
     val basePalette = preset.palette()
@@ -56,9 +89,11 @@ fun CoastTheme(
         LocalCoastAppearance provides CoastAppearance(
             preset = preset,
             palette = palette,
-            userBubbleColor = parseCoastHex(userBubbleHex)
+            userBubbleColor = parseCoastHex(userBubbleHex),
+            fontMode = fontMode,
+            paperMode = paperMode
         )
     ) {
-        MaterialTheme(colorScheme = colors, typography = CoastTypography, content = content)
+        MaterialTheme(colorScheme = colors, typography = readingTypography(fontMode), content = content)
     }
 }

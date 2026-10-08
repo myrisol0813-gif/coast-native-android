@@ -47,7 +47,12 @@ fun SnowLetterSurface(
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val enabled = LocalCoastAppearance.current.preset.usesSnowLetterDecorations()
+    val appearance = LocalCoastAppearance.current
+    val enabled = if (role == SnowLetterSurfaceRole.AssistantBubble) {
+        appearance.paperMode == CoastPaperMode.Wave
+    } else {
+        appearance.preset.usesSnowLetterDecorations()
+    }
     val surfaceModifier = if (enabled) {
         Modifier.drawWithContent {
             drawSnowLetterTemplateSurface(role)
@@ -69,7 +74,9 @@ fun SnowLetterSurface(
 
 @Composable
 fun snowLetterInnerPadding(role: SnowLetterSurfaceRole): PaddingValues =
-    if (!LocalCoastAppearance.current.preset.usesSnowLetterDecorations()) {
+    if (role == SnowLetterSurfaceRole.AssistantBubble) {
+        PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+    } else if (!LocalCoastAppearance.current.preset.usesSnowLetterDecorations()) {
         PaddingValues(0.dp)
     } else {
         when (role) {

@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.ui.theme.CoastThemePreset
+import com.elementeracoast.app.ui.theme.CoastFontMode
+import com.elementeracoast.app.ui.theme.CoastPaperMode
 
 @Composable
 internal fun ProfileScreen(
@@ -81,6 +83,24 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
             SettingGroup("重点色") {
                 listOf("" to "默认 · 跟随主题", "#ff6a21" to "橙色", "#f28b2e" to "金色", "#3b82f6" to "蓝色", "#ec4899" to "粉色").forEach { (value, label) ->
                     ChoiceRow(label, state.appearance.accentHex == value) { store.setAccent(value) }
+                }
+            }
+        }
+        item {
+            SettingGroup("文字气质") {
+                CoastFontMode.entries.forEach { mode ->
+                    ChoiceRow(mode.label, state.appearance.fontMode == mode) {
+                        store.setFontMode(mode)
+                    }
+                }
+            }
+        }
+        item {
+            SettingGroup("纸页形态") {
+                CoastPaperMode.entries.forEach { mode ->
+                    ChoiceRow(mode.label, state.appearance.paperMode == mode) {
+                        store.setPaperMode(mode)
+                    }
                 }
             }
         }

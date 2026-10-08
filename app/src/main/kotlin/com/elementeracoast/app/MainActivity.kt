@@ -33,7 +33,9 @@ class MainActivity : ComponentActivity() {
             CoastTheme(
                 preset = wolf.appearance.theme,
                 accentHex = wolf.appearance.accentHex,
-                userBubbleHex = wolf.appearance.userBubbleHex
+                userBubbleHex = wolf.appearance.userBubbleHex,
+                fontMode = wolf.appearance.fontMode,
+                paperMode = wolf.appearance.paperMode
             ) {
                 if (mailboxOpen) {
                     MailboxNativeSurface(onClose = { mailboxOpen = false })

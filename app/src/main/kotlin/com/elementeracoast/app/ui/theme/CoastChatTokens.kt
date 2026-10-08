@@ -26,8 +26,8 @@ object CoastChatTokens {
     val TimelineTopPadding = 28.dp
     val TimelineBottomPadding = 20.dp
     val MessageGap = 28.dp
-    val ChatBodySize = 16.sp
-    val ChatBodyLineHeight = 27.sp
+    val ChatBodySize = 17.sp
+    val ChatBodyLineHeight = 32.sp
     val UserBodyLineHeight = 24.sp
     const val UserBubbleWidth = .86f
     val UserBubbleRadius = 20.dp

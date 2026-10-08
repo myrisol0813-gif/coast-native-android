@@ -6,7 +6,9 @@ import androidx.compose.ui.graphics.Color
 data class CoastAppearance(
     val preset: CoastThemePreset = CoastThemePreset.CoastDefault,
     val palette: CoastThemePalette = CoastThemePreset.CoastDefault.palette(),
-    val userBubbleColor: Color? = null
+    val userBubbleColor: Color? = null,
+    val fontMode: CoastFontMode = CoastFontMode.Myraes,
+    val paperMode: CoastPaperMode = CoastPaperMode.Wave
 )
 
 val LocalCoastAppearance = staticCompositionLocalOf { CoastAppearance() }

@@ -2,6 +2,8 @@ package com.elementeracoast.app.feature.wolf
 
 import com.elementeracoast.app.core.local.LocalPersistence
 import com.elementeracoast.app.ui.theme.CoastThemePreset
+import com.elementeracoast.app.ui.theme.CoastFontMode
+import com.elementeracoast.app.ui.theme.CoastPaperMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,14 @@ class WolfStore(private val persistence: LocalPersistence) {
         it.copy(appearance = it.appearance.copy(accentHex = sanitizeHex(hex)))
     }
 
+    fun setFontMode(value: CoastFontMode) = update {
+        it.copy(appearance = it.appearance.copy(fontMode = value))
+    }
+
+    fun setPaperMode(value: CoastPaperMode) = update {
+        it.copy(appearance = it.appearance.copy(paperMode = value))
+    }
+
     fun updateBasic(transform: (BasicSettings) -> BasicSettings) = update {
         it.copy(basic = transform(it.basic).normalized())
     }
@@ -57,7 +67,9 @@ class WolfStore(private val persistence: LocalPersistence) {
             appearance = WolfAppearance(
                 theme = theme,
                 userBubbleHex = sanitizeHex(persistence.get(KEY_BUBBLE)),
-                accentHex = sanitizeHex(persistence.get(KEY_ACCENT))
+                accentHex = sanitizeHex(persistence.get(KEY_ACCENT)),
+                fontMode = CoastFontMode.fromStored(persistence.get(KEY_FONT_MODE)),
+                paperMode = CoastPaperMode.fromStored(persistence.get(KEY_PAPER_MODE))
             ),
             basic = BasicSettings(
                 recentTurns = int(KEY_RECENT_TURNS, 8),
@@ -81,6 +93,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         persistence.put(KEY_THEME_PRESET, value.appearance.theme.name)
         persistence.put(KEY_BUBBLE, value.appearance.userBubbleHex)
         persistence.put(KEY_ACCENT, value.appearance.accentHex)
+        persistence.put(KEY_FONT_MODE, value.appearance.fontMode.name)
+        persistence.put(KEY_PAPER_MODE, value.appearance.paperMode.name)
         val basic = value.basic
         persistence.put(KEY_RECENT_TURNS, basic.recentTurns.toString())
         persistence.put(KEY_CONTEXT_BUDGET, basic.contextBudget.toString())
@@ -120,6 +134,8 @@ class WolfStore(private val persistence: LocalPersistence) {
         private const val KEY_LEGACY_THEME = ROOT + "theme"
         private const val KEY_BUBBLE = ROOT + "bubble"
         private const val KEY_ACCENT = ROOT + "accent"
+        private const val KEY_FONT_MODE = ROOT + "fontMode"
+        private const val KEY_PAPER_MODE = ROOT + "paperMode"
         private const val KEY_RECENT_TURNS = ROOT + "recentTurns"
         private const val KEY_CONTEXT_BUDGET = ROOT + "contextBudget"
         private const val KEY_OUTPUT_LENGTH = ROOT + "outputLength"
