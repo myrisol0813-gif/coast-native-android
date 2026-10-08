@@ -45,6 +45,28 @@ class WolfStore(private val persistence: LocalPersistence) {
         it.copy(appearance = it.appearance.copy(readingWeight = value))
     }
 
+    fun setMessageSurfaceAlpha(value: Float) = update {
+        it.copy(appearance = it.appearance.copy(messageSurfaceAlpha = value.coerceIn(.55f, 1f)))
+    }
+
+    fun setChatBackground(displayName: String, path: String) = update {
+        it.copy(appearance = it.appearance.copy(
+            chatBackgroundImageName = displayName.trim().ifBlank { "本机背景图" }.take(120),
+            chatBackgroundImagePath = path
+        ))
+    }
+
+    fun clearChatBackground() = update {
+        it.copy(appearance = it.appearance.copy(
+            chatBackgroundImageName = "",
+            chatBackgroundImagePath = ""
+        ))
+    }
+
+    fun setChatBackgroundDimAlpha(value: Float) = update {
+        it.copy(appearance = it.appearance.copy(chatBackgroundDimAlpha = value.coerceIn(0f, .65f)))
+    }
+
     fun setLocalFont(displayName: String, path: String) = update {
         it.copy(appearance = it.appearance.copy(
             fontMode = CoastFontMode.CustomLocal,
@@ -79,6 +101,7 @@ class WolfStore(private val persistence: LocalPersistence) {
     private fun load(): WolfState {
         fun int(key: String, fallback: Int) = persistence.get(key, fallback.toString()).toIntOrNull() ?: fallback
         fun bool(key: String, fallback: Boolean) = persistence.get(key, fallback.toString()).toBooleanStrictOrNull() ?: fallback
+        fun float(key: String, fallback: Float) = persistence.get(key, fallback.toString()).toFloatOrNull() ?: fallback
         val storedPreset = persistence.get(KEY_THEME_PRESET).ifBlank { persistence.get(KEY_LEGACY_THEME, CoastThemePreset.CoastDefault.name) }
         val theme = CoastThemePreset.fromStored(storedPreset)
         val localFontPath = persistence.get(KEY_LOCAL_FONT_PATH)
@@ -96,6 +119,10 @@ class WolfStore(private val persistence: LocalPersistence) {
                 },
                 paperMode = CoastPaperMode.fromStored(persistence.get(KEY_PAPER_MODE)),
                 readingWeight = CoastReadingWeight.fromStored(persistence.get(KEY_READING_WEIGHT)),
+                messageSurfaceAlpha = float(KEY_MESSAGE_SURFACE_ALPHA, .94f).coerceIn(.55f, 1f),
+                chatBackgroundImageName = persistence.get(KEY_CHAT_BACKGROUND_NAME).take(120),
+                chatBackgroundImagePath = persistence.get(KEY_CHAT_BACKGROUND_PATH),
+                chatBackgroundDimAlpha = float(KEY_CHAT_BACKGROUND_DIM, .18f).coerceIn(0f, .65f),
                 localFontName = persistence.get(KEY_LOCAL_FONT_NAME).take(120),
                 localFontPath = localFontPath
             ),
@@ -124,6 +151,10 @@ class WolfStore(private val persistence: LocalPersistence) {
         persistence.put(KEY_FONT_MODE, value.appearance.fontMode.name)
         persistence.put(KEY_PAPER_MODE, value.appearance.paperMode.name)
         persistence.put(KEY_READING_WEIGHT, value.appearance.readingWeight.name)
+        persistence.put(KEY_MESSAGE_SURFACE_ALPHA, value.appearance.messageSurfaceAlpha.toString())
+        persistence.put(KEY_CHAT_BACKGROUND_NAME, value.appearance.chatBackgroundImageName)
+        persistence.put(KEY_CHAT_BACKGROUND_PATH, value.appearance.chatBackgroundImagePath)
+        persistence.put(KEY_CHAT_BACKGROUND_DIM, value.appearance.chatBackgroundDimAlpha.toString())
         persistence.put(KEY_LOCAL_FONT_NAME, value.appearance.localFontName)
         persistence.put(KEY_LOCAL_FONT_PATH, value.appearance.localFontPath)
         val basic = value.basic
@@ -168,6 +199,10 @@ class WolfStore(private val persistence: LocalPersistence) {
         private const val KEY_FONT_MODE = ROOT + "fontMode"
         private const val KEY_PAPER_MODE = ROOT + "paperMode"
         private const val KEY_READING_WEIGHT = ROOT + "readingWeight"
+        private const val KEY_MESSAGE_SURFACE_ALPHA = ROOT + "messageSurfaceAlpha"
+        private const val KEY_CHAT_BACKGROUND_NAME = ROOT + "chatBackgroundName"
+        private const val KEY_CHAT_BACKGROUND_PATH = ROOT + "chatBackgroundPath"
+        private const val KEY_CHAT_BACKGROUND_DIM = ROOT + "chatBackgroundDimAlpha"
         private const val KEY_LOCAL_FONT_NAME = ROOT + "localFontName"
         private const val KEY_LOCAL_FONT_PATH = ROOT + "localFontPath"
         private const val KEY_RECENT_TURNS = ROOT + "recentTurns"
