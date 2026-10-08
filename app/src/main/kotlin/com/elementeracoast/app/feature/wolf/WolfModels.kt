@@ -25,7 +25,9 @@ data class WolfAppearance(
     val userBubbleHex: String = "",
     val accentHex: String = "",
     val fontMode: CoastFontMode = CoastFontMode.Myraes,
-    val paperMode: CoastPaperMode = CoastPaperMode.Wave
+    val paperMode: CoastPaperMode = CoastPaperMode.Wave,
+    val localFontName: String = "",
+    val localFontPath: String = ""
 )
 
 data class BasicSettings(
