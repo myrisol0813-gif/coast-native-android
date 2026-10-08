@@ -30,6 +30,118 @@ import com.elementeracoast.app.core.remote.RemoteModelMetadata
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import kotlinx.serialization.json.JsonElement
 
+internal class ModelMetadataTraceState(
+    val conversationId: String,
+    val messageId: String,
+    val source: ModelMetadataRemoteDataSource
+) {
+    var expanded by mutableStateOf(false)
+    var rawExpanded by mutableStateOf(false)
+    var response by mutableStateOf<RemoteMessageModelMetadataResponse?>(null)
+    var loading by mutableStateOf(false)
+    var errorText by mutableStateOf("")
+}
+
+@Composable
+internal fun rememberModelMetadataTraceState(
+    conversationId: String,
+    messageId: String,
+    source: ModelMetadataRemoteDataSource
+): ModelMetadataTraceState {
+    val state = remember(conversationId, messageId, source) {
+        ModelMetadataTraceState(conversationId, messageId, source)
+    }
+
+    LaunchedEffect(state.expanded, state.messageId) {
+        if (!state.expanded || state.response != null || state.loading) return@LaunchedEffect
+        state.loading = true
+        state.errorText = ""
+        runCatching { state.source.get(state.conversationId, state.messageId, includeRaw = false) }
+            .onSuccess { state.response = it }
+            .onFailure { state.errorText = it.message ?: "模型回波读取失败。" }
+        state.loading = false
+    }
+
+    LaunchedEffect(state.rawExpanded, state.messageId) {
+        if (!state.rawExpanded || state.loading || state.response?.rawMetadataSanitized != null) return@LaunchedEffect
+        state.loading = true
+        runCatching { state.source.get(state.conversationId, state.messageId, includeRaw = true) }
+            .onSuccess { state.response = it }
+            .onFailure { state.errorText = it.message ?: "脱敏原始回包读取失败。" }
+        state.loading = false
+    }
+
+    return state
+}
+
+@Composable
+internal fun ModelMetadataTraceChip(
+    state: ModelMetadataTraceState,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = "推理痕迹与模型回波",
+        modifier = modifier
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (state.expanded) .68f else .50f),
+                RoundedCornerShape(CoastChatTokens.MetadataRadius)
+            )
+            .border(
+                width = androidx.compose.ui.unit.Dp.Hairline,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .72f),
+                shape = RoundedCornerShape(CoastChatTokens.MetadataRadius)
+            )
+            .clickable { state.expanded = !state.expanded }
+            .padding(
+                horizontal = CoastChatTokens.MetadataHorizontalPadding,
+                vertical = CoastChatTokens.MetadataTopGap
+            ),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelMedium.copy(
+            fontSize = CoastChatTokens.MetadataTitleSize,
+            fontWeight = FontWeight.SemiBold
+        )
+    )
+}
+
+@Composable
+internal fun ModelMetadataTracePanel(
+    state: ModelMetadataTraceState,
+    modifier: Modifier = Modifier
+) {
+    if (!state.expanded) return
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .48f),
+                RoundedCornerShape(CoastChatTokens.MetadataRadius)
+            )
+            .border(
+                width = androidx.compose.ui.unit.Dp.Hairline,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(CoastChatTokens.MetadataRadius)
+            )
+            .padding(
+                horizontal = CoastChatTokens.MetadataHorizontalPadding,
+                vertical = CoastChatTokens.MetadataVerticalPadding
+            )
+    ) {
+        when {
+            state.loading && state.response == null -> MetadataMuted("正在读取模型回波……")
+            state.errorText.isNotBlank() && state.response == null -> MetadataMuted(state.errorText)
+            state.response == null -> MetadataMuted("本轮模型没有返回可展示的模型回波。")
+            else -> MetadataBody(
+                response = state.response!!,
+                rawExpanded = state.rawExpanded,
+                rawLoading = state.loading && state.rawExpanded,
+                onToggleRaw = { state.rawExpanded = !state.rawExpanded },
+                errorText = state.errorText
+            )
+        }
+    }
+}
+
 @Composable
 internal fun ModelMetadataTraceCard(
     conversationId: String,
@@ -37,91 +149,15 @@ internal fun ModelMetadataTraceCard(
     source: ModelMetadataRemoteDataSource,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember(messageId) { mutableStateOf(false) }
-    var rawExpanded by remember(messageId) { mutableStateOf(false) }
-    var response by remember(messageId) { mutableStateOf<RemoteMessageModelMetadataResponse?>(null) }
-    var loading by remember(messageId) { mutableStateOf(false) }
-    var errorText by remember(messageId) { mutableStateOf("") }
-
-    LaunchedEffect(expanded, messageId) {
-        if (!expanded || response != null || loading) return@LaunchedEffect
-        loading = true
-        errorText = ""
-        runCatching { source.get(conversationId, messageId, includeRaw = false) }
-            .onSuccess { response = it }
-            .onFailure { errorText = it.message ?: "模型回波读取失败。" }
-        loading = false
-    }
-
-    LaunchedEffect(rawExpanded, messageId) {
-        if (!rawExpanded || loading || response?.rawMetadataSanitized != null) return@LaunchedEffect
-        loading = true
-        runCatching { source.get(conversationId, messageId, includeRaw = true) }
-            .onSuccess { response = it }
-            .onFailure { errorText = it.message ?: "脱敏原始回包读取失败。" }
-        loading = false
-    }
-
-    val rootModifier = if (expanded) modifier.fillMaxWidth() else modifier
+    val state = rememberModelMetadataTraceState(conversationId, messageId, source)
     Column(
-        modifier = rootModifier.padding(top = CoastChatTokens.MetadataTopGap),
-        horizontalAlignment = if (expanded) Alignment.Start else Alignment.End
+        modifier = modifier.padding(top = CoastChatTokens.MetadataTopGap),
+        horizontalAlignment = Alignment.End
     ) {
-        Text(
-            text = "推理痕迹与模型回波",
-            modifier = Modifier
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (expanded) .68f else .50f),
-                    RoundedCornerShape(CoastChatTokens.MetadataRadius)
-                )
-                .border(
-                    width = androidx.compose.ui.unit.Dp.Hairline,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .72f),
-                    shape = RoundedCornerShape(CoastChatTokens.MetadataRadius)
-                )
-                .clickable { expanded = !expanded }
-                .padding(
-                    horizontal = CoastChatTokens.MetadataHorizontalPadding,
-                    vertical = CoastChatTokens.MetadataTopGap
-                ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontSize = CoastChatTokens.MetadataTitleSize,
-                fontWeight = FontWeight.SemiBold
-            )
-        )
-        if (!expanded) return@Column
-
-        Spacer(Modifier.height(CoastChatTokens.MetadataRowGap))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .48f),
-                    RoundedCornerShape(CoastChatTokens.MetadataRadius)
-                )
-                .border(
-                    width = androidx.compose.ui.unit.Dp.Hairline,
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = RoundedCornerShape(CoastChatTokens.MetadataRadius)
-                )
-                .padding(
-                    horizontal = CoastChatTokens.MetadataHorizontalPadding,
-                    vertical = CoastChatTokens.MetadataVerticalPadding
-                )
-        ) {
-            when {
-                loading && response == null -> MetadataMuted("正在读取模型回波……")
-                errorText.isNotBlank() && response == null -> MetadataMuted(errorText)
-                response == null -> MetadataMuted("本轮模型没有返回可展示的模型回波。")
-                else -> MetadataBody(
-                    response = response!!,
-                    rawExpanded = rawExpanded,
-                    rawLoading = loading && rawExpanded,
-                    onToggleRaw = { rawExpanded = !rawExpanded },
-                    errorText = errorText
-                )
-            }
+        ModelMetadataTraceChip(state = state)
+        if (state.expanded) {
+            Spacer(Modifier.height(CoastChatTokens.MetadataRowGap))
+            ModelMetadataTracePanel(state = state)
         }
     }
 }
