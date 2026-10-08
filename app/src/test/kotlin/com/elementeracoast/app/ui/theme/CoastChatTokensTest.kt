@@ -10,8 +10,8 @@ class CoastChatTokensTest {
     @Test
     fun roomScaleUsesQuietReadableNativeChatTokens() {
         assertEquals(48.dp, CoastChatTokens.TopBarHeight)
-        assertEquals(16.sp, CoastChatTokens.ChatBodySize)
-        assertEquals(26.sp, CoastChatTokens.ChatBodyLineHeight)
+        assertEquals(15.5.sp, CoastChatTokens.ChatBodySize)
+        assertEquals(24.5.sp, CoastChatTokens.ChatBodyLineHeight)
         assertEquals(24.sp, CoastChatTokens.UserBodyLineHeight)
         assertEquals(4.dp, CoastChatTokens.ComposerVerticalPadding)
         assertEquals(44.dp, CoastChatTokens.ComposerPillMinHeight)
@@ -19,6 +19,8 @@ class CoastChatTokensTest {
         assertEquals(326.dp, CoastChatTokens.DrawerWidth)
         assertEquals(30.dp, CoastChatTokens.AssistantAvatarSize)
         assertEquals(18.dp, CoastChatTokens.UserBubbleRadius)
+        assertEquals(12.dp, CoastChatTokens.TimelineHorizontalPadding)
+        assertTrue(CoastChatTokens.TimelineBottomPadding >= 96.dp)
         assertTrue(CoastChatTokens.DogtalkExpandedMaxHeight <= 300.dp)
         assertEquals(30.dp, CoastChatTokens.DogtalkSaveVisualHeight)
         assertTrue(CoastChatTokens.DogtalkSaveTouchHeight >= CoastChatTokens.DogtalkSaveVisualHeight)
