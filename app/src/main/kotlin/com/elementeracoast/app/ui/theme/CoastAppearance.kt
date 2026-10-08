@@ -2,13 +2,15 @@ package com.elementeracoast.app.ui.theme
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 
 data class CoastAppearance(
     val preset: CoastThemePreset = CoastThemePreset.CoastDefault,
     val palette: CoastThemePalette = CoastThemePreset.CoastDefault.palette(),
     val userBubbleColor: Color? = null,
     val fontMode: CoastFontMode = CoastFontMode.Myraes,
-    val paperMode: CoastPaperMode = CoastPaperMode.Wave
+    val paperMode: CoastPaperMode = CoastPaperMode.Wave,
+    val readingFontFamily: FontFamily? = null
 )
 
 val LocalCoastAppearance = staticCompositionLocalOf { CoastAppearance() }
