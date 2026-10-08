@@ -1,5 +1,11 @@
 package com.elementeracoast.app.feature.wolf
 
+import android.content.Context
+import android.graphics.Typeface
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,11 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import com.elementeracoast.app.ui.theme.CoastFontMode
 import com.elementeracoast.app.ui.theme.CoastPaperMode
+import java.io.File
 
 @Composable
 internal fun ProfileScreen(
@@ -60,6 +68,16 @@ internal fun ProfileScreen(
 
 @Composable
 internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (String) -> Unit) {
+    val context = LocalContext.current
+    val localFontLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching { importLocalFont(context, uri) }
+            .onSuccess { imported ->
+                store.setLocalFont(imported.displayName, imported.path)
+                onSnackbar("本机字体已导入：${imported.displayName}")
+            }
+            .onFailure { error -> onSnackbar(error.message ?: "本机字体导入失败") }
+    }
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         item { Text("外观", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
         item {
@@ -89,8 +107,29 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
         item {
             SettingGroup("文字气质") {
                 CoastFontMode.entries.forEach { mode ->
-                    ChoiceRow(mode.label, state.appearance.fontMode == mode) {
-                        store.setFontMode(mode)
+                    if (mode == CoastFontMode.CustomLocal) {
+                        val imported = state.appearance.localFontPath.isNotBlank()
+                        ChoiceRow(
+                            label = mode.label,
+                            selected = state.appearance.fontMode == mode,
+                            subtitle = if (imported) state.appearance.localFontName.ifBlank { "已导入本机字体" } else "点此选择已购买或授权的 .ttf / .otf"
+                        ) {
+                            if (imported) store.setFontMode(mode) else localFontLauncher.launch(arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream"))
+                        }
+                        if (imported) {
+                            ChoiceRow("更换本机字体", false, "重新选择 .ttf / .otf，只保存在此设备") {
+                                localFontLauncher.launch(arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream"))
+                            }
+                            ChoiceRow("移除本机字体", false, "删除 APP 私有目录里的字体副本") {
+                                removeLocalFont(context, state.appearance.localFontPath)
+                                store.clearLocalFont()
+                                onSnackbar("本机字体已移除，已回到朱雀仿宋")
+                            }
+                        }
+                    } else {
+                        ChoiceRow(mode.label, state.appearance.fontMode == mode) {
+                            store.setFontMode(mode)
+                        }
                     }
                 }
             }
@@ -104,7 +143,7 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
                 }
             }
         }
-        item { Text("以上都只保存在本机，不接后端。默认海岸主题不会被覆盖。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+        item { Text("以上都只保存在本机，不接后端。本机字体只保存于此设备；覆盖安装会保留，卸载或清除数据后需要重新导入。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
     }
 }
 
@@ -142,11 +181,16 @@ internal fun SettingGroup(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-internal fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ChoiceRow(label: String, selected: Boolean, subtitle: String? = null, onClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
         Text(if (selected) "●" else "○", color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.padding(horizontal = 5.dp))
-        Text(label, modifier = Modifier.weight(1f))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label)
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }
 
@@ -158,4 +202,42 @@ internal fun PrimaryLocalButton(label: String, onClick: () -> Unit) {
         color = MaterialTheme.colorScheme.onPrimary,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+private data class ImportedLocalFont(val displayName: String, val path: String)
+
+private fun importLocalFont(context: Context, uri: Uri): ImportedLocalFont {
+    val displayName = readDisplayName(context, uri).ifBlank { "本机字体" }.take(120)
+    val extension = displayName.substringAfterLast('.', "").lowercase()
+    val mime = context.contentResolver.getType(uri).orEmpty().lowercase()
+    val targetExtension = when {
+        extension == "ttf" || mime.contains("ttf") || mime.contains("truetype") -> "ttf"
+        extension == "otf" || mime.contains("otf") || mime.contains("opentype") -> "otf"
+        else -> throw IllegalArgumentException("请选择 .ttf 或 .otf 字体文件")
+    }
+    val directory = File(context.filesDir, "local-fonts").apply { mkdirs() }
+    directory.listFiles()?.forEach { it.delete() }
+    val temp = File(directory, "reading-font.tmp")
+    val target = File(directory, "reading-font.$targetExtension")
+    context.contentResolver.openInputStream(uri)?.use { input -> temp.outputStream().use { output -> input.copyTo(output) } }
+        ?: throw IllegalArgumentException("无法读取所选字体文件")
+    check(temp.length() > 0L) { "字体文件为空" }
+    runCatching { Typeface.createFromFile(temp) }
+        .getOrElse { throw IllegalArgumentException("字体文件无法被 Android 读取") }
+    temp.copyTo(target, overwrite = true)
+    temp.delete()
+    return ImportedLocalFont(displayName.removeSuffix(".ttf").removeSuffix(".TTF").removeSuffix(".otf").removeSuffix(".OTF"), target.absolutePath)
+}
+
+private fun readDisplayName(context: Context, uri: Uri): String {
+    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (index >= 0 && cursor.moveToFirst()) return cursor.getString(index).orEmpty()
+    }
+    return uri.lastPathSegment.orEmpty()
+}
+
+private fun removeLocalFont(context: Context, path: String) {
+    runCatching { File(path).delete() }
+    runCatching { File(context.filesDir, "local-fonts").listFiles()?.forEach { it.delete() } }
 }
