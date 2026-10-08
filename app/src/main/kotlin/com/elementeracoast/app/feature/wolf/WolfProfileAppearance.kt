@@ -29,11 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.ui.theme.CoastThemePreset
 import com.elementeracoast.app.ui.theme.CoastFontMode
 import com.elementeracoast.app.ui.theme.CoastPaperMode
+import com.elementeracoast.app.ui.theme.CoastReadingWeight
 import java.io.File
 
 @Composable
@@ -131,6 +133,21 @@ internal fun AppearanceScreen(state: WolfState, store: WolfStore, onSnackbar: (S
                             store.setFontMode(mode)
                         }
                     }
+                }
+            }
+        }
+        item {
+            SettingGroup("正文字重") {
+                CoastReadingWeight.entries.forEach { weight ->
+                    ChoiceRow(
+                        label = weight.label,
+                        selected = state.appearance.readingWeight == weight,
+                        subtitle = when (weight) {
+                            CoastReadingWeight.Normal -> "默认。最清瘦，也最不容易假加粗。"
+                            CoastReadingWeight.Medium -> "稍稍加重。适合过细的字体。"
+                            CoastReadingWeight.Bold -> "明显加粗。部分字体可能会被系统假加粗。"
+                        }
+                    ) { store.setReadingWeight(weight) }
                 }
             }
         }
