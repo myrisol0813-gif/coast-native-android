@@ -1,3 +1,10 @@
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.URI
+import java.security.MessageDigest
+import java.util.zip.ZipInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -72,25 +79,27 @@ val installZhuqueFangsong by tasks.registering {
     doLast {
         val workDir = layout.buildDirectory.dir("zhuque-fangsong").get().asFile
         workDir.mkdirs()
-        val zipFile = java.io.File(workDir, "ZhuqueFangsong-$zhuqueFangsongVersion.zip")
-        java.net.URI(zhuqueFangsongZipUrl).toURL().openStream().use { input ->
-            zipFile.outputStream().use { output -> input.copyTo(output) }
+        val zipFile = File(workDir, "ZhuqueFangsong-$zhuqueFangsongVersion.zip")
+        URI(zhuqueFangsongZipUrl).toURL().openStream().use { input: InputStream ->
+            zipFile.outputStream().use { output: OutputStream -> input.copyTo(output) }
         }
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val digest = MessageDigest.getInstance("SHA-256")
             .digest(zipFile.readBytes())
-            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
         check(digest == zhuqueFangsongZipSha256) { "Zhuque Fangsong zip SHA-256 mismatch: $digest" }
 
         val target = zhuqueFangsongTarget.asFile
         target.parentFile.mkdirs()
         var copied = false
-        java.util.zip.ZipInputStream(zipFile.inputStream()).use { zip ->
-            generateSequence { zip.nextEntry }.forEach { entry ->
+        ZipInputStream(zipFile.inputStream()).use { zip: ZipInputStream ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
                 val name = entry.name.substringAfterLast('/')
                 if (!entry.isDirectory && !copied && (name == "ZhuqueFangsong-Regular.ttf" || (name.contains("ZhuqueFangsong") && name.endsWith(".ttf")))) {
-                    target.outputStream().use { output -> zip.copyTo(output) }
+                    target.outputStream().use { output: OutputStream -> zip.copyTo(output) }
                     copied = true
                 }
+                zip.closeEntry()
             }
         }
         check(copied && target.length() > 0L) { "Zhuque Fangsong TTF was not found in $zhuqueFangsongZipUrl" }
