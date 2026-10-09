@@ -35,6 +35,7 @@ import com.elementeracoast.app.core.remote.RemoteProfileResponse
 import com.elementeracoast.app.core.remote.RemoteSessionResponse
 import com.elementeracoast.app.core.remote.RemoteSoilOrganizeRequest
 import com.elementeracoast.app.core.remote.RemoteSoilOrganizeResponse
+import com.elementeracoast.app.core.remote.RemotePlanSoilPrepareResponse
 import com.elementeracoast.app.core.remote.RemoteThoughtSoil
 import com.elementeracoast.app.core.remote.RemoteThoughtSoilResponse
 import java.io.IOException
@@ -324,6 +325,45 @@ class CoastApiClient(
     suspend fun organizeThoughtSoil(conversationId: String, modelId: String): RemoteSoilOrganizeResponse {
         val payload = json.encodeToString(RemoteSoilOrganizeRequest.serializer(), RemoteSoilOrganizeRequest(conversationId = conversationId, model = modelId))
         return jsonRequest(Request.Builder().url(config.url("/api/memory/soil/organize")).post(jsonBody(payload)).build(), RemoteSoilOrganizeResponse.serializer())
+    }
+
+    suspend fun preparePlanSoil(conversationId: String, modelId: String): RemotePlanSoilPrepareResponse {
+        val payload = kotlinx.serialization.json.buildJsonObject {
+            put("conversation_id", conversationId)
+            put("model", modelId)
+            put("action", "prepare")
+        }.toString()
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/memory/soil/plan"))
+                .post(jsonBody(payload)).build(),
+            RemotePlanSoilPrepareResponse.serializer()
+        )
+    }
+
+    suspend fun commitPlanSoil(
+        conversationId: String, modelId: String,
+        prepared: RemotePlanSoilPrepareResponse, text: String,
+        inputTokens: Long?, cachedTokens: Long?, outputTokens: Long?
+    ): RemoteSoilOrganizeResponse {
+        val payload = kotlinx.serialization.json.buildJsonObject {
+            put("conversation_id", conversationId)
+            put("model", modelId)
+            put("action", "commit")
+            put("expected_turn_id", prepared.expectedTurnId)
+            put("expected_assistant_id", prepared.expectedAssistantId)
+            put("expected_soil_revision", prepared.expectedSoilRevision)
+            put("result_text", text)
+            put("usage", kotlinx.serialization.json.buildJsonObject {
+                inputTokens?.let { put("input_tokens", it) }
+                cachedTokens?.let { put("cached_tokens", it) }
+                outputTokens?.let { put("output_tokens", it) }
+            })
+        }.toString()
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/memory/soil/plan"))
+                .post(jsonBody(payload)).build(),
+            RemoteSoilOrganizeResponse.serializer()
+        )
     }
 
     fun streamChat(payload: RemoteChatRequest): Flow<ApiStreamEvent> = callbackFlow {
