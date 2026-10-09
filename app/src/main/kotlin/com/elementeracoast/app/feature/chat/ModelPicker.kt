@@ -208,7 +208,7 @@ fun ModelQuickPicker(
                             TextButton(onClick = onChatGptRefresh, enabled = !chatGpt.busy) {
                                 Text("刷新目录")
                             }
-                            TextButton(onClick = { uriHandler.openUri("https://chatgpt.com/") }) {
+                            TextButton(onClick = { uriHandler.openUri("https://chatgpt.com/settings/usage") }) {
                                 Text("管理套餐额度")
                             }
                         }
