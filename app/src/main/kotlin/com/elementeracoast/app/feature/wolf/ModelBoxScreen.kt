@@ -58,7 +58,7 @@ internal fun ModelBoxScreen(
                 Column(Modifier.weight(1f)) {
                     Text("模型箱", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
-                        "海岸后端模型目录 · 与 PWA 共用当前模型",
+                        "海岸 · OpenRouter 模型目录，与 PWA 共用当前聊天模型",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -87,7 +87,7 @@ internal fun ModelBoxScreen(
         }
 
         item {
-            Text("模型目录", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("海岸 · OpenRouter", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         ModelSeries.entries.forEach { series ->
@@ -226,7 +226,7 @@ private fun ChatGptPlanCard(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .65f)
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("ChatGPT 套餐 · 本机连接", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("官端 GPT · ChatGPT 套餐", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
                 if (state.connected) "已授权：" + state.accountLabel
                 else "通过系统浏览器授权；凭证只加密保存在本机。",
