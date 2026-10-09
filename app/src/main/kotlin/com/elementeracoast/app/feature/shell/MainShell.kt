@@ -207,7 +207,16 @@ fun MainShell(
         }
 
         if (state.showModelPicker && state.activeFeature == null) {
-            ModelQuickPicker(state.models, state.currentModel, onSelectModel, onDismissModels)
+            ModelQuickPicker(
+                models = state.models,
+                currentModel = state.currentModel,
+                onPick = onSelectModel,
+                onDismiss = onDismissModels,
+                chatGpt = chatGpt,
+                onChatGptConnect = onChatGptConnect,
+                onChatGptRefresh = onChatGptRefresh,
+                onChatGptProbe = onChatGptProbe
+            )
         }
         if (showThemeWardrobe) {
             ThemeWardrobeSheet(
