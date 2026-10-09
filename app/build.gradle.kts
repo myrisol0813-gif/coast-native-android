@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 73
-        versionName = "0.1.71-chatgpt-picker-groups"
+        versionCode = 74
+        versionName = "0.1.72-chatgpt-plan-chat"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
