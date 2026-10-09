@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 71
-        versionName = "0.1.69-output-tokens-turn-lock"
+        versionCode = 72
+        versionName = "0.1.70-chatgpt-plan-auth-probe"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
