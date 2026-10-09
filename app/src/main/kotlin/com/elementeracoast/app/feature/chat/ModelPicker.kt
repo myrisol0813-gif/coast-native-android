@@ -81,7 +81,7 @@ fun ModelQuickPicker(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "海岸模型可设为当前；官端 GPT 目前支持独立测试，暂不用于正式聊天。",
+                "海岸 / OpenRouter 与官端 ChatGPT 套餐均可设为当前聊天模型。官端套餐参数按官方能力生效。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -188,7 +188,7 @@ fun ModelQuickPicker(
                 item(key = "chatgpt-provider-heading") {
                     ProviderSectionHeading(
                         "官端 GPT · ChatGPT 套餐",
-                        if (chatGpt.connected) "本机已连接 · 可测试回复，暂不能设为当前聊天模型"
+                        if (chatGpt.connected) "本机已连接 · 可选择正式聊天 / 测试回复"
                         else "未连接 · 在此登录后可测试可用模型"
                     )
                 }
@@ -216,7 +216,12 @@ fun ModelQuickPicker(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                                .background(
+                                    if (currentModel == "chatgpt-plan:" + item.slug) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surface,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable { onPick("chatgpt-plan:" + item.slug) }
                                 .padding(horizontal = 15.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -234,6 +239,9 @@ fun ModelQuickPicker(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                            }
+                            if (currentModel == "chatgpt-plan:" + item.slug) {
+                                Icon(Icons.Default.Check, contentDescription = "当前官端 GPT 模型")
                             }
                             TextButton(
                                 onClick = { onChatGptProbe(item.slug) },
