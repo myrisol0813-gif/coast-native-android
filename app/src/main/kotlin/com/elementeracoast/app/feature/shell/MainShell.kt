@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
+import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
 import com.elementeracoast.app.core.model.FeatureDestination
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.RoomType
@@ -42,6 +43,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainShell(
     state: CoastShellState,
+    chatGpt: ChatGptConnectState,
     services: LocalFeatureServices,
     daily: DailyRepository,
     memory: MemoryRepository,
@@ -73,6 +75,10 @@ fun MainShell(
     onDismissModels: () -> Unit,
     onSelectModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
+    onChatGptConnect: () -> Unit,
+    onChatGptDisconnect: () -> Unit,
+    onChatGptRefresh: () -> Unit,
+    onChatGptProbe: (String) -> Unit,
     onLogout: () -> Unit,
     onPlaceholder: (String) -> Unit,
     onSnackbarShown: () -> Unit
@@ -172,6 +178,7 @@ fun MainShell(
                         FeatureLandingScreen(
                             feature = feature,
                             shellState = state,
+                            chatGpt = chatGpt,
                             services = services,
                             daily = daily,
                             memory = memory,
@@ -185,6 +192,10 @@ fun MainShell(
                             onUpdateMyriAvatar = onUpdateMyriAvatar,
                             onSelectModel = onSelectModel,
                             onRefreshModels = onRefreshModels,
+                            onChatGptConnect = onChatGptConnect,
+                            onChatGptDisconnect = onChatGptDisconnect,
+                            onChatGptRefresh = onChatGptRefresh,
+                            onChatGptProbe = onChatGptProbe,
                             onLogout = onLogout,
                             onImportMessages = onImportMessages,
                             onLocalActionLogged = onLocalActionLogged,
