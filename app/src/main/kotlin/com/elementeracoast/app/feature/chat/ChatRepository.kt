@@ -183,6 +183,13 @@ class DefaultChatRepository(
                 throw CoastApiException(
                     CoastApiErrorKind.Request, error.type, error.message.orEmpty()
                 )
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                throw CoastApiException(
+                    CoastApiErrorKind.Network, "chatgpt_connection_failed",
+                    "ChatGPT 本机连接失败；请检查网络、账户授权或套餐额度。"
+                )
             }
             if (done && content.isBlank()) throw CoastApiException(
                 CoastApiErrorKind.Stream, "empty_model_reply", "ChatGPT 没有返回正文；本轮不作为成功回复。"
