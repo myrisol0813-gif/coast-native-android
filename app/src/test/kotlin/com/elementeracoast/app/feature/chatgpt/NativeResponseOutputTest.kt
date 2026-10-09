@@ -71,4 +71,83 @@ class NativeResponseOutputTest {
         assertTrue(outcome.finalText.isEmpty())
         assertTrue(outcome.toolCalls.isEmpty())
     }
+
+    @Test fun functionCallSurvivesEmptyCompletedOutputWhenStreamDeliveredIt() {
+        val item = buildJsonObject {
+            put("type", "function_call")
+            put("call_id", "call_100")
+            put("namespace", "coast")
+            put("name", "memory_search")
+            put("arguments", "{\"query\":\"海岸\"}")
+        }
+        val finished = buildJsonObject {
+            put("type", "response.output_item.done")
+            put("output_index", 1)
+            put("item", item)
+        }
+        val reconstructed = completedNativeStreamItem(finished)
+        assertEquals(1, reconstructed?.first)
+        val outcome = readNativeResponseOutput(
+            buildJsonObject { put("output", buildJsonArray {}) },
+            mapOf(reconstructed!!)
+        )
+        assertEquals(1, outcome.toolCalls.size)
+        assertEquals("memory_search", parseNativeCoastToolCall(outcome.toolCalls.first()).name)
+        assertEquals("function_call", nativeOutputKinds(outcome))
+    }
+
+    @Test fun streamOutputFallbackPreservesMessageEvenWhenFinalOutputIsNull() {
+        val finalMessage = buildJsonObject {
+            put("type", "message")
+            put("content", buildJsonArray {
+                add(buildJsonObject {
+                    put("type", "output_text")
+                    put("text", "确认收到。")
+                })
+            })
+        }
+        val outcome = readNativeResponseOutput(
+            buildJsonObject { put("output", kotlinx.serialization.json.JsonNull) },
+            mapOf(0 to finalMessage)
+        )
+        assertEquals("确认收到。", outcome.finalText)
+    }
+
+    @Test fun authoritativeFinalOutputWinsOverStreamFallback() {
+        val finalMessage = buildJsonObject {
+            put("type", "message")
+            put("content", buildJsonArray {
+                add(buildJsonObject { put("type", "output_text"); put("text", "最终正文") })
+            })
+        }
+        val stale = buildJsonObject { put("type", "reasoning") }
+        val outcome = readNativeResponseOutput(
+            buildJsonObject { put("output", buildJsonArray { add(finalMessage) }) },
+            mapOf(0 to stale)
+        )
+        assertEquals("最终正文", outcome.finalText)
+        assertFalse(outcome.hasReasoning)
+    }
+
+    @Test fun partialOutputItemsCannotBecomeExecutableToolCalls() {
+        val partial = buildJsonObject {
+            put("type", "response.output_item.added")
+            put("output_index", 0)
+            put("item", buildJsonObject {
+                put("type", "function_call")
+                put("call_id", "call_unsafe")
+            })
+        }
+        assertEquals(null, completedNativeStreamItem(partial))
+        val interrupted = buildJsonObject {
+            put("type", "response.output_item.done")
+            put("output_index", 0)
+            put("item", buildJsonObject {
+                put("type", "function_call")
+                put("status", "incomplete")
+                put("call_id", "call_unsafe")
+            })
+        }
+        assertEquals(null, completedNativeStreamItem(interrupted))
+    }
 }
