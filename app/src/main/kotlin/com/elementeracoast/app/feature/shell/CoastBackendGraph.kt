@@ -60,7 +60,7 @@ data class CoastBackendGraph(
                 conversations = DefaultConversationRepository(api, cache, titleRemote),
                 profile = DefaultProfileRepository(api, cache),
                 chat = chatRepository,
-                thoughtSoil = DefaultThoughtSoilRepository(api),
+                thoughtSoil = DefaultThoughtSoilRepository(api, chatGptPlan),
                 daily = DefaultDailyRepository(api, cache),
                 memory = DefaultMemoryRepository(memoryRemote, cache),
                 dogtalk = DefaultDogtalkRepository(config, http),
