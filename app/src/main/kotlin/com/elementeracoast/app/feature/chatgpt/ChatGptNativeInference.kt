@@ -100,6 +100,7 @@ internal fun completedNativeStreamItem(event: JsonObject): Pair<Int, JsonObject>
     if (event["type"]?.jsonPrimitive?.contentOrNull != "response.output_item.done") return null
     val index = event["output_index"]?.jsonPrimitive?.intOrNull ?: return null
     val item = event["item"] as? JsonObject ?: return null
+    if (item["status"]?.jsonPrimitive?.contentOrNull == "incomplete") return null
     return index to item
 }
 
