@@ -5,6 +5,7 @@ import com.elementeracoast.app.core.auth.AuthSession
 import com.elementeracoast.app.core.remote.RemoteAttachment
 import com.elementeracoast.app.core.remote.RemoteAttachmentResponse
 import com.elementeracoast.app.core.remote.RemoteChatRequest
+import com.elementeracoast.app.core.remote.NativeChatGptContextResponse
 import com.elementeracoast.app.core.remote.RemoteConversation
 import com.elementeracoast.app.core.remote.RemoteConversationListResponse
 import com.elementeracoast.app.core.remote.RemoteConversationResponse
@@ -277,6 +278,33 @@ class CoastApiClient(
     suspend fun organizeThoughtSoil(conversationId: String, modelId: String): RemoteSoilOrganizeResponse {
         val payload = json.encodeToString(RemoteSoilOrganizeRequest.serializer(), RemoteSoilOrganizeRequest(conversationId = conversationId, model = modelId))
         return jsonRequest(Request.Builder().url(config.url("/api/memory/soil/organize")).post(jsonBody(payload)).build(), RemoteSoilOrganizeResponse.serializer())
+    }
+
+    suspend fun prepareNativeChatGptContext(payload: RemoteChatRequest): NativeChatGptContextResponse {
+        val request = payload.copy(stream = false, prepareNativeChatGptContext = true)
+        val body = json.encodeToString(RemoteChatRequest.serializer(), request)
+        return jsonRequest(
+            Request.Builder().url(config.url("/api/chat")).post(jsonBody(body)).build(),
+            NativeChatGptContextResponse.serializer()
+        )
+    }
+
+    suspend fun saveNativeChatGptUsage(
+        conversationId: String, messageId: String, model: String,
+        inputTokens: Long?, cachedTokens: Long?, outputTokens: Long?
+    ) {
+        val payload = kotlinx.serialization.json.buildJsonObject {
+            put("conversation_id", conversationId)
+            put("message_id", messageId)
+            put("model", model)
+            put("usage", kotlinx.serialization.json.buildJsonObject {
+                inputTokens?.let { put("input_tokens", it) }
+                cachedTokens?.let { put("cached_tokens", it) }
+                outputTokens?.let { put("output_tokens", it) }
+            })
+        }.toString()
+        jsonRequestElement(Request.Builder()
+            .url(config.url("/api/chat/message-metadata")).post(jsonBody(payload)).build())
     }
 
     fun streamChat(payload: RemoteChatRequest): Flow<ApiStreamEvent> = callbackFlow {
