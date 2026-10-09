@@ -66,8 +66,17 @@ internal data class NativeResponseOutput(
     val hasReasoning: Boolean
 )
 
-internal fun readNativeResponseOutput(response: JsonObject): NativeResponseOutput {
-    val items = response["output"] as? JsonArray ?: JsonArray(emptyList())
+/**
+ * A completed Responses event is not guaranteed to repeat its output list. Capture full
+ * output_item.done frames, which include completed function arguments, as a fallback.
+ */
+internal fun readNativeResponseOutput(
+    response: JsonObject,
+    streamedItems: Map<Int, JsonObject> = emptyMap()
+): NativeResponseOutput {
+    val finalItems = response["output"] as? JsonArray
+    val items = if (finalItems != null && finalItems.isNotEmpty()) finalItems
+        else JsonArray(streamedItems.toSortedMap().values.toList())
     val objects = items.mapNotNull { it as? JsonObject }
     val toolCalls = objects.filter { it["type"]?.jsonPrimitive?.contentOrNull == "function_call" }
     val finalText = objects
@@ -85,6 +94,23 @@ internal fun readNativeResponseOutput(response: JsonObject): NativeResponseOutpu
 /** Never emit a duplicate of text that was already streamed to the UI. */
 internal fun missingNativeFinalText(streamed: String, finalText: String): String =
     if (finalText.startsWith(streamed)) finalText.drop(streamed.length) else ""
+
+/** Ignore partial output_item.added frames: only done frames are safe to execute. */
+internal fun completedNativeStreamItem(event: JsonObject): Pair<Int, JsonObject>? {
+    if (event["type"]?.jsonPrimitive?.contentOrNull != "response.output_item.done") return null
+    val index = event["output_index"]?.jsonPrimitive?.intOrNull ?: return null
+    val item = event["item"] as? JsonObject ?: return null
+    return index to item
+}
+
+/** Only structural, provider-supplied metadata is exposed in errors; never content or args. */
+internal fun nativeOutputKinds(output: NativeResponseOutput): String =
+    output.items.mapNotNull { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull }
+        .map { kind -> when (kind) {
+            "message", "function_call", "reasoning", "program", "program_output",
+            "tool_search_call", "tool_search_output" -> kind
+            else -> "other"
+        } }.distinct().take(6).joinToString(",").ifBlank { "none" }
 
 internal data class NativeChatUsage(
     val input: Long = 0,
@@ -156,6 +182,7 @@ internal class ChatGptNativeInference(
                         .build())
                     activeCall.set(call)
                     var completed: JsonObject? = null
+                    val streamedItems = mutableMapOf<Int, JsonObject>()
                     val roundText = StringBuilder()
                     call.execute().use { response ->
                         if (!response.isSuccessful) throw CoastApiException(
@@ -173,6 +200,9 @@ internal class ChatGptNativeInference(
                                 if (raw == "[DONE]") break
                                 val event = runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull()
                                     ?: continue
+                                completedNativeStreamItem(event)?.let { (index, item) ->
+                                    streamedItems[index] = item
+                                }
                                 when (event["type"]?.jsonPrimitive?.contentOrNull) {
                                     "response.output_text.delta" -> {
                                         val delta = event["delta"]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -209,7 +239,7 @@ internal class ChatGptNativeInference(
                         output = usageTotal.output + (usage?.get("output_tokens")?.jsonPrimitive?.longOrNull ?: 0),
                         reported = usageTotal.reported || usage != null
                     )
-                    val output = readNativeResponseOutput(response)
+                    val output = readNativeResponseOutput(response, streamedItems)
                     val missingText = missingNativeFinalText(roundText.toString(), output.finalText)
                     if (missingText.isNotEmpty()) {
                         text.append(missingText)
@@ -218,14 +248,20 @@ internal class ChatGptNativeInference(
                     val pending = output.toolCalls
                     if (pending.isEmpty()) {
                         if (text.isBlank()) {
-                            val detail = if (output.hasReasoning) "只返回了推理内容" else "返回了空输出"
-                            val guidance = if (callsMade > 0)
-                                "工具可能已经执行，请先检查朋友圈或工具记录，暂勿重复发送。"
-                            else
-                                "本轮未收到可执行的工具调用；可以尝试缩短上下文或更换模型。"
+                            val detail = when {
+                                output.hasReasoning -> "只有推理输出"
+                                output.items.isNotEmpty() -> "没有可显示的正文或可执行工具"
+                                else -> "没有返回任何输出项目"
+                            }
+                            val guidance = when {
+                                callsMade > 0 -> "工具可能已执行；请先核对朋友圈或工具记录，勿直接重发。"
+                                prepared.tools.isEmpty() -> "海岸本轮未向模型提供工具，请检查后端工具权限。"
+                                else -> "本轮未收到可执行的工具调用，请保留本轮回执供排查。"
+                            }
+                            val status = response["status"]?.jsonPrimitive?.contentOrNull ?: "unknown"
                             throw CoastApiException(
                                 CoastApiErrorKind.Model, "chatgpt_plan_empty",
-                                "官端 GPT 已结束，但$detail，未生成正文或工具调用。$guidance"
+                                "官端 GPT $detail。$guidance（状态=$status；工具数=${prepared.tools.size}；流输出项=${streamedItems.size}；类型=${nativeOutputKinds(output)}）"
                             )
                         }
                         trySend(NativeChatEvent.Completed(text.toString(), usageTotal, desk, runs))
