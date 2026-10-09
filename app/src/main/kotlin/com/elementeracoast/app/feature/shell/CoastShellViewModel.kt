@@ -63,7 +63,6 @@ class CoastShellViewModel(
     private var generationJob: Job? = null
     private var historyJob: Job? = null
     private var attachmentUploadsInFlight = 0
-    private val soilJobs = mutableMapOf<String, Job>()
 
     init {
         syncAppearance()
@@ -110,8 +109,6 @@ class CoastShellViewModel(
         stopGeneration()
         resetCrossWindow()
         historyJob?.cancel()
-        soilJobs.values.forEach(Job::cancel)
-        soilJobs.clear()
         viewModelScope.launch(workDispatcher) {
             backend.auth.logout()
             _state.update {
@@ -512,6 +509,7 @@ class CoastShellViewModel(
         _state.update {
             it.copy(
                 isStreaming = false,
+                isFinalizing = false,
                 streamingMessageId = null,
                 streamingVariantIndex = null
             )
@@ -685,24 +683,18 @@ class CoastShellViewModel(
         }
     }
 
-    private fun organizeThoughtSoilAfterReply(conversationId: String, modelId: String) {
-        val previous = soilJobs[conversationId]
-        val job = viewModelScope.launch(workDispatcher) {
-            previous?.join()
-            try {
-                val soil = backend.thoughtSoil.organizeAfterReply(conversationId, modelId)
-                if (_state.value.activeConversationId == conversationId) {
-                    _state.update { it.copy(thoughtSoil = soil) }
-                }
-            } catch (error: CoastApiException) {
-                if (error.kind == CoastApiErrorKind.Unauthorized) {
-                    handleBackendError(error, "思维壤整理失败", keepAuthenticatedOnNetworkError = true)
-                }
+    private suspend fun organizeThoughtSoilAfterReply(conversationId: String, modelId: String) {
+        try {
+            val soil = backend.thoughtSoil.organizeAfterReply(conversationId, modelId)
+            if (_state.value.activeConversationId == conversationId) {
+                _state.update { it.copy(thoughtSoil = soil) }
             }
-        }
-        soilJobs[conversationId] = job
-        job.invokeOnCompletion {
-            if (soilJobs[conversationId] === job) soilJobs.remove(conversationId)
+        } catch (error: CoastApiException) {
+            if (error.kind == CoastApiErrorKind.Unauthorized) {
+                handleBackendError(error, "思维壤整理失败", keepAuthenticatedOnNetworkError = true)
+            } else {
+                _state.update { it.copy(snackbarMessage = "思维壤整理失败；本轮回复已保存，可以继续聊天。") }
+            }
         }
     }
 
@@ -740,6 +732,7 @@ class CoastShellViewModel(
         crossWindowRequest: CrossWindowRequest
     ) {
         var partial = ""
+        var replySaved = false
         val cleared = backend.chat.clearFailure(history, turnId)
         val titleUserText = ChatSyncMapper.contextMessages(cleared, turnId, local.wolf.state.value.basic.recentTurns)
             .lastOrNull { it.role == "user" }
@@ -764,6 +757,8 @@ class CoastShellViewModel(
                 modelId,
                 local.wolf.state.value.basic.recentTurns,
                 local.wolf.state.value.basic.contextBudget,
+                local.wolf.state.value.basic.outputLength,
+                local.wolf.state.value.basic.maxOutputTokens,
                 crossWindowRequest
             ).collect { progress ->
                 when (progress) {
@@ -772,12 +767,17 @@ class CoastShellViewModel(
                         showStreaming(conversationId, cleared, turnId, modelId, partial)
                     }
                     is ChatProgress.Completed -> {
+                        replySaved = true
                         showHistory(conversationId, progress.history)
                         if (_state.value.activeConversationId == conversationId) {
                             _state.update {
                                 it.copy(
                                     backendOffline = false,
-                                    turnDeskReceipt = progress.deskReceipt
+                                    turnDeskReceipt = progress.deskReceipt,
+                                    isStreaming = false,
+                                    isFinalizing = true,
+                                    streamingMessageId = null,
+                                    streamingVariantIndex = null
                                 )
                             }
                         }
@@ -787,6 +787,7 @@ class CoastShellViewModel(
                 }
             }
         } catch (cancelled: CancellationException) {
+            if (replySaved) throw cancelled
             val stopped = backend.chat.cancelledHistory(cleared, turnId, modelId, partial)
             backend.chat.cacheHistory(conversationId, stopped)
             withContext(NonCancellable) {
@@ -808,6 +809,7 @@ class CoastShellViewModel(
                 _state.update {
                     it.copy(
                         isStreaming = false,
+                        isFinalizing = false,
                         streamingMessageId = null,
                         streamingVariantIndex = null
                     )
@@ -1073,8 +1075,6 @@ class CoastShellViewModel(
             backend.auth.clearConfirmedInvalidSession()
             generationJob?.cancel()
             historyJob?.cancel()
-            soilJobs.values.forEach(Job::cancel)
-            soilJobs.clear()
             _state.update {
                 it.copy(
                     authenticated = false,
