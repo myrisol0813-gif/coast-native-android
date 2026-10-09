@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalUriHandler
 import com.elementeracoast.app.core.model.modelDisplayName
 import com.elementeracoast.app.feature.chatgpt.ChatGptAccountModel
 import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
@@ -51,7 +52,9 @@ import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
 fun ModelQuickPicker(
     models: List<String>,
     currentModel: String,
+    selectedOfficialModel: String,
     onPick: (String) -> Unit,
+    onPickOfficial: (String) -> Unit,
     onDismiss: () -> Unit,
     chatGpt: ChatGptConnectState,
     onChatGptConnect: () -> Unit,
@@ -59,6 +62,7 @@ fun ModelQuickPicker(
     onChatGptProbe: (String) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+    val uriHandler = LocalUriHandler.current
     val filtered = remember(models, chatGpt.availableModels, query) {
         filterProviderCatalog(models, chatGpt.availableModels, query)
     }
@@ -188,8 +192,8 @@ fun ModelQuickPicker(
                 item(key = "chatgpt-provider-heading") {
                     ProviderSectionHeading(
                         "官端 GPT · ChatGPT 套餐",
-                        if (chatGpt.connected) "本机已连接 · 可测试回复，暂不能设为当前聊天模型"
-                        else "未连接 · 在此登录后可测试可用模型"
+                        if (chatGpt.connected) "本机已连接 · 可以直接作为聊天模型，使用 ChatGPT 套餐额度"
+                        else "未连接 · 授权后可作为聊天模型"
                     )
                 }
                 if (!chatGpt.connected) {
@@ -200,9 +204,17 @@ fun ModelQuickPicker(
                     }
                 } else {
                     item(key = "chatgpt-provider-refresh") {
-                        TextButton(onClick = onChatGptRefresh, enabled = !chatGpt.busy) {
-                            Text("刷新官端 GPT 目录")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = onChatGptRefresh, enabled = !chatGpt.busy) {
+                                Text("刷新目录")
+                            }
+                            TextButton(onClick = { uriHandler.openUri("https://chatgpt.com/") }) {
+                                Text("管理套餐额度")
+                            }
                         }
+                        ProviderEmptyHint(
+                            "本路由经手机直接请求 OpenAI；已接旧记忆和历史。暂不支持工具、附件、自动思维壤写入，最大输出上限和采样参数不生效。"
+                        )
                     }
                     if (filtered.official.isEmpty()) {
                         item(key = "chatgpt-provider-empty") {
@@ -236,9 +248,13 @@ fun ModelQuickPicker(
                                 )
                             }
                             TextButton(
+                                onClick = { onPickOfficial(item.slug) },
+                                enabled = !chatGpt.busy
+                            ) { Text(if (selectedOfficialModel == item.slug) "使用中" else "使用") }
+                            TextButton(
                                 onClick = { onChatGptProbe(item.slug) },
                                 enabled = !chatGpt.busy
-                            ) { Text("测试回复") }
+                            ) { Text("测试") }
                         }
                     }
                 }
