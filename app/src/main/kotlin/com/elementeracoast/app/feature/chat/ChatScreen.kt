@@ -154,6 +154,7 @@ fun ChatWindow(
                 attachmentUploading = state.attachmentUploading,
                 previewSource = attachmentPreviewSource,
                 isStreaming = state.isStreaming,
+                isFinalizing = state.isFinalizing,
                 enabled = !state.historyLoading,
                 drawerOpen = dogtalkDrawerOpen,
                 onToggleDrawer = { dogtalkDrawerOpen = !dogtalkDrawerOpen },
