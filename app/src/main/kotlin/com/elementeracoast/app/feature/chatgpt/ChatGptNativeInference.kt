@@ -9,6 +9,7 @@ import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteNativeChatContext
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -190,6 +191,9 @@ internal class ChatGptNativeInference(
                         })
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                close()
+                throw cancelled
             } catch (error: Exception) {
                 close(if (error is CoastApiException) error else CoastApiException(
                     CoastApiErrorKind.Network,
