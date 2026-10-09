@@ -87,7 +87,7 @@ class ChatGptResponseStream(
                             when (event["type"]?.jsonPrimitive?.contentOrNull) {
                                 "response.output_text.delta" -> {
                                     val text = event["delta"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                                    if (text.isNotEmpty()) trySend(ChatGptStreamEvent.Delta(text))
+                                    if (text.isNotEmpty()) send(ChatGptStreamEvent.Delta(text))
                                 }
                                 "response.failed" -> {
                                     val body = event["response"] as? JsonObject
@@ -108,7 +108,7 @@ class ChatGptResponseStream(
                                         ?: throw ChatGptInferenceException("invalid_response", "缺少完成回复。")
                                     val usage = result["usage"] as? JsonObject
                                     val details = usage?.get("input_tokens_details") as? JsonObject
-                                    trySend(ChatGptStreamEvent.Completed(
+                                    send(ChatGptStreamEvent.Completed(
                                         usage?.get("input_tokens")?.jsonPrimitive?.longOrNull,
                                         details?.get("cached_tokens")?.jsonPrimitive?.longOrNull,
                                         usage?.get("output_tokens")?.jsonPrimitive?.longOrNull
