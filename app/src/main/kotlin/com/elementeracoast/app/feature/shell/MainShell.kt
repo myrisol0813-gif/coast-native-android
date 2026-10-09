@@ -74,6 +74,7 @@ fun MainShell(
     onOpenModels: () -> Unit,
     onDismissModels: () -> Unit,
     onSelectModel: (String) -> Unit,
+    onSelectOfficialModel: (String) -> Unit,
     onRefreshModels: () -> Unit,
     onChatGptConnect: () -> Unit,
     onChatGptDisconnect: () -> Unit,
@@ -210,7 +211,9 @@ fun MainShell(
             ModelQuickPicker(
                 models = state.models,
                 currentModel = state.currentModel,
+                selectedOfficialModel = state.officialChatModel,
                 onPick = onSelectModel,
+                onPickOfficial = onSelectOfficialModel,
                 onDismiss = onDismissModels,
                 chatGpt = chatGpt,
                 onChatGptConnect = onChatGptConnect,
