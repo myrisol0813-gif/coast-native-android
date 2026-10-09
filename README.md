@@ -69,16 +69,23 @@ Some older feature surfaces are still local prototypes and are scheduled for lat
 - in-app Refresh re-reads canonical Coast state through existing repositories instead of restarting the Activity.
 - launcher uses the Coast navy/gold horned GPT mark.
 
-## Source availability
+## Open-source license
 
-This repository is publicly viewable for inspection and build transparency, but
-it is **not** released under an open-source license. The project-specific source,
-brand, UI copy and visual identity remain reserved under the repository
-`LICENSE`. Third-party components keep their upstream licenses as documented in
-`THIRD_PARTY_NOTICES.md` and `third_party/`.
+Copyright (c) 2026 myrisol0813-gif.
+
+The original Elementera Coast Native source code is licensed under the
+**GNU Affero General Public License v3.0 only (AGPL-3.0-only)**.
+See [LICENSE](LICENSE) for the full license text. Use, modification, and
+redistribution are permitted subject to the AGPL's terms, including the
+corresponding-source obligations for covered network interactions.
+
+Third-party code, fonts, and other materials retain their own licenses and
+notices as documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+and `third_party/`. Open-source copyright permission does not confer
+trademark rights to the Elementera Coast / CoastGPT names or marks.
 
 Repository secrets, signing material, session credentials, private user data,
-conversations and memories are never part of the public-source license.
+conversations and memories are not part of this repository.
 
 ## Stable signing
 
@@ -118,4 +125,4 @@ GitHub Actions additionally enforces structural/single-source guards, verifies t
 
 ## Attribution
 
-Selected earlier PoC interaction patterns from MiniiChat remain attributed under MIT in `THIRD_PARTY_NOTICES.md` and `third_party/MiniiChat-LICENSE.txt`. No GPL/AGPL implementation is included.
+Selected earlier PoC interaction patterns from MiniiChat remain attributed under MIT in `THIRD_PARTY_NOTICES.md` and `third_party/MiniiChat-LICENSE.txt`. No third-party GPL/AGPL implementation is included.
