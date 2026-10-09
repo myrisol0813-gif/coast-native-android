@@ -1,5 +1,9 @@
 package com.elementeracoast.app.feature.chat
 
+import com.elementeracoast.app.feature.chatgpt.ChatGptPlanRepository
+import com.elementeracoast.app.feature.chatgpt.ChatGptResponseStream
+import com.elementeracoast.app.feature.chatgpt.ChatGptStreamEvent
+import com.elementeracoast.app.feature.chatgpt.ChatGptInferenceException
 import com.elementeracoast.app.core.model.CrossWindowMode
 import com.elementeracoast.app.core.model.CrossWindowRequest
 import com.elementeracoast.app.core.model.TurnDeskReceipt
@@ -35,7 +39,8 @@ sealed interface ChatProgress {
         val history: RemoteHistory,
         val modelId: String,
         val finishReason: String,
-        val deskReceipt: TurnDeskReceipt? = null
+        val deskReceipt: TurnDeskReceipt? = null,
+        val metadataSaved: Boolean = true
     ) : ChatProgress
 }
 
@@ -77,6 +82,8 @@ class DefaultChatRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore,
     private val metadataRemote: ModelMetadataRemoteDataSource? = null,
+    private val officialChat: ChatGptPlanRepository? = null,
+    private val officialStream: ChatGptResponseStream = ChatGptResponseStream(),
     private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 ) : ChatRepository {
     override fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
@@ -138,7 +145,49 @@ class DefaultChatRepository(
             crossWindow = crossWindow.toRemote(),
             stream = true
         )
-        api.streamChat(request).collect { event ->
+        var planUsage: ChatGptStreamEvent.Completed? = null
+        if (modelId.startsWith("chatgpt-plan:")) {
+            val plan = officialChat ?: throw CoastApiException(
+                CoastApiErrorKind.Request, "chatgpt_not_connected", "请先在模型箱登录 ChatGPT 套餐。"
+            )
+            if (request.attachmentIds.isNotEmpty()) throw CoastApiException(
+                CoastApiErrorKind.Request, "chatgpt_attachments_not_supported",
+                "ChatGPT 套餐聊天尚未支持附件递入；附件仍保留在输入区。"
+            )
+            val model = modelId.removePrefix("chatgpt-plan:")
+            val context = api.prepareNativeChatGptContext(request)
+            if (!context.ok || context.input.isEmpty()) throw CoastApiException(
+                CoastApiErrorKind.Request, "chatgpt_context_failed", "无法从海岸读取完整的本轮上下文。"
+            )
+            deskSlip = context.deskSlip
+            try {
+                officialStream.stream(
+                    plan.accessTokenForInference(),
+                    model,
+                    context.instructions,
+                    context.input
+                ).collect { event ->
+                    when (event) {
+                        is ChatGptStreamEvent.Delta -> {
+                            content += event.text
+                            emit(ChatProgress.Delta(event.text))
+                        }
+                        is ChatGptStreamEvent.Completed -> {
+                            planUsage = event
+                            finishReason = "stop"
+                            done = true
+                        }
+                    }
+                }
+            } catch (error: ChatGptInferenceException) {
+                throw CoastApiException(
+                    CoastApiErrorKind.Request, error.type, error.message.orEmpty()
+                )
+            }
+            if (done && content.isBlank()) throw CoastApiException(
+                CoastApiErrorKind.Stream, "empty_model_reply", "ChatGPT 没有返回正文；本轮不作为成功回复。"
+            )
+        } else api.streamChat(request).collect { event ->
             when (event) {
                 is ApiStreamEvent.Meta -> {
                     actualModel = event.data.runCatching {
@@ -198,7 +247,17 @@ class DefaultChatRepository(
             assistantVariantId = assistantVariantId
         )
         val saved = persistHistory(conversationId, completed)
-        emit(ChatProgress.Completed(saved, actualModel, finishReason, deskSlip?.let(TurnDeskMapper::toUi)))
+        val metadataSaved = planUsage?.let { usage ->
+            runCatching {
+                api.saveNativeChatGptUsage(
+                    conversationId, assistantVariantId, modelId.removePrefix("chatgpt-plan:"),
+                    usage.inputTokens, usage.cachedTokens, usage.outputTokens
+                )
+            }.isSuccess
+        } ?: true
+        emit(ChatProgress.Completed(
+            saved, actualModel, finishReason, deskSlip?.let(TurnDeskMapper::toUi), metadataSaved
+        ))
     }
 
     override fun failedHistory(
