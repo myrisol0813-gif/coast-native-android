@@ -32,21 +32,7 @@ class ChatGptResponseStream(
         messages: List<RemoteChatMessage>
     ): Flow<ChatGptStreamEvent> = callbackFlow {
         require(accessToken.isNotBlank() && model.isNotBlank())
-        val payload = buildJsonObject {
-            put("model", model)
-            put("store", false)
-            put("stream", true)
-            if (instructions.isNotBlank()) put("instructions", instructions)
-            put("input", buildJsonArray {
-                for (message in messages) {
-                    if (message.role !in listOf("user", "assistant", "developer")) continue
-                    add(buildJsonObject {
-                        put("role", message.role)
-                        put("content", message.content)
-                    })
-                }
-            })
-        }.toString()
+        val payload = buildChatGptPlanPayload(model, instructions, messages)
         val request = Request.Builder()
             .url("https://api.openai.com/v1/responses")
             .header("Authorization", "Bearer " + accessToken)
@@ -133,3 +119,28 @@ class ChatGptResponseStream(
         }
     }
 }
+
+
+/** Single request contract shared by live inference and unit tests.
+ * ChatGPT plan usage explicitly forbids max_output_tokens, temperature,
+ * prompt_cache_retention, previous_response_id, and stored responses.
+ */
+internal fun buildChatGptPlanPayload(
+    model: String,
+    instructions: String,
+    messages: List<RemoteChatMessage>
+): String = buildJsonObject {
+    put("model", model)
+    put("store", false)
+    put("stream", true)
+    if (instructions.isNotBlank()) put("instructions", instructions)
+    put("input", buildJsonArray {
+        for (message in messages) {
+            if (message.role !in listOf("user", "assistant", "developer")) continue
+            add(buildJsonObject {
+                put("role", message.role)
+                put("content", message.content)
+            })
+        }
+    })
+}.toString()
