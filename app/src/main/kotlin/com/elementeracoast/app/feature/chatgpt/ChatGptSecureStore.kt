@@ -71,8 +71,17 @@ class ChatGptSecureStore(context: Context) {
             .commit())
     }
 
+    fun preferredModel(): String? = preferences.getString(PREFERRED_MODEL, null)?.takeIf(String::isNotBlank)
+
+    fun selectModel(modelSlug: String?) {
+        check(preferences.edit().apply {
+            if (modelSlug.isNullOrBlank()) remove(PREFERRED_MODEL)
+            else putString(PREFERRED_MODEL, modelSlug)
+        }.commit())
+    }
+
     fun clear() {
-        check(preferences.edit().remove(CREDENTIALS).commit())
+        check(preferences.edit().remove(CREDENTIALS).remove(PREFERRED_MODEL).commit())
     }
 
     private fun key(): SecretKey {
@@ -93,6 +102,7 @@ class ChatGptSecureStore(context: Context) {
     companion object {
         private const val HOST_ID = "installation.host.id"
         private const val CREDENTIALS = "credentials.v1"
+        private const val PREFERRED_MODEL = "chat.selected.model.v1"
         private const val ALIAS = "coast_chatgpt_tokens_aes_gcm_v1"
         private const val IV_BYTES = 12
     }
