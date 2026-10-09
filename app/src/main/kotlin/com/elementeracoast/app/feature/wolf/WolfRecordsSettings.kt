@@ -211,6 +211,11 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSn
                 NumberStepper("最大输出 token", settings.maxOutputTokens, 64, 65536, 512) { value ->
                     store.updateBasic { it.copy(maxOutputTokens = value) }
                 }
+                Text(
+                    "自然、长信用此上限（默认 8000）；偏短固定 700。实际生效值可在模型回波查看，仍受模型自身上限约束。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
                 Text("表达倾向", fontWeight = FontWeight.Medium)
                 listOf("stable" to "稳定", "balanced" to "自然", "expansive" to "发散").forEach { (value, label) ->
                     ChoiceRow(label, settings.creativity == value) { store.updateBasic { it.copy(creativity = value) } }

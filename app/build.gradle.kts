@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 70
-        versionName = "0.1.68-prompt-cache-metrics-01"
+        versionCode = 71
+        versionName = "0.1.69-output-tokens-turn-lock"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
