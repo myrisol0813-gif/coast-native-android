@@ -29,6 +29,9 @@ class DefaultThoughtSoilRepository(
                 "思维壤准备失败；未调用其他模型额度。"
             }
             val result = account.completeText(modelId.removePrefix("chatgpt-plan:"), prepared.prompt)
+            require(result.text.length <= prepared.maxResultChars) {
+                "GPT 思维壤整理结果超出后端允许长度；未覆盖原资料。"
+            }
             val committed = api.commitPlanSoil(
                 conversationId, modelId, prepared, result.text,
                 result.inputTokens, result.cachedTokens, result.outputTokens
