@@ -282,10 +282,9 @@ class CoastApiClient(
     }
 
     suspend fun prepareNativeChatGptContext(payload: RemoteChatRequest): NativeChatGptContextResponse {
-        val request = payload.copy(stream = false, prepareNativeChatGptContext = true)
-        val body = json.encodeToString(RemoteChatRequest.serializer(), request)
+        val body = json.encodeToString(RemoteChatRequest.serializer(), payload.copy(stream = false))
         return jsonRequest(
-            Request.Builder().url(config.url("/api/chat")).post(jsonBody(body)).build(),
+            Request.Builder().url(config.url("/api/chat/plan-context")).post(jsonBody(body)).build(),
             NativeChatGptContextResponse.serializer()
         )
     }
