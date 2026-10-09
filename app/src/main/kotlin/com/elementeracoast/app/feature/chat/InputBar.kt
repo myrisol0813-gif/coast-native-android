@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import com.elementeracoast.app.core.model.ChatAttachment
@@ -60,6 +61,7 @@ fun CoastComposer(
     attachmentUploading: Boolean,
     previewSource: AttachmentPreviewRemoteDataSource,
     isStreaming: Boolean,
+    isFinalizing: Boolean = false,
     enabled: Boolean = true,
     drawerOpen: Boolean = false,
     onToggleDrawer: (() -> Unit)? = null,
@@ -75,7 +77,8 @@ fun CoastComposer(
     val canSend = enabled &&
         (value.trim().isNotEmpty() || pendingAttachments.isNotEmpty()) &&
         !attachmentUploading &&
-        !isStreaming
+        !isStreaming &&
+        !isFinalizing
     val plusGlyphColor = snowLetterComposerGlyphColor(MaterialTheme.colorScheme.onSurface)
 
     Column(
@@ -229,7 +232,8 @@ fun CoastComposer(
             RoundComposerButton(
                 background = actionBackground,
                 foreground = actionForeground,
-                enabled = (enabled && !attachmentUploading) || isStreaming,
+                alpha = if (isFinalizing) .45f else 1f,
+                enabled = !isFinalizing && ((enabled && !attachmentUploading) || isStreaming),
                 onClick = {
                     when {
                         isStreaming -> onStop()
@@ -276,12 +280,14 @@ private fun RoundComposerButton(
     background: Color,
     foreground: Color,
     enabled: Boolean = true,
+    alpha: Float = 1f,
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = Modifier
             .size(CoastChatTokens.ComposerTouchTarget)
+            .alpha(alpha)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
