@@ -63,6 +63,8 @@ interface ChatRepository {
         modelId: String,
         recentTurns: Int,
         contextBudget: Int,
+        outputLength: String,
+        maxOutputTokens: Int,
         crossWindow: CrossWindowRequest = CrossWindowRequest()
     ): Flow<ChatProgress>
     fun failedHistory(historyWithUser: RemoteHistory, turnId: String, modelId: String, error: CoastApiException, partialContent: String = ""): RemoteHistory
@@ -106,6 +108,8 @@ class DefaultChatRepository(
         modelId: String,
         recentTurns: Int,
         contextBudget: Int,
+        outputLength: String,
+        maxOutputTokens: Int,
         crossWindow: CrossWindowRequest
     ): Flow<ChatProgress> = flow {
         var content = ""
@@ -127,7 +131,9 @@ class DefaultChatRepository(
             localDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
             settings = mapOf(
                 "recentTurns" to normalizedRecentTurns.toString(),
-                "contextBudget" to contextBudget.coerceAtLeast(1800).toString()
+                "contextBudget" to contextBudget.coerceAtLeast(1800).toString(),
+                "outputLength" to outputLength,
+                "maxOutputTokens" to maxOutputTokens.coerceIn(64, 65536).toString()
             ),
             crossWindow = crossWindow.toRemote(),
             stream = true
