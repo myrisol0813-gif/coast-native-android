@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 75
-        versionName = "0.1.73-chatgpt-plan-soil"
+        versionCode = 76
+        versionName = "0.1.74-chatgpt-tool-roundtrip"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
