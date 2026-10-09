@@ -775,9 +775,7 @@ class CoastShellViewModel(
                                     backendOffline = false,
                                     turnDeskReceipt = progress.deskReceipt,
                                     isStreaming = false,
-                                    isFinalizing = true,
-                                    streamingMessageId = null,
-                                    streamingVariantIndex = null
+                                    isFinalizing = true
                                 )
                             }
                         }
