@@ -55,6 +55,37 @@ internal fun nativeCoastToolOutput(call: NativeCoastToolCall, output: String): J
     put("output", output)
 }
 
+/**
+ * The completed Responses payload is the authoritative source of message text and tool calls.
+ * Some successful streams omit output_text.delta events even though the final message has text.
+ */
+internal data class NativeResponseOutput(
+    val items: JsonArray,
+    val toolCalls: List<JsonObject>,
+    val finalText: String,
+    val hasReasoning: Boolean
+)
+
+internal fun readNativeResponseOutput(response: JsonObject): NativeResponseOutput {
+    val items = response["output"] as? JsonArray ?: JsonArray(emptyList())
+    val objects = items.mapNotNull { it as? JsonObject }
+    val toolCalls = objects.filter { it["type"]?.jsonPrimitive?.contentOrNull == "function_call" }
+    val finalText = objects
+        .filter { it["type"]?.jsonPrimitive?.contentOrNull == "message" }
+        .flatMap { (it["content"] as? JsonArray)?.toList().orEmpty() }
+        .mapNotNull { it as? JsonObject }
+        .filter { it["type"]?.jsonPrimitive?.contentOrNull == "output_text" }
+        .joinToString("") { it["text"]?.jsonPrimitive?.contentOrNull.orEmpty() }
+    return NativeResponseOutput(
+        items, toolCalls, finalText,
+        objects.any { it["type"]?.jsonPrimitive?.contentOrNull == "reasoning" }
+    )
+}
+
+/** Never emit a duplicate of text that was already streamed to the UI. */
+internal fun missingNativeFinalText(streamed: String, finalText: String): String =
+    if (finalText.startsWith(streamed)) finalText.drop(streamed.length) else ""
+
 internal data class NativeChatUsage(
     val input: Long = 0,
     val cached: Long = 0,
@@ -125,6 +156,7 @@ internal class ChatGptNativeInference(
                         .build())
                     activeCall.set(call)
                     var completed: JsonObject? = null
+                    val roundText = StringBuilder()
                     call.execute().use { response ->
                         if (!response.isSuccessful) throw CoastApiException(
                             CoastApiErrorKind.Model,
@@ -145,6 +177,7 @@ internal class ChatGptNativeInference(
                                     "response.output_text.delta" -> {
                                         val delta = event["delta"]?.jsonPrimitive?.contentOrNull.orEmpty()
                                         text.append(delta)
+                                        roundText.append(delta)
                                         trySend(NativeChatEvent.Delta(delta))
                                     }
                                     "response.completed" -> completed = event["response"] as? JsonObject
@@ -176,21 +209,32 @@ internal class ChatGptNativeInference(
                         output = usageTotal.output + (usage?.get("output_tokens")?.jsonPrimitive?.longOrNull ?: 0),
                         reported = usageTotal.reported || usage != null
                     )
-                    val output = response["output"] as? JsonArray ?: JsonArray(emptyList())
-                    val pending = output.mapNotNull { it as? JsonObject }.filter {
-                        it["type"]?.jsonPrimitive?.contentOrNull == "function_call"
+                    val output = readNativeResponseOutput(response)
+                    val missingText = missingNativeFinalText(roundText.toString(), output.finalText)
+                    if (missingText.isNotEmpty()) {
+                        text.append(missingText)
+                        trySend(NativeChatEvent.Delta(missingText))
                     }
+                    val pending = output.toolCalls
                     if (pending.isEmpty()) {
-                        if (text.isBlank()) throw CoastApiException(
-                            CoastApiErrorKind.Model, "chatgpt_plan_empty", "官端 GPT 没有返回正文。"
-                        )
+                        if (text.isBlank()) {
+                            val detail = if (output.hasReasoning) "只返回了推理内容" else "返回了空输出"
+                            val guidance = if (callsMade > 0)
+                                "工具可能已经执行，请先检查朋友圈或工具记录，暂勿重复发送。"
+                            else
+                                "本轮未收到可执行的工具调用；可以尝试缩短上下文或更换模型。"
+                            throw CoastApiException(
+                                CoastApiErrorKind.Model, "chatgpt_plan_empty",
+                                "官端 GPT 已结束，但$detail，未生成正文或工具调用。$guidance"
+                            )
+                        }
                         trySend(NativeChatEvent.Completed(text.toString(), usageTotal, desk, runs))
                         break
                     }
                     if (round == 12 || callsMade + pending.size > 12) throw CoastApiException(
                         CoastApiErrorKind.Model, "tool_limit", "这轮的工具调用超过 12 次。"
                     )
-                    history.addAll(output)
+                    history.addAll(output.items)
                     for (tool in pending) {
                         val requestedTool = parseNativeCoastToolCall(tool)
                         val callId = requestedTool.callId
