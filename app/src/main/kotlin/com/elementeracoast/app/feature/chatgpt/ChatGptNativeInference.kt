@@ -41,7 +41,7 @@ internal fun parseNativeCoastToolCall(tool: JsonObject): NativeCoastToolCall {
     val rawName = tool["name"]?.jsonPrimitive?.contentOrNull.orEmpty()
     val name = rawName.removePrefix("coast.")
     val callId = tool["call_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-    if ((namespace != null && namespace != "coast") || callId.isBlank() || name.isBlank() || rawName.startsWith("coast.") && name.isBlank()) {
+    if ((namespace != null && namespace != "coast") || callId.isBlank() || name.isBlank()) {
         throw CoastApiException(CoastApiErrorKind.Decode, "invalid_tool_call", "官端 GPT 工具调用信息不完整或不属于海岸。")
     }
     return NativeCoastToolCall(callId, name)
