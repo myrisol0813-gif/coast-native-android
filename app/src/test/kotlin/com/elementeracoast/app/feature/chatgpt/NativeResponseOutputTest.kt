@@ -78,7 +78,7 @@ class NativeResponseOutputTest {
             put("call_id", "call_100")
             put("namespace", "coast")
             put("name", "memory_search")
-            put("arguments", "{\\"query\\":\\"海岸\\"}")
+            put("arguments", "{\"query\":\"海岸\"}")
         }
         val finished = buildJsonObject {
             put("type", "response.output_item.done")
