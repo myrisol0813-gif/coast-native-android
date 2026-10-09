@@ -32,6 +32,11 @@ class ChatGptPlanRepository(
 
     fun currentAccount(): ChatGptConnection? = store.load()
 
+    /** Only the local Native inference adapter receives this token, never Coast Cloudflare. */
+    internal suspend fun accessTokenForInference(): String = mutex.withLock {
+        withContext(Dispatchers.IO) { activeCredentials().accessToken }
+    }
+
     suspend fun connect(openBrowser: (String) -> Unit): ChatGptConnection = mutex.withLock {
         val existing = store.load()
         val hostId = store.hostId()
