@@ -139,5 +139,15 @@ class NativeResponseOutputTest {
             })
         }
         assertEquals(null, completedNativeStreamItem(partial))
+        val interrupted = buildJsonObject {
+            put("type", "response.output_item.done")
+            put("output_index", 0)
+            put("item", buildJsonObject {
+                put("type", "function_call")
+                put("status", "incomplete")
+                put("call_id", "call_unsafe")
+            })
+        }
+        assertEquals(null, completedNativeStreamItem(interrupted))
     }
 }
