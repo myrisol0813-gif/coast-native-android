@@ -194,8 +194,7 @@ data class RemoteChatRequest(
     @SerialName("cross_window") val crossWindow: RemoteCrossWindowRequest? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val stream: Boolean = true,
-    @SerialName("client_info") val clientInfo: String = "native_android",
-    @SerialName("prepare_native_chatgpt_context") val prepareNativeChatGptContext: Boolean = false
+    @SerialName("client_info") val clientInfo: String = "native_android"
 )
 
 @Serializable
