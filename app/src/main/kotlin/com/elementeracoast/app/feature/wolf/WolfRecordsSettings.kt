@@ -212,7 +212,7 @@ internal fun BasicSettingsScreen(settings: BasicSettings, store: WolfStore, onSn
                     store.updateBasic { it.copy(maxOutputTokens = value) }
                 }
                 Text(
-                    "自然、长信用此上限（默认 8000）；偏短固定 700。实际生效值可在模型回波查看，仍受模型自身上限约束。",
+                    "OpenRouter：自然、长信默认 8000，偏短 700。官端 ChatGPT 套餐不支持自定义输出 token 上限，此处的数值对它不生效。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )

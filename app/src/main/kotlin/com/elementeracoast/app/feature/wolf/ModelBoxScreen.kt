@@ -83,7 +83,7 @@ internal fun ModelBoxScreen(
         }
 
         item {
-            ChatGptPlanCard(chatGpt, onChatGptConnect, onChatGptDisconnect, onChatGptRefresh, onChatGptProbe)
+            ChatGptPlanCard(chatGpt, onChatGptConnect, onChatGptDisconnect, onChatGptRefresh, onSelect, onChatGptProbe)
         }
 
         item {
@@ -218,6 +218,7 @@ private fun ChatGptPlanCard(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onRefresh: () -> Unit,
+    onSelect: (String) -> Unit,
     onProbe: (String) -> Unit
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -233,7 +234,7 @@ private fun ChatGptPlanCard(
                 color = muted, style = MaterialTheme.typography.bodySmall
             )
             Text(
-                "第一阶段：登录、读取可用模型及真实推理测试。尚未替换海岸聊天模型，不影响原有思维壤与工具。",
+                "官端 GPT 已可用于普通聊天。模型推理走套餐额度；思维壤仍由海岸后端的独立模型整理。",
                 color = muted, style = MaterialTheme.typography.bodySmall
             )
             if (state.busy) {
@@ -254,6 +255,9 @@ private fun ChatGptPlanCard(
                             if (model.slug != model.displayName) {
                                 Text(model.slug, color = muted, style = MaterialTheme.typography.bodySmall)
                             }
+                        }
+                        TextButton(onClick = { onSelect("chatgpt-plan:" + model.slug) }, enabled = !state.busy) {
+                            Text("设为当前")
                         }
                         TextButton(onClick = { onProbe(model.slug) }, enabled = !state.busy) {
                             Text("测试回复")
