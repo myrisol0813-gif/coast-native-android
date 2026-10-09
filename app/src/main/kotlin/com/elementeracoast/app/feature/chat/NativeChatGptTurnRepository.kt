@@ -27,10 +27,10 @@ internal class NativeChatGptTurnRepository(
     private val api: CoastApiClient,
     private val historyRepository: ChatRepository,
     account: ChatGptPlanRepository
-) {
+) : ChatRepository by historyRepository {
     private val inference = ChatGptNativeInference(account, api)
 
-    fun streamReply(
+    override fun streamReply(
         conversationId: String,
         historyWithUser: RemoteHistory,
         turnId: String,
