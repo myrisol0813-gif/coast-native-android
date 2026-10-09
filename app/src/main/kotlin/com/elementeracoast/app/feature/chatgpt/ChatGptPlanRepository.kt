@@ -143,15 +143,19 @@ class ChatGptPlanRepository(
     }
 
     /** One real, user-triggered Responses API smoke test; does not alter chat history. */
-    suspend fun probe(model: String): ChatGptProbeResult = mutex.withLock {
-        require(model.isNotBlank())
+    suspend fun probe(model: String): ChatGptProbeResult =
+        completeText(model, "请只回答：海岸已连接。")
+
+    /** Also used for plan-funded thought-soil, never routed to OpenRouter. */
+    suspend fun completeText(model: String, prompt: String): ChatGptProbeResult = mutex.withLock {
+        require(model.isNotBlank() && prompt.isNotBlank())
         val access = withContext(Dispatchers.IO) { activeCredentials().accessToken }
         withContext(Dispatchers.IO) {
             val payload = buildJsonObject {
                 put("model", model)
                 put("input", buildJsonArray { add(buildJsonObject {
                     put("role", "user")
-                    put("content", "请只回答：海岸已连接。")
+                    put("content", prompt)
                 }) })
                 put("store", false)
                 put("stream", true)
@@ -162,9 +166,11 @@ class ChatGptPlanRepository(
                 .header("Accept", "text/event-stream")
                 .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .build()
-            http.newCall(request).execute().use { response ->
+            http.newBuilder()
+                .readTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
+                .build().newCall(request).execute().use { response ->
                 check(response.isSuccessful) {
-                    "GPT 测试请求未被接受（HTTP " + response.code + "）。"
+                    "GPT 套餐请求未被接受（HTTP " + response.code + "）。"
                 }
                 val output = StringBuilder()
                 var completed: JsonObject? = null
@@ -186,6 +192,8 @@ class ChatGptPlanRepository(
                     }
                 }
                 val final = completed ?: error("GPT 回复流缺少 response.completed。")
+                require(output.isNotBlank()) { "GPT 没有返回思维壤正文。" }
+                require(output.length <= 10000) { "GPT 思维壤整理结果超过后端允许的 10000 字符。" }
                 val usage = final["usage"] as? JsonObject
                 val inputDetails = usage?.get("input_tokens_details") as? JsonObject
                 ChatGptProbeResult(

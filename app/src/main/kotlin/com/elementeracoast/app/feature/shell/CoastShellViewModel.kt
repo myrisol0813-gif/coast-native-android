@@ -825,11 +825,17 @@ class CoastShellViewModel(
             if (_state.value.activeConversationId == conversationId) {
                 _state.update { it.copy(thoughtSoil = soil) }
             }
-        } catch (error: CoastApiException) {
-            if (error.kind == CoastApiErrorKind.Unauthorized) {
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            if (error is CoastApiException && error.kind == CoastApiErrorKind.Unauthorized) {
                 handleBackendError(error, "思维壤整理失败", keepAuthenticatedOnNetworkError = true)
             } else {
-                _state.update { it.copy(snackbarMessage = "思维壤整理失败；本轮回复已保存，可以继续聊天。") }
+                _state.update { it.copy(snackbarMessage =
+                    if (isChatGptPlanModel(modelId))
+                        "GPT 套餐思维壤整理失败；原思维壤保留，不会调用 OpenRouter。"
+                    else "思维壤整理失败；本轮回复已保存，可以继续聊天。"
+                ) }
             }
         }
     }
@@ -922,12 +928,9 @@ class CoastShellViewModel(
                         if (!isChatGptPlanModel(progress.modelId)) {
                             refreshGeneratedTitle(conversationId, titleUserText, partial)
                         }
-                        // The existing soil organizer is a Coast backend operation.
-                        // Never send a ChatGPT plan slug to an OpenRouter model endpoint.
-                        organizeThoughtSoilAfterReply(
-                            conversationId,
-                            if (isChatGptPlanModel(progress.modelId)) "" else progress.modelId
-                        )
+                        // Both paths keep the same owner-saved soil, but GPT inference
+                        // is local to the user's ChatGPT plan. Never cross providers.
+                        organizeThoughtSoilAfterReply(conversationId, progress.modelId)
                     }
                 }
             }
