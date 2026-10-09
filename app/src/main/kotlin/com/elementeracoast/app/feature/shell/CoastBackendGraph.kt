@@ -39,7 +39,7 @@ data class CoastBackendGraph(
     val dogtalk: DogtalkRepository,
     val crossWindow: CrossWindowRepository,
     val archive: GlobalArchiveRepository,
-    val officialChat: NativeChatGptTurnRepository? = null
+    val officialChat: ChatRepository? = null
 ) {
     companion object {
         fun production(
