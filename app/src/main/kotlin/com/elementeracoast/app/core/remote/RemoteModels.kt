@@ -194,7 +194,8 @@ data class RemoteChatRequest(
     @SerialName("cross_window") val crossWindow: RemoteCrossWindowRequest? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.ALWAYS)
     val stream: Boolean = true,
-    @SerialName("client_info") val clientInfo: String = "native_android"
+    @SerialName("client_info") val clientInfo: String = "native_android",
+    @SerialName("prepare_native_chatgpt_context") val prepareNativeChatGptContext: Boolean = false
 )
 
 @Serializable
@@ -234,4 +235,14 @@ data class RemoteModelCatalogResponse(
     val ok: Boolean = false,
     val groups: RemoteModelGroups = RemoteModelGroups(),
     @SerialName("updated_at") val updatedAt: String = ""
+)
+
+@Serializable
+data class NativeChatGptContextResponse(
+    val ok: Boolean = false,
+    val instructions: String = "",
+    val input: List<RemoteChatMessage> = emptyList(),
+    @SerialName("desk_slip") val deskSlip: RemoteDeskSlip? = null,
+    @SerialName("unsupported_settings") val unsupportedSettings: List<String> = emptyList(),
+    @SerialName("tool_status") val toolStatus: String = "not_connected"
 )
