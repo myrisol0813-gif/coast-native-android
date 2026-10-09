@@ -13,7 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-internal sealed interface ChatGptStreamEvent {
+sealed interface ChatGptStreamEvent {
     data class Delta(val text: String) : ChatGptStreamEvent
     data class Completed(val inputTokens: Long?, val cachedTokens: Long?, val outputTokens: Long?) : ChatGptStreamEvent
 }
@@ -21,7 +21,7 @@ internal sealed interface ChatGptStreamEvent {
 internal class ChatGptInferenceException(val type: String, message: String) : IOException(message)
 
 /** Direct phone -> OpenAI inference. Credentials never enter Coast requests or exports. */
-internal class ChatGptResponseStream(
+class ChatGptResponseStream(
     private val http: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true }
 ) {
