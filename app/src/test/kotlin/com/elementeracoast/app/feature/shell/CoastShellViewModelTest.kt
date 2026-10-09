@@ -532,6 +532,8 @@ class CoastShellViewModelTest {
             modelId: String,
             recentTurns: Int,
             contextBudget: Int,
+            outputLength: String,
+            maxOutputTokens: Int,
             crossWindow: CrossWindowRequest
         ): Flow<ChatProgress> = flow {
             streamCalls += 1
