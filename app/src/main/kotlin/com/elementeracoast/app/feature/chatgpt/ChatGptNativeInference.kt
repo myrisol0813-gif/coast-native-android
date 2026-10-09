@@ -33,6 +33,28 @@ internal sealed interface NativeChatEvent {
     ) : NativeChatEvent
 }
 
+internal data class NativeCoastToolCall(val callId: String, val name: String)
+
+/** The namespace remains attached to every replayed tool result in stateless Responses turns. */
+internal fun parseNativeCoastToolCall(tool: JsonObject): NativeCoastToolCall {
+    val namespace = tool["namespace"]?.jsonPrimitive?.contentOrNull
+    val rawName = tool["name"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    val name = rawName.removePrefix("coast.")
+    val callId = tool["call_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    if ((namespace != null && namespace != "coast") || callId.isBlank() || name.isBlank() || rawName.startsWith("coast.") && name.isBlank()) {
+        throw CoastApiException(CoastApiErrorKind.Decode, "invalid_tool_call", "官端 GPT 工具调用信息不完整或不属于海岸。")
+    }
+    return NativeCoastToolCall(callId, name)
+}
+
+internal fun nativeCoastToolOutput(call: NativeCoastToolCall, output: String): JsonObject = buildJsonObject {
+    put("type", "function_call_output")
+    put("call_id", call.callId)
+    put("name", call.name)
+    put("namespace", "coast")
+    put("output", output)
+}
+
 internal data class NativeChatUsage(
     val input: Long = 0,
     val cached: Long = 0,
@@ -83,6 +105,8 @@ internal class ChatGptNativeInference(
                         put("input", JsonArray(history))
                         put("store", false)
                         put("stream", true)
+                        // Preserve stateless reasoning across tool-call continuation on older Responses backends.
+                        put("include", buildJsonArray { add("reasoning.encrypted_content") })
                         if (instructions.isNotBlank()) put("instructions", instructions)
                         if (prepared.tools.isNotEmpty()) put("tools", buildJsonArray {
                             add(buildJsonObject {
@@ -105,7 +129,8 @@ internal class ChatGptNativeInference(
                         if (!response.isSuccessful) throw CoastApiException(
                             CoastApiErrorKind.Model,
                             "chatgpt_plan_http_" + response.code,
-                            "官端 GPT 未接受请求（HTTP " + response.code + "），请检查套餐额度、模型和功能权限。",
+                            (if (round > 0) "官端 GPT 接收工具结果后无法继续（HTTP " else "官端 GPT 未接受请求（HTTP ") +
+                                response.code + "）。请检查模型权限或本轮工具调用。",
                             response.code
                         )
                         response.body?.charStream()?.buffered()?.use { reader ->
@@ -167,11 +192,9 @@ internal class ChatGptNativeInference(
                     )
                     history.addAll(output)
                     for (tool in pending) {
-                        val callId = tool["call_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                        val name = tool["name"]?.jsonPrimitive?.contentOrNull.orEmpty().removePrefix("coast.")
-                        if (callId.isBlank() || name.isBlank()) throw CoastApiException(
-                            CoastApiErrorKind.Decode, "invalid_tool_call", "官端 GPT 工具调用信息不完整。"
-                        )
+                        val requestedTool = parseNativeCoastToolCall(tool)
+                        val callId = requestedTool.callId
+                        val name = requestedTool.name
                         val params = buildJsonObject {
                             put("id", callId)
                             put("type", "function")
@@ -184,11 +207,7 @@ internal class ChatGptNativeInference(
                         runs.addAll(result.furnitureRuns)
                         desk = result.deskSlip
                         trySend(NativeChatEvent.Tool(callId, name, result.ok))
-                        history.add(buildJsonObject {
-                            put("type", "function_call_output")
-                            put("call_id", callId)
-                            put("output", result.output)
-                        })
+                        history.add(nativeCoastToolOutput(requestedTool, result.output))
                     }
                 }
             } catch (cancelled: CancellationException) {
