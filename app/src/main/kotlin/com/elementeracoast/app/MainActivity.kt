@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         onOpenModels = vm::openModelPicker,
                         onDismissModels = vm::dismissModelPicker,
                         onSelectModel = vm::selectModel,
+                        onSelectOfficialModel = vm::selectOfficialChatModel,
                         onRefreshModels = vm::refreshModels,
                         onChatGptConnect = {
                             vm.connectChatGpt { url ->
