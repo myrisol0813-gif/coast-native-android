@@ -63,7 +63,7 @@ internal class ChatGptNativeInference(
                         obj["role"]?.jsonPrimitive?.contentOrNull in listOf("system", "developer")
                     }
                 }.joinToString("\n\n")
-                val history = prepared.modelMessages.mapNotNull { message ->
+                val history: MutableList<JsonElement> = prepared.modelMessages.mapNotNull { message ->
                     val obj = message.jsonObject
                     if (obj["role"]?.jsonPrimitive?.contentOrNull in listOf("system", "developer")) null
                     else normalizeInput(obj)
