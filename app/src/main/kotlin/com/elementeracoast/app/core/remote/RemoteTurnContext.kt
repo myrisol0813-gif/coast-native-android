@@ -318,7 +318,8 @@ data class RemotePlanSoilPrepareResponse(
     val model: String = "",
     @SerialName("expected_turn_id") val expectedTurnId: String = "",
     @SerialName("expected_assistant_id") val expectedAssistantId: String = "",
-    @SerialName("expected_soil_revision") val expectedSoilRevision: Int = 0
+    @SerialName("expected_soil_revision") val expectedSoilRevision: Int = 0,
+    @SerialName("max_result_chars") val maxResultChars: Int = 10000
 )
 
 @Serializable
