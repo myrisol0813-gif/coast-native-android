@@ -30,6 +30,7 @@ data class CoastShellState(
     val xiaohanAvatarDataUrl: String = "",
     val coverDataUrl: String = "",
     val isStreaming: Boolean = false,
+    val isFinalizing: Boolean = false,
     val streamingMessageId: Long? = null,
     val streamingVariantIndex: Int? = null,
     val showModelPicker: Boolean = false,
