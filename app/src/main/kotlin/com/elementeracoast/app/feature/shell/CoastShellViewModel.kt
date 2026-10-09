@@ -28,6 +28,8 @@ import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
 import com.elementeracoast.app.feature.chatgpt.ChatGptPlanRepository
 import com.elementeracoast.app.feature.chatgpt.ChatGptSecureStore
+import com.elementeracoast.app.feature.chat.isChatGptPlanModel
+import com.elementeracoast.app.feature.chat.CHATGPT_PLAN_PREFIX
 import com.elementeracoast.app.feature.daily.DailyProfile
 import com.elementeracoast.app.feature.daily.DailyRepository
 import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
@@ -53,7 +55,9 @@ class CoastShellViewModel(
     private val workDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     private val chatGpt: ChatGptPlanRepository? = null
 ) : ViewModel() {
-    private val _state = MutableStateFlow(CoastShellState())
+    private val _state = MutableStateFlow(CoastShellState(
+        currentModel = chatGpt?.preferredModel()?.let { CHATGPT_PLAN_PREFIX + it }.orEmpty()
+    ))
     val state: StateFlow<CoastShellState> = _state.asStateFlow()
     private val _crossWindow = MutableStateFlow(CrossWindowUiState())
     val crossWindow: StateFlow<CrossWindowUiState> = _crossWindow.asStateFlow()
@@ -265,6 +269,26 @@ class CoastShellViewModel(
     }
 
     fun selectModel(model: String) {
+        if (generationJob?.isActive == true || _state.value.isStreaming || _state.value.isFinalizing) {
+            _state.update { it.copy(snackbarMessage = "当前对话还未结束，请稍后切换模型。") }
+            return
+        }
+        if (isChatGptPlanModel(model)) {
+            val slug = model.removePrefix(CHATGPT_PLAN_PREFIX)
+            if (_chatGptState.value.connected && _chatGptState.value.availableModels.any { it.slug == slug }) {
+                chatGpt?.selectModel(slug)
+                _state.update {
+                    it.copy(
+                        currentModel = model,
+                        showModelPicker = false,
+                        snackbarMessage = "已切换官端 GPT；它使用 ChatGPT 套餐，不走 OpenRouter 推理。"
+                    )
+                }
+            } else {
+                _state.update { it.copy(snackbarMessage = "请先刷新官端 GPT 目录，确认该模型可用。") }
+            }
+            return
+        }
         if (model !in _state.value.models || model == _state.value.currentModel) {
             _state.update { it.copy(showModelPicker = false) }
             return
@@ -272,6 +296,7 @@ class CoastShellViewModel(
         viewModelScope.launch(workDispatcher) {
             try {
                 val profile = backend.profile.setCurrentChatModel(model)
+                chatGpt?.selectModel(null)
                 _state.update {
                     it.copy(
                         currentModel = profile.currentChatModel.ifBlank { model },
@@ -363,6 +388,9 @@ class CoastShellViewModel(
             _chatGptState.update { it.copy(busy = true) }
             try {
                 val revoked = client.disconnect()
+                if (isChatGptPlanModel(_state.value.currentModel)) {
+                    _state.update { it.copy(currentModel = backend.profile.cachedProfile()?.currentChatModel.orEmpty()) }
+                }
                 _chatGptState.value = ChatGptConnectState(
                     message = if (revoked) "已断开 ChatGPT，授权已撤销。"
                         else "本机授权已清除；远端撤销未确认，可在 ChatGPT 设置中解除应用授权。"
@@ -731,7 +759,8 @@ class CoastShellViewModel(
         val myri = profile?.assistantAvatarDataUrl.orEmpty().ifBlank { daily.myriAvatarDataUrl }
         _state.update {
             it.copy(
-                currentModel = current.ifBlank { it.currentModel },
+                currentModel = if (isChatGptPlanModel(it.currentModel)) it.currentModel
+                    else current.ifBlank { it.currentModel },
                 myriAvatarDataUrl = myri,
                 xiaohanAvatarDataUrl = daily.xiaohanAvatarDataUrl,
                 coverDataUrl = daily.momentCoverDataUrl
@@ -749,7 +778,7 @@ class CoastShellViewModel(
         val current = _state.value.currentModel
         _state.update {
             it.copy(
-                models = if (current.isNotBlank() && current !in models) listOf(current) + models else models,
+                models = if (current.isNotBlank() && !isChatGptPlanModel(current) && current !in models) listOf(current) + models else models,
                 currentModel = current.ifBlank { models.firstOrNull().orEmpty() }
             )
         }
@@ -857,7 +886,11 @@ class CoastShellViewModel(
             )
         }
         try {
-            backend.chat.streamReply(
+            (if (isChatGptPlanModel(modelId)) backend.officialChat
+                ?: throw CoastApiException(
+                    CoastApiErrorKind.Model, "chatgpt_plan_unavailable",
+                    "当前安装包没有可用的官端 GPT 聊天执行器。"
+                ) else backend.chat).streamReply(
                 conversationId,
                 cleared,
                 turnId,
@@ -886,8 +919,15 @@ class CoastShellViewModel(
                                 )
                             }
                         }
-                        refreshGeneratedTitle(conversationId, titleUserText, partial)
-                        organizeThoughtSoilAfterReply(conversationId, progress.modelId)
+                        if (!isChatGptPlanModel(progress.modelId)) {
+                            refreshGeneratedTitle(conversationId, titleUserText, partial)
+                        }
+                        // The existing soil organizer is a Coast backend operation.
+                        // Never send a ChatGPT plan slug to an OpenRouter model endpoint.
+                        organizeThoughtSoilAfterReply(
+                            conversationId,
+                            if (isChatGptPlanModel(progress.modelId)) "" else progress.modelId
+                        )
                     }
                 }
             }
@@ -1230,10 +1270,10 @@ class CoastShellViewModel(
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val appContext = context.applicationContext
                 val persistence = SharedPreferencesLocalPersistence(appContext)
-                val backend = CoastBackendGraph.production(appContext, persistence)
+                val chatGpt = ChatGptPlanRepository(ChatGptSecureStore(appContext))
+                val backend = CoastBackendGraph.production(appContext, persistence, chatGpt)
                 return CoastShellViewModel(
-                    persistence, backend,
-                    chatGpt = ChatGptPlanRepository(ChatGptSecureStore(appContext))
+                    persistence, backend, chatGpt = chatGpt
                 ) as T
             }
         }
