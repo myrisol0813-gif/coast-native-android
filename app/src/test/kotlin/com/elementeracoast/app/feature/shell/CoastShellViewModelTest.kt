@@ -104,7 +104,7 @@ class CoastShellViewModelTest {
         val fixture = Fixture()
         fixture.conversations.seed(RoomType.Main, "主聊天")
         val vm = fixture.vm()
-        vm.local.wolf.updateBasic { it.copy(recentTurns = 13) }
+        vm.local.wolf.updateBasic { it.copy(recentTurns = 13, outputLength = "long", maxOutputTokens = 4096) }
 
         vm.openRoomType(RoomType.Radio)
         assertEquals("", vm.state.value.activeConversationId)
@@ -121,6 +121,8 @@ class CoastShellViewModelTest {
         assertEquals("真实流回复", state.messages.last().text)
         assertEquals(1, fixture.chat.streamCalls)
         assertEquals(13, fixture.chat.lastRecentTurns)
+        assertEquals("long", fixture.chat.lastOutputLength)
+        assertEquals(4096, fixture.chat.lastMaxOutputTokens)
     }
 
     @Test
@@ -494,6 +496,8 @@ class CoastShellViewModelTest {
         var failStream = false
         var lastRecentTurns = 0
         var lastContextBudget = 0
+        var lastOutputLength = ""
+        var lastMaxOutputTokens = 0
         var lastCrossWindow = CrossWindowRequest()
 
         override fun cachedHistory(conversationId: String) = histories[conversationId]
@@ -539,6 +543,8 @@ class CoastShellViewModelTest {
             streamCalls += 1
             lastRecentTurns = recentTurns
             lastContextBudget = contextBudget
+            lastOutputLength = outputLength
+            lastMaxOutputTokens = maxOutputTokens
             lastCrossWindow = crossWindow
             if (failStream) throw CoastApiException(
                 CoastApiErrorKind.Network,
