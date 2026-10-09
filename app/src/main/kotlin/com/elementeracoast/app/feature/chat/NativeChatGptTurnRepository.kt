@@ -2,6 +2,8 @@ package com.elementeracoast.app.feature.chat
 
 import com.elementeracoast.app.core.model.CrossWindowRequest
 import com.elementeracoast.app.core.network.CoastApiClient
+import com.elementeracoast.app.core.network.CoastApiErrorKind
+import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.core.remote.RemoteChatRequest
 import com.elementeracoast.app.core.remote.RemoteHistory
 import com.elementeracoast.app.feature.chatgpt.ChatGptNativeInference
@@ -125,6 +127,9 @@ internal class NativeChatGptTurnRepository(
                 }
             }
         }
-        if (!completed) throw IllegalStateException("ChatGPT plan stream did not complete.")
+        if (!completed) throw CoastApiException(
+            CoastApiErrorKind.Stream, "chatgpt_plan_stream_incomplete",
+            "官端 GPT 回复流提前结束，没有写入假成功消息。"
+        )
     }
 }
