@@ -25,6 +25,7 @@ data class CoastShellState(
     val thoughtSoil: ThoughtSoilSnapshot? = null,
     val turnDeskReceipt: TurnDeskReceipt? = null,
     val currentModel: String = "",
+    val officialChatModel: String = "",
     val models: List<String> = emptyList(),
     val myriAvatarDataUrl: String = "",
     val xiaohanAvatarDataUrl: String = "",
