@@ -49,12 +49,11 @@ internal object LibraryImport {
     }
 
     private fun readableBody(body: String): String {
-        // Some TXT exports embed HTML paragraphs literally, as observed on device.
-        // Only parse when the input actually looks like tagged book prose.
-        val paragraphs = Regex("""(?i)<\\s*/?\\s*(?:p|br|div|blockquote)\\b""").findAll(body).count()
-        if (paragraphs < 2) return body
+        // TXT exports sometimes contain serialized HTML paragraphs.
+        val paragraphTags = Regex("""(?i)<\s*/?\s*(?:p|br|div|blockquote)\b""").findAll(body).count()
+        if (paragraphTags < 2) return body
         val text = android.text.Html.fromHtml(body, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
-        return text.replace(Regex("""\\n{3,}"""), "\\n\\n").trim()
+        return text.replace(Regex("""\n{3,}"""), "\n\n").trim()
     }
 
     private fun zipEntries(bytes: ByteArray): Map<String, ByteArray> {
