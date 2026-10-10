@@ -61,10 +61,14 @@ internal object LibraryImport {
     // Keep container.xml and OPF strict; read spine content as offline text-only HTML.
     internal fun cleanedSpineMarkup(markup: String): String {
         val html = markup.removePrefix("\uFEFF")
-        require(!Regex("""<!\s*(?:DOCTYPE|ENTITY)\b""", RegexOption.IGNORE_CASE).containsMatchIn(html)) {
-            "EPUB 正文包含不受支持的 DTD 或实体声明。"
+        // A DOCTYPE in the chapter is harmless once removed before TagSoup;
+        // never allow entity declarations or DTD internal subsets through.
+        require(!Regex("""(?is)<!\s*ENTITY\b|<!\s*DOCTYPE\b[^>]*\[""").containsMatchIn(html)) {
+            "EPUB 正文包含不受支持的实体定义。"
         }
-        var cleaned = html.replace(Regex("""(?is)<head\b[^>]*>.*?</head\s*>"""), "")
+        var cleaned = html.replace(Regex("""(?is)<!\s*DOCTYPE\b[^>]*>"""), "")
+            .replace(Regex("""(?is)^\s*<\?xml\b[^>]*\?>"""), "")
+            .replace(Regex("""(?is)<head\b[^>]*>.*?</head\s*>"""), "")
         for (tag in listOf("script", "style", "noscript", "iframe", "object", "svg")) {
             cleaned = cleaned.replace(Regex("(?is)<$tag\\b[^>]*>.*?</$tag\\s*>"), "")
         }
