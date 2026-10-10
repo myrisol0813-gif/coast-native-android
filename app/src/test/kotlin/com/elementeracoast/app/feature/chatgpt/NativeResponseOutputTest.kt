@@ -3,12 +3,64 @@ package com.elementeracoast.app.feature.chatgpt
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeResponseOutputTest {
+    @Test fun imageMessageDoesNotCrashSystemInstructionExtraction() {
+        val developer = buildJsonObject {
+            put("role", "developer")
+            put("content", "你正在海岸。")
+        }
+        val user = buildJsonObject {
+            put("role", "user")
+            put("content", buildJsonArray {
+                add(buildJsonObject { put("type", "text"); put("text", "请读图") })
+                add(buildJsonObject {
+                    put("type", "image_url")
+                    put("image_url", buildJsonObject {
+                        put("url", "data:image/png;base64,AA==")
+                    })
+                })
+            })
+        }
+        val messageList = listOf(developer, user)
+        assertEquals("你正在海岸。", nativeSystemInstructions(messageList))
+        val actual = normalizeNativeInput(user)
+        val input = buildJsonArray { add(actual) }
+        assertEquals(1, nativeVisionCount(input))
+        val parts = actual["content"]!!.jsonArray
+        assertEquals("input_text", parts[0].jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("请读图", parts[0].jsonObject["text"]!!.jsonPrimitive.content)
+        assertEquals("input_image", parts[1].jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals(
+            "data:image/png;base64,AA==",
+            parts[1].jsonObject["image_url"]!!.jsonPrimitive.content
+        )
+    }
+
+    @Test fun attachedUserContentIsNeverInjectedIntoSystemInstructions() {
+        val user = buildJsonObject {
+            put("role", "user")
+            put("content", buildJsonArray {
+                add(buildJsonObject {
+                    put("type", "text")
+                    put("text", "这张图里有什么？")
+                })
+            })
+        }
+        assertEquals("", nativeSystemInstructions(listOf(user)))
+        assertEquals("", nativeSystemInstructions(listOf(buildJsonObject {
+            put("role", "system")
+            put("content", buildJsonArray {})
+        })))
+    }
+
     @Test fun finalMessageIsRecoveredWhenStreamContainsNoTextDeltas() {
         val response = buildJsonObject {
             put("output", buildJsonArray {
