@@ -19,6 +19,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,7 +44,7 @@ import com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole
 import kotlinx.coroutines.launch
 
 internal data class DailyLandingItem(val title: String, val subtitle: String)
-internal enum class DailyPage { Home, Moments, MomentCompose, Diary, DiaryCompose, Pet }
+internal enum class DailyPage { Home, Moments, MomentCompose, Diary, DiaryCompose, Calendar, Library, Pet }
 
 @Composable
 fun DailyLanding(
@@ -55,6 +58,8 @@ fun DailyLanding(
 ) {
     var page by remember { mutableStateOf(DailyPage.Home) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val sideRooms = remember(context.applicationContext) { SideRoomsRepository.production(context.applicationContext) }
 
     suspend fun refreshDaily() {
         try {
@@ -121,6 +126,8 @@ fun DailyLanding(
                 { page = DailyPage.Diary },
                 compact = true
             )
+            DailyPage.Calendar -> FeaturePageTopBar("海岸日历", "公历 · 日程与随记", { page = DailyPage.Home }, compact = true)
+            DailyPage.Library -> FeaturePageTopBar("潮中书房", "小狗和小蛇一起翻书", { page = DailyPage.Home }, compact = true)
             DailyPage.Pet -> FeaturePageTopBar(
                 "宠物系统",
                 "休憩箱尚未展开",
@@ -145,6 +152,8 @@ fun DailyLanding(
                 DailyPage.MomentCompose -> MomentComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Moments }
                 DailyPage.Diary -> DiaryScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.DiaryCompose }
                 DailyPage.DiaryCompose -> DiaryComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Diary }
+                DailyPage.Calendar -> CalendarScreen(sideRooms, onSnackbar)
+                DailyPage.Library -> TidalLibraryScreen(sideRooms, onSnackbar)
                 DailyPage.Pet -> PetScreen()
             }
         }
@@ -156,6 +165,8 @@ private fun DailyHome(onOpen: (DailyPage) -> Unit, onFutureWidgets: () -> Unit) 
     val mapping = listOf(
         Triple(DailyPage.Moments, DailyLandingItem("碳硅圈", "海岸内部朋友圈"), Icons.Default.FavoriteBorder),
         Triple(DailyPage.Diary, DailyLandingItem("日记", "留下今天的纸页"), Icons.Default.Edit),
+        Triple(DailyPage.Calendar, DailyLandingItem("海岸日历", "公历日程与纪念日"), Icons.Default.CalendarMonth),
+        Triple(DailyPage.Library, DailyLandingItem("潮中书房", "翻书、划线与双方批注"), Icons.Default.AutoStories),
         Triple(DailyPage.Pet, DailyLandingItem("宠物系统", "还在准备休憩箱"), Icons.Default.Pets)
     )
     LazyColumn(
@@ -200,5 +211,7 @@ private fun DailyHomeCard(item: DailyLandingItem, icon: ImageVector, onClick: ()
 internal fun dailyLandingItems(): List<DailyLandingItem> = listOf(
     DailyLandingItem("碳硅圈", "海岸内部朋友圈"),
     DailyLandingItem("日记", "留下今天的纸页"),
+    DailyLandingItem("海岸日历", "公历日程与纪念日"),
+    DailyLandingItem("潮中书房", "翻书、划线与双方批注"),
     DailyLandingItem("宠物系统", "还在准备休憩箱")
 )

@@ -19,7 +19,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +52,9 @@ internal fun AssistantMessage(
     onAvatarClick: () -> Unit,
     onOpenThoughtSoil: () -> Unit,
     onCopy: () -> Unit,
+    voiceClips: List<VoiceClip>,
+    onVoice: () -> Unit,
+    onPlayVoice: (String) -> Unit,
     onAction: (MessageAction) -> Unit,
     onFootprint: () -> Unit
 ) {
@@ -94,13 +97,18 @@ internal fun AssistantMessage(
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow(modifier = Modifier.fillMaxWidth()) {
                 MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
-                MessageActionButton(Icons.Default.ThumbUp, "点赞", active = message.liked, onClick = { onAction(MessageAction.ToggleLike(message.id)) })
+                MessageActionButton(Icons.Default.Mic, "生成语音", enabled = !isStreamingTail && !message.remoteVariantId.isNullOrBlank(), onClick = onVoice)
                 MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
                 MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
                 if (metadataTraceState != null) {
                     Spacer(Modifier.weight(1f))
                     ModelMetadataTraceChip(state = metadataTraceState)
+                }
+            }
+            voiceClips.forEach { clip ->
+                androidx.compose.material3.TextButton(onClick = { onPlayVoice(clip.id) }) {
+                    Text("▶ Myraes · 语音留存", style = MaterialTheme.typography.labelSmall)
                 }
             }
             if (metadataTraceState?.expanded == true) {
