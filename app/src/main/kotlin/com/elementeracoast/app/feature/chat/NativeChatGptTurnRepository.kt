@@ -28,7 +28,8 @@ internal fun isChatGptPlanModel(modelId: String): Boolean =
 internal class NativeChatGptTurnRepository(
     private val api: CoastApiClient,
     private val historyRepository: ChatRepository,
-    account: ChatGptPlanRepository
+    private val account: ChatGptPlanRepository,
+    private val reasoningStore: ReasoningEffortStore? = null
 ) : ChatRepository by historyRepository {
     private val inference = ChatGptNativeInference(account, api)
 
@@ -69,7 +70,8 @@ internal class NativeChatGptTurnRepository(
         val context = api.prepareNativeChatGpt(request)
         var content = ""
         var completed = false
-        inference.stream(model, request, context).collect { event ->
+        val effort = reasoningStore?.get(selectedModel, account.reasoningEffortsFor(model))
+        inference.stream(model, request, context, effort).collect { event ->
             when (event) {
                 is NativeChatEvent.Delta -> {
                     content += event.text
