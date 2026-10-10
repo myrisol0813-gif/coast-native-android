@@ -183,7 +183,8 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                                 catch (error: Exception) { onSnackbar("阅读进度未保存：${error.message}") }
                             }
                         },
-                        onShowNotes = { page = LibraryPage.Notes }
+                        onShowNotes = { page = LibraryPage.Notes },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
