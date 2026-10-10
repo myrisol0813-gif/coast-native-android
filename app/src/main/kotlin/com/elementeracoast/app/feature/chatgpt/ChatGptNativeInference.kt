@@ -273,7 +273,11 @@ internal class ChatGptNativeInference(
             try {
                 val access = account.accessTokenForInference()
                 stage = "input_preparation"
-                val instructions = nativeSystemInstructions(prepared.modelMessages)
+                val voiceToolAvailable = prepared.tools.any { item ->
+                    (item as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull == "voice_create"
+                }
+                val instructions = nativeSystemInstructions(prepared.modelMessages) +
+                    if (voiceToolAvailable) "\\n用户明确要求合成或留存语音时，使用 coast.voice_create 工具。没有成功的真实工具结果时，不得声称已生成语音，不得编造音频 URL 或输出占位变量。" else ""
                 val history = mutableListOf<JsonElement>()
                 prepared.modelMessages.forEach { message ->
                     val obj = message.jsonObject
@@ -316,7 +320,7 @@ internal class ChatGptNativeInference(
                             if (prepared.tools.isNotEmpty()) add(buildJsonObject {
                                 put("type", "namespace")
                                 put("name", "coast")
-                                put("description", "海岸获准的记忆、日记、跨窗口与开发工具")
+                                put("description", "海岸授权工具：记忆、日记、日历、潮中书房、Myraes语音生成和开发工具。语音创建请使用 voice_create，未执行不能声称完成。")
                                 put("tools", prepared.tools)
                             })
                             if (searchEnabled) add(buildJsonObject { put("type", "web_search") })
