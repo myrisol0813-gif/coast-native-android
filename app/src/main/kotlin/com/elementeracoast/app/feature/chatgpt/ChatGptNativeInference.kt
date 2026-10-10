@@ -355,10 +355,19 @@ internal class ChatGptNativeInference(
                         reported = usageTotal.reported || usage != null
                     )
                     val output = readNativeResponseOutput(response, streamedItems)
-                    if (output.items.any { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "web_search_call" }) {
+                    val finishedSearch = fun(item: JsonObject): Boolean =
+                        item["type"]?.jsonPrimitive?.contentOrNull == "web_search_call" &&
+                            item["status"]?.jsonPrimitive?.contentOrNull !in listOf("failed", "incomplete")
+                    if (output.items.mapNotNull { it as? JsonObject }.any(finishedSearch)
+                        || streamedItems.values.any(finishedSearch)) {
                         didSearch = true
                     }
                     searchSources.addAll(nativeWebSearchSources(output))
+                    if (streamedItems.isNotEmpty()) {
+                        searchSources.addAll(nativeWebSearchSources(
+                            readNativeResponseOutput(buildJsonObject { }, streamedItems)
+                        ))
+                    }
                     val missingText = missingNativeFinalText(roundText.toString(), output.finalText)
                     if (missingText.isNotEmpty()) {
                         text.append(missingText)
