@@ -1,15 +1,13 @@
 package com.elementeracoast.app.feature.daily
 
-import androidx.compose.foundation.Arrangement
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement as LayoutArrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -69,7 +67,7 @@ fun CalendarScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Unit
     val visible = entries.filter { it.day() == day.toString() }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = LayoutArrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = {
                 val candidate = month.minusMonths(1)
                 if (candidate.year >= 1900) { month = candidate; day = candidate.atDay(1) }
@@ -83,11 +81,11 @@ fun CalendarScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Unit
         }
         val first = month.atDay(1).dayOfWeek.value % 7
         val weeks = (first + month.lengthOfMonth() + 6) / 7
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = LayoutArrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("日","一","二","三","四","五","六").forEach { Text(it, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall) }
         }
         repeat(weeks) { week ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = LayoutArrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 repeat(7) { wd ->
                     val number = week * 7 + wd - first + 1
                     val current = if (number in 1..month.lengthOfMonth()) month.atDay(number) else null
@@ -111,7 +109,7 @@ fun CalendarScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Unit
             }
         }
         Spacer(Modifier.padding(9.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = LayoutArrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(day.toString(), style = MaterialTheme.typography.titleMedium)
             TextButton(onClick = { editing = null; formOpen = true }) { Text("＋ 记录") }
         }
