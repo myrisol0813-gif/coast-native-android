@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 86
-        versionName = "0.1.84-tidal-reader-v2"
+        versionCode = 87
+        versionName = "0.1.85-epub-html-import"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
