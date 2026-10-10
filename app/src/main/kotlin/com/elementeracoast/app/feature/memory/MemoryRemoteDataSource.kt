@@ -6,6 +6,7 @@ import com.elementeracoast.app.core.network.CoastApiException
 import com.elementeracoast.app.core.remote.RemoteCustomInstructions
 import com.elementeracoast.app.core.remote.RemoteCustomInstructionsPutRequest
 import com.elementeracoast.app.core.remote.RemoteCustomInstructionsResponse
+import com.elementeracoast.app.core.remote.RemoteGlobalExcerptClearRequest
 import com.elementeracoast.app.core.remote.RemoteGlobalExcerptConfirmRequest
 import com.elementeracoast.app.core.remote.RemoteGlobalExcerptPatchRequest
 import com.elementeracoast.app.core.remote.RemoteGlobalExcerptResponse
@@ -93,6 +94,13 @@ class MemoryRemoteDataSource(
     suspend fun setGlobalExcerptWriteEnabled(enabled: Boolean): RemoteGlobalExcerptResponse = request(
         Request.Builder().url(config.url("/api/memory/global-excerpt")).patch(
             body(json.encodeToString(RemoteGlobalExcerptPatchRequest(writeEnabled = enabled)))
+        ).build(),
+        RemoteGlobalExcerptResponse.serializer()
+    )
+
+    suspend fun clearGlobalExcerpt(expectedRevision: Int): RemoteGlobalExcerptResponse = request(
+        Request.Builder().url(config.url("/api/memory/global-excerpt")).patch(
+            body(json.encodeToString(RemoteGlobalExcerptClearRequest(expectedRevision = expectedRevision)))
         ).build(),
         RemoteGlobalExcerptResponse.serializer()
     )
