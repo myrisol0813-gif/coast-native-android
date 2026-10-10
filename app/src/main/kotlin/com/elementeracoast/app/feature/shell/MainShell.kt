@@ -209,6 +209,7 @@ fun MainShell(
         if (state.showModelPicker && state.activeFeature == null) {
             ModelQuickPicker(
                 models = state.models,
+                modelReasoningChoices = state.modelReasoningChoices,
                 currentModel = state.currentModel,
                 onPick = onSelectModel,
                 onDismiss = onDismissModels,
