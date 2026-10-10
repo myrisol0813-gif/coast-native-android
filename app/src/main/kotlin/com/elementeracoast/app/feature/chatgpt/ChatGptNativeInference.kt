@@ -162,6 +162,39 @@ internal fun nativeVisionCount(input: JsonArray): Int =
         body.orEmpty().count { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "input_image" }
     }
 
+/** A strictly structural failure report: never surface exception messages or raw model payloads. */
+internal fun diagnoseNativeInferenceFailure(
+    error: Exception, stage: String, imageCount: Int, requestCharsK: Int
+): CoastApiException {
+    val failure = when (error) {
+        is java.net.SocketTimeoutException -> "timeout"
+        is java.net.UnknownHostException -> "dns"
+        is javax.net.ssl.SSLException -> "tls"
+        is java.io.EOFException -> "connection_closed"
+        is java.net.SocketException -> "connection"
+        is java.io.IOException -> "io"
+        else -> "processing"
+    }
+    val description = when (failure) {
+        "timeout" -> "请求等待超时"
+        "dns" -> "域名解析失败"
+        "tls" -> "安全连接失败"
+        "connection_closed" -> "连接提前断开"
+        "connection", "io" -> "网络传输失败"
+        else -> "处理模型数据时发生异常"
+    }
+    val validStage = stage.takeIf { it in setOf(
+        "authorization", "input_preparation", "openai_request",
+        "openai_response", "openai_stream", "output_processing", "coast_tool_execution"
+    ) } ?: "unknown"
+    return CoastApiException(
+        if (error is java.io.IOException) CoastApiErrorKind.Network else CoastApiErrorKind.Decode,
+        "chatgpt_plan_${failure}_${validStage}",
+        "官端 GPT ${description}（阶段=${validStage}；图片数=${imageCount.coerceAtLeast(0)}；请求长度约=${requestCharsK.coerceAtLeast(0)}K字符）。未传输私密错误细节。",
+        cause = error
+    )
+}
+
 internal data class NativeChatUsage(
     val input: Long = 0,
     val cached: Long = 0,
@@ -400,31 +433,8 @@ internal class ChatGptNativeInference(
                 close()
                 throw cancelled
             } catch (error: Exception) {
-                val diagnosed = if (error is CoastApiException) error else {
-                    val failure = when (error) {
-                        is java.net.SocketTimeoutException -> "timeout"
-                        is java.net.UnknownHostException -> "dns"
-                        is javax.net.ssl.SSLException -> "tls"
-                        is java.io.EOFException -> "connection_closed"
-                        is java.net.SocketException -> "connection"
-                        is java.io.IOException -> "io"
-                        else -> "processing"
-                    }
-                    val description = when (failure) {
-                        "timeout" -> "请求等待超时"
-                        "dns" -> "域名解析失败"
-                        "tls" -> "安全连接失败"
-                        "connection_closed" -> "连接提前断开"
-                        "connection", "io" -> "网络传输失败"
-                        else -> "处理模型数据时发生异常"
-                    }
-                    CoastApiException(
-                        if (error is java.io.IOException) CoastApiErrorKind.Network else CoastApiErrorKind.Decode,
-                        "chatgpt_plan_${failure}_${stage}",
-                        "官端 GPT ${description}（阶段=${stage}；图片数=${imageCount}；请求长度约=${requestKiB}K字符）。未传输私密错误细节。",
-                        cause = error
-                    )
-                }
+                val diagnosed = if (error is CoastApiException) error
+                    else diagnoseNativeInferenceFailure(error, stage, imageCount, requestKiB)
                 close(diagnosed)
                 return@launch
             } finally {
