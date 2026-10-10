@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -38,6 +39,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.put
 import androidx.compose.ui.platform.LocalContext
 
@@ -66,6 +68,7 @@ fun TidalLibraryScreen(
     var focus by remember { mutableIntStateOf(-1) }
     var loading by remember { mutableStateOf(true) }
     var importing by remember { mutableStateOf<String?>(null) }
+    var pendingCoverBook by remember { mutableStateOf<String?>(null) }
     var revision by remember { mutableIntStateOf(0) }
     var writeNote by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<JsonObject?>(null) }
@@ -73,6 +76,18 @@ fun TidalLibraryScreen(
     var pendingBookDelete by remember { mutableStateOf(false) }
     var pendingNoteDelete by remember { mutableStateOf<JsonObject?>(null) }
 
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val id=pendingCoverBook
+        pendingCoverBook=null
+        if(uri!=null && !id.isNullOrBlank()) scope.launch {
+            try {
+                val jpeg=prepareTidalCover(context,uri)
+                repository.saveBookCover(id,jpeg)
+                revision++
+                onSnackbar("封面已经留在书房里了。")
+            }catch(error: Exception) { onSnackbar("封面没有保存：${error.message}") }
+        }
+    }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             loading = true
@@ -142,23 +157,43 @@ fun TidalLibraryScreen(
                 if (books.isEmpty() && !loading) Text("书架还空着。挑一本我们一起读的书吧。")
                 books.forEach { entry ->
                     DailySurfaceCard(onClick = { openBook(entry) }) {
-                        Text(entry.s("title"), fontWeight = FontWeight.SemiBold)
-                        Text("${entry.s("format").uppercase()} · ${entry.n("chapters_count")} 章",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val chapterIndex = entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull
-                        val chaptersCount = entry.n("chapters_count").coerceAtLeast(1)
-                        val percent = if (chapterIndex == null) 0f else (chapterIndex + 1).toFloat() / chaptersCount
-                        androidx.compose.material3.LinearProgressIndicator(
-                            progress = { percent.coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = androidx.compose.ui.graphics.Color(0xFFB99A66)
-                        )
-                        Text("阅读进度 · ${if (chapterIndex == null) "尚未开始" else "第 ${chapterIndex + 1} / $chaptersCount 章"}",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("小寒 · ${entry.n("xiaohan_notes")} 条批注与读后感",
-                            style = MaterialTheme.typography.labelSmall)
-                        Text("Myri · ${entry.n("myri_notes")} 条批注与读后感",
-                            style = MaterialTheme.typography.labelSmall)
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                            Column(modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text(entry.s("title"), fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyMedium)
+                                Text("${entry.s("format").uppercase()} · ${entry.n("chapters_count")} 个正文分段",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val chapterIndex=entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull
+                                val chapterCount=entry.n("chapters_count").coerceAtLeast(1)
+                                val percent=if(chapterIndex==null)0f else (chapterIndex+1).toFloat()/chapterCount
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress={percent.coerceIn(0f,1f)},
+                                    modifier=Modifier.fillMaxWidth(),
+                                    color=androidx.compose.ui.graphics.Color(0xFFB99A66)
+                                )
+                                Text(if(chapterIndex==null)"阅读进度 · 尚未开始"
+                                    else "阅读进度 · 第 ${chapterIndex+1} / ${chapterCount} 个分段",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("小寒 · ${entry.n("xiaohan_notes")} 条批注与读后感",
+                                    style=MaterialTheme.typography.labelSmall)
+                                Text("Myri · ${entry.n("myri_notes")} 条批注与读后感",
+                                    style=MaterialTheme.typography.labelSmall)
+                            }
+                            TidalCoverSlot(
+                                bookId=entry.s("id"),
+                                hasCover=entry["has_cover"]?.jsonPrimitive?.booleanOrNull == true,
+                                revision=revision,
+                                repository=repository,
+                                onClick={
+                                    pendingCoverBook=entry.s("id")
+                                    coverPicker.launch("image/*")
+                                }
+                            )
+                        }
                     }
                 }
             }
