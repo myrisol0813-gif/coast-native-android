@@ -77,7 +77,8 @@ class DefaultChatRepository(
     private val api: CoastApiClient,
     private val cache: RemoteCacheStore,
     private val metadataRemote: ModelMetadataRemoteDataSource? = null,
-    private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json: Json = Json { ignoreUnknownKeys = true; explicitNulls = false },
+    private val reasoningStore: ReasoningEffortStore? = null
 ) : ChatRepository {
     override fun cachedHistory(conversationId: String): RemoteHistory? = cache.history(conversationId)
 
@@ -120,6 +121,9 @@ class DefaultChatRepository(
         var done = false
         val normalizedRecentTurns = recentTurns.coerceAtLeast(1)
         val assistantVariantId = ChatSyncMapper.nextAssistantVariantId(historyWithUser, turnId)
+        val offered = cache.modelCatalog()?.groups?.let { it.openAiChat + it.freeTest }
+            ?.firstOrNull { it.id == modelId }?.reasoningEfforts.orEmpty()
+        val effort = reasoningStore?.get(modelId, offered)
         val request = RemoteChatRequest(
             conversationId = conversationId,
             sourceTurnId = turnId,
@@ -134,7 +138,7 @@ class DefaultChatRepository(
                 "contextBudget" to contextBudget.coerceAtLeast(1800).toString(),
                 "outputLength" to outputLength,
                 "maxOutputTokens" to maxOutputTokens.coerceIn(64, 65536).toString()
-            ),
+            ) + (effort?.let { mapOf("reasoningEffort" to it) } ?: emptyMap()),
             crossWindow = crossWindow.toRemote(),
             stream = true
         )
