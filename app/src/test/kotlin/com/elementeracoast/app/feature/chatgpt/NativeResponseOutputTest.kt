@@ -191,6 +191,32 @@ class NativeResponseOutputTest {
         assertEquals(listOf("https://example.org/article", "https://second.org/source"), nativeWebSearchSources(output))
     }
 
+    @Test fun imageFailureReportsStageWithoutLeakingExceptionDetails() {
+        val error = diagnoseNativeInferenceFailure(
+            java.net.SocketTimeoutException("SECRET_ACCESS_TOKEN_AND_IMAGE_BASE64"),
+            "openai_stream",
+            1,
+            1200
+        )
+        assertEquals("chatgpt_plan_timeout_openai_stream", error.type)
+        assertTrue(error.message.orEmpty().contains("图片数=1"))
+        assertTrue(error.message.orEmpty().contains("阶段=openai_stream"))
+        assertFalse(error.message.orEmpty().contains("SECRET_ACCESS_TOKEN"))
+        assertFalse(error.message.orEmpty().contains("IMAGE_BASE64"))
+    }
+
+    @Test fun invalidStagesAreRedactedBeforeErrorDisplay() {
+        val error = diagnoseNativeInferenceFailure(
+            IllegalArgumentException("auth credential and text"),
+            "user:secret/private/location",
+            0,
+            1
+        )
+        assertTrue(error.message.orEmpty().contains("阶段=unknown"))
+        assertFalse(error.message.orEmpty().contains("private/location"))
+        assertEquals("chatgpt_plan_processing_unknown", error.type)
+    }
+
     @Test fun visionCountReportsOnlyNormalizedImageParts() {
         val input = buildJsonArray {
             add(buildJsonObject {
