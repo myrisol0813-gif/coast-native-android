@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -73,7 +74,54 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
     suspend fun chapter(id: String, index: Int, start: Int = 0): JsonObject =
         request("/api/library/books/${path(id)}/chapters/$index?start=$start&limit=12")
     suspend fun notes(id: String): JsonObject = request("/api/library/books/${path(id)}/notes")
-    suspend fun importBook(payload: JsonObject): JsonObject = request("/api/library/books", "POST", payload)
+    suspend fun importBook(payload: JsonObject, onProgress: (Int, Int) -> Unit = { _, _ -> }): JsonObject {
+        val chapters = (payload["chapters"] as? kotlinx.serialization.json.JsonArray)?.map {
+            it as? JsonObject ?: throw IllegalArgumentException("书籍章节格式错误。")
+        } ?: throw IllegalArgumentException("书籍没有正文。")
+        val total = chapters.sumOf { (it["body"]?.jsonPrimitive?.contentOrNull ?: "").trim().length }
+        val metadata = kotlinx.serialization.json.buildJsonObject {
+            put("title", payload["title"] ?: kotlinx.serialization.json.JsonPrimitive(""))
+            put("format", payload["format"] ?: kotlinx.serialization.json.JsonPrimitive(""))
+            put("chapters_count", kotlinx.serialization.json.JsonPrimitive(chapters.size))
+            put("total_chars", kotlinx.serialization.json.JsonPrimitive(total))
+        }
+        val draft = request("/api/library/imports", "POST", metadata)
+        val id = draft["import"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
+            ?: throw IllegalStateException("书房未返回导入编号。")
+        try {
+            var cursor = 0
+            while (cursor < chapters.size) {
+                val group = mutableListOf<JsonObject>()
+                var chars = 0
+                while (cursor + group.size < chapters.size && group.size < 8) {
+                    val item = chapters[cursor + group.size]
+                    val count = item["body"]?.jsonPrimitive?.contentOrNull.orEmpty().trim().length
+                    if (count > 120000) throw IllegalArgumentException("章节超过单批上传上限。")
+                    if (group.isNotEmpty() && chars + count > 120000) break
+                    group.add(item)
+                    chars += count
+                }
+                val next = kotlinx.serialization.json.buildJsonObject {
+                    put("start_index", kotlinx.serialization.json.JsonPrimitive(cursor))
+                    put("chapters", kotlinx.serialization.json.JsonArray(group))
+                }
+                val address = "/api/library/imports/${path(id)}/chapters"
+                val uploaded = try { request(address, "POST", next) }
+                    catch (error: Exception) {
+                        // Idempotent repeat after a dropped connection; never send different data.
+                        request(address, "POST", next)
+                    }
+                cursor = uploaded["progress"]?.jsonObject?.get("next_index")?.jsonPrimitive?.intOrNull
+                    ?: throw IllegalStateException("分批上传没有返回保存位置。")
+                onProgress(cursor, chapters.size)
+            }
+            return request("/api/library/imports/${path(id)}/finish", "POST")["book"]?.jsonObject
+                ?: throw IllegalStateException("书房未确认整本书保存完成。")
+        } catch (error: Exception) {
+            try { request("/api/library/imports/${path(id)}", "DELETE") } catch (_: Exception) { }
+            throw error
+        }
+    }
     suspend fun deleteBook(id: String) { request("/api/library/books/${path(id)}", "DELETE") }
     suspend fun progress(id: String, index: Int, paragraph: Int) {
         request("/api/library/books/${path(id)}/progress", "POST",
