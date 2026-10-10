@@ -138,6 +138,14 @@ internal object LibraryImport {
         builder.setEntityResolver { _, _ -> org.xml.sax.InputSource(java.io.StringReader("")) }
         return builder.parse(ByteArrayInputStream(bytes))
     }
+    private fun readMetadataXml(bytes: ByteArray, label: String): Document {
+        try {
+            return xml(bytes)
+        } catch (error: Exception) {
+            throw IllegalArgumentException("EPUB 的 $label 格式异常，无法读取书籍目录。", error)
+        }
+    }
+
     private fun Document.elements(name: String): List<Element> {
         val nodes = getElementsByTagNameNS("*", name)
         return (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }
@@ -145,10 +153,10 @@ internal object LibraryImport {
     private fun epubChapters(bytes: ByteArray): List<Pair<String, String>> {
         val files = zipEntries(bytes)
         val container = files["META-INF/container.xml"] ?: throw IllegalArgumentException("EPUB 缺少书籍入口。")
-        val opfPath = xml(container).elements("rootfile").firstOrNull()?.getAttribute("full-path")
+        val opfPath = readMetadataXml(container, "container.xml").elements("rootfile").firstOrNull()?.getAttribute("full-path")
             ?.takeIf { it.isNotBlank() } ?: throw IllegalArgumentException("EPUB 目录没有指明正文。")
         val packageFile = files[normalize(opfPath)] ?: throw IllegalArgumentException("EPUB 缺少 OPF 目录。")
-        val opf = xml(packageFile)
+        val opf = readMetadataXml(packageFile, "OPF 书籍目录")
         val manifest = opf.elements("item").associate { it.getAttribute("id") to it }
         val prefix = normalize(opfPath).substringBeforeLast('/', "")
         val sections = mutableListOf<Pair<String, String>>()
