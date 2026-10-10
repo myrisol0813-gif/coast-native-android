@@ -113,6 +113,51 @@ internal fun nativeOutputKinds(output: NativeResponseOutput): String =
             else -> "other"
         } }.distinct().take(6).joinToString(",").ifBlank { "none" }
 
+/**
+ * Hosted search is opt-in per user query. Never inject a hosted search into ordinary
+ * requests for models whose account policy may not allow it.
+ */
+internal fun requestsNativeWebSearch(userText: String): Boolean =
+    Regex("联网搜索|上网搜索|搜索网页|网页搜索|帮我搜索|查一下网上|查查网上|查阅网络|搜索最新|搜索新闻|搜索资料|search the web|web search", RegexOption.IGNORE_CASE)
+        .containsMatchIn(userText)
+
+/** Preserve provider-supplied URL citations without showing internal tool arguments. */
+internal fun nativeWebSearchSources(output: NativeResponseOutput): List<String> {
+    val sources = mutableListOf<String>()
+    val objects = output.items.mapNotNull { it as? JsonObject }
+    objects.forEach { item ->
+        when (item["type"]?.jsonPrimitive?.contentOrNull) {
+            "message" -> (item["content"] as? JsonArray).orEmpty().forEach { content ->
+                val body = content as? JsonObject ?: return@forEach
+                (body["annotations"] as? JsonArray).orEmpty().forEach { annotation ->
+                    val obj = annotation as? JsonObject ?: return@forEach
+                    obj["url"]?.jsonPrimitive?.contentOrNull?.let(sources::add)
+                }
+            }
+            "web_search_call" -> {
+                val action = item["action"] as? JsonObject
+                (action?.get("sources") as? JsonArray).orEmpty().forEach { source ->
+                    val obj = source as? JsonObject ?: return@forEach
+                    obj["url"]?.jsonPrimitive?.contentOrNull?.let(sources::add)
+                }
+            }
+        }
+    }
+    return sources.mapNotNull { raw ->
+        runCatching {
+            val uri = java.net.URI(raw)
+            if (uri.scheme !in listOf("https", "http") || uri.host.isNullOrBlank()) null
+            else raw.take(1400)
+        }.getOrNull()
+    }.distinct().take(6)
+}
+
+internal fun nativeVisionCount(input: JsonArray): Int =
+    input.sumOf { message ->
+        val body = (message as? JsonObject)?.get("content") as? JsonArray
+        body.orEmpty().count { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "input_image" }
+    }
+
 internal data class NativeChatUsage(
     val input: Long = 0,
     val cached: Long = 0,
@@ -151,6 +196,18 @@ internal class ChatGptNativeInference(
                         history.add(normalizeInput(obj))
                     }
                 }
+                val imageCount = nativeVisionCount(JsonArray(history))
+                val searchEnabled = history.lastOrNull()?.let {
+                    (it as? JsonObject)?.get("content")?.let { part ->
+                        when (part) {
+                            is JsonArray -> part.mapNotNull { e -> (e as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull }.joinToString(" ")
+                            is JsonPrimitive -> part.contentOrNull.orEmpty()
+                            else -> ""
+                        }
+                    }
+                }?.let(::requestsNativeWebSearch) ?: false
+                val searchSources = linkedSetOf<String>()
+                var didSearch = false
                 val text = StringBuilder()
                 val runs = mutableListOf<RemoteFurnitureRun>()
                 var desk = prepared.deskSlip
@@ -166,13 +223,14 @@ internal class ChatGptNativeInference(
                         // Preserve stateless reasoning across tool-call continuation on older Responses backends.
                         put("include", buildJsonArray { add("reasoning.encrypted_content") })
                         if (instructions.isNotBlank()) put("instructions", instructions)
-                        if (prepared.tools.isNotEmpty()) put("tools", buildJsonArray {
-                            add(buildJsonObject {
+                        if (prepared.tools.isNotEmpty() || searchEnabled) put("tools", buildJsonArray {
+                            if (prepared.tools.isNotEmpty()) add(buildJsonObject {
                                 put("type", "namespace")
                                 put("name", "coast")
                                 put("description", "海岸获准的记忆、日记、跨窗口与开发工具")
                                 put("tools", prepared.tools)
                             })
+                            if (searchEnabled) add(buildJsonObject { put("type", "web_search") })
                         })
                     }
                     val call = http.newCall(Request.Builder()
@@ -241,6 +299,10 @@ internal class ChatGptNativeInference(
                         reported = usageTotal.reported || usage != null
                     )
                     val output = readNativeResponseOutput(response, streamedItems)
+                    if (output.items.any { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "web_search_call" }) {
+                        didSearch = true
+                    }
+                    searchSources.addAll(nativeWebSearchSources(output))
                     val missingText = missingNativeFinalText(roundText.toString(), output.finalText)
                     if (missingText.isNotEmpty()) {
                         text.append(missingText)
@@ -265,6 +327,16 @@ internal class ChatGptNativeInference(
                                 "官端 GPT $detail。$guidance（状态=$status；工具数=${prepared.tools.size}；流输出项=${streamedItems.size}；类型=${nativeOutputKinds(output)}）"
                             )
                         }
+                        if (didSearch) {
+                            trySend(NativeChatEvent.Tool("web_search", "网页搜索", true))
+                            if (searchSources.isNotEmpty()) {
+                                val references = searchSources.joinToString("\n") { "- $it" }
+                                val supplement = "\n\n搜索来源：\n$references"
+                                text.append(supplement)
+                                trySend(NativeChatEvent.Delta(supplement))
+                            }
+                        }
+                        if (imageCount > 0) trySend(NativeChatEvent.Tool("vision_input", "图片输入 $imageCount 张", true))
                         trySend(NativeChatEvent.Completed(text.toString(), usageTotal, desk, runs))
                         break
                     }
