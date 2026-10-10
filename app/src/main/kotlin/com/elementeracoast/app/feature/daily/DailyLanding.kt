@@ -87,7 +87,8 @@ fun DailyLanding(
         Unit
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize()) {
         when (page) {
             DailyPage.Home -> FeaturePageTopBar(
                 title = "海岸日报",
@@ -130,14 +131,7 @@ fun DailyLanding(
                 compact = true
             )
             DailyPage.Calendar -> FeaturePageTopBar("海岸日历", "公历 · 日程与随记", { page = DailyPage.Home }, compact = true)
-            DailyPage.Library -> if(libraryChromeVisible) FeaturePageTopBar(
-                title = "潮中书房",
-                subtitle = "小狗和小蛇一起翻书",
-                onBack = { page = DailyPage.Home },
-                actionLabel = if (libraryShelf) "＋" else null,
-                onAction = { libraryImportRequest++ },
-                compact = true
-            )
+            DailyPage.Library -> Unit
             DailyPage.Pet -> FeaturePageTopBar(
                 "宠物系统",
                 "休憩箱尚未展开",
@@ -172,6 +166,19 @@ fun DailyLanding(
                 DailyPage.Pet -> PetScreen()
             }
         }
+      }
+      if(page==DailyPage.Library && libraryChromeVisible) {
+          Box(Modifier.align(Alignment.TopCenter)) {
+              FeaturePageTopBar(
+                  title="潮中书房",
+                  subtitle="小狗和小蛇一起翻书",
+                  onBack={page=DailyPage.Home},
+                  actionLabel=if(libraryShelf)"＋" else null,
+                  onAction={libraryImportRequest++},
+                  compact=true
+              )
+          }
+      }
     }
 }
 
