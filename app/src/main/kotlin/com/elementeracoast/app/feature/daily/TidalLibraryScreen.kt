@@ -143,6 +143,7 @@ fun TidalLibraryScreen(
         page = LibraryPage.Chapter
     }
     fun openChapter(chapterIndex: Int, paragraph: Int = 0) {
+        chapter = null
         index = chapterIndex; start = 0
         focus = paragraph; page = LibraryPage.Chapter
     }
@@ -215,7 +216,7 @@ fun TidalLibraryScreen(
                         paragraphs = pageData.rows("paragraphs"),
                         notes = notes,
                         initialParagraph = focus,
-                        onChapter = { chapterIndex -> openChapter(chapterIndex) },
+                        onChapter = { chapterIndex, lastPage -> openChapter(chapterIndex, if(lastPage) -1 else 0) },
                         onHighlight = { paragraph, from, to ->
                             scope.launch {
                                 try {
