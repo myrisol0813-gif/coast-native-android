@@ -76,6 +76,7 @@ internal fun TidalPagedReader(
     onNote: (JsonObject) -> Unit,
     onProgress: (Int) -> Unit,
     onShowNotes: () -> Unit,
+    onExit: () -> Unit,
     onReadingChromeChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -163,6 +164,7 @@ internal fun TidalPagedReader(
                 horizontalArrangement=Arrangement.SpaceBetween,
                 verticalAlignment=Alignment.CenterVertically
             ) {
+                TextButton(onClick=onExit) { Text("‹ 书架",color=palette.ink) }
                 Box {
                     TextButton(onClick={tocOpen=true}) { Text("目录",color=palette.ink) }
                     DropdownMenu(expanded=tocOpen,onDismissRequest={tocOpen=false}) {
