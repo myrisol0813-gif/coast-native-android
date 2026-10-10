@@ -137,7 +137,7 @@ internal fun TidalPagedReader(
                     .padding(horizontal=20.dp,vertical=26.dp),
                 verticalArrangement=Arrangement.spacedBy(10.dp)
             ) {
-                if(page==0) {
+                if(page==0 && !Regex("^第\\s*\\d+\\s*节$").matches(chapterTitle)) {
                     Text(chapterTitle,fontSize=(fontSize+2).sp,
                         fontFamily=readingFamily,fontWeight=FontWeight.Medium,
                         color=palette.ink,modifier=Modifier.padding(bottom=12.dp))
