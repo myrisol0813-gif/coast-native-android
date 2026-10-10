@@ -231,6 +231,11 @@ internal class ChatGptNativeInference(
                         // Preserve stateless reasoning across tool-call continuation on older Responses backends.
                         put("include", buildJsonArray { add("reasoning.encrypted_content") })
                         if (instructions.isNotBlank()) put("instructions", instructions)
+                        // A direct request to search must use search, not merely offer it as optional.
+                        // Force only the provider-hosted tool; this never selects Coast write tools.
+                        if (searchEnabled && round == 0) put("tool_choice", buildJsonObject {
+                            put("type", "web_search")
+                        })
                         if (prepared.tools.isNotEmpty() || searchEnabled) put("tools", buildJsonArray {
                             if (prepared.tools.isNotEmpty()) add(buildJsonObject {
                                 put("type", "namespace")
@@ -242,7 +247,7 @@ internal class ChatGptNativeInference(
                         })
                     }
                     val payload = body.toString()
-                    requestKiB = (payload.length * 2 / 1024).coerceAtLeast(1) // conservative upper bound, not raw content
+                    requestKiB = payload.length / 1024 // character count only; no private content logged
                     stage = "openai_request"
                     val call = http.newCall(Request.Builder()
                         .url("https://api.openai.com/v1/responses")
@@ -416,7 +421,7 @@ internal class ChatGptNativeInference(
                     CoastApiException(
                         if (error is java.io.IOException) CoastApiErrorKind.Network else CoastApiErrorKind.Decode,
                         "chatgpt_plan_${failure}_${stage}",
-                        "官端 GPT ${description}（阶段=${stage}；图片数=${imageCount}；请求体上界约=${requestKiB} KiB）。未传输私密错误细节。",
+                        "官端 GPT ${description}（阶段=${stage}；图片数=${imageCount}；请求长度约=${requestKiB}K字符）。未传输私密错误细节。",
                         cause = error
                     )
                 }
