@@ -36,7 +36,7 @@ internal object LibraryImport {
         val sections = if (ext == "txt") {
             listOf("正文" to bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF"))
         } else epubChapters(bytes)
-        val chapters = chapterize(sections)
+        val chapters = chapterize(sections.map { (title, body) -> title to readableBody(body) })
         buildJsonObject {
             put("title", name.substringBeforeLast('.').take(160))
             put("format", ext)
@@ -46,6 +46,14 @@ internal object LibraryImport {
                 })
             })
         }
+    }
+
+    private fun readableBody(body: String): String {
+        // TXT exports sometimes contain serialized HTML paragraphs.
+        val paragraphTags = Regex("""(?i)<\s*/?\s*(?:p|br|div|blockquote)\b""").findAll(body).count()
+        if (paragraphTags < 2) return body
+        val text = android.text.Html.fromHtml(body, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
+        return text.replace(Regex("""\n{3,}"""), "\n\n").trim()
     }
 
     private fun zipEntries(bytes: ByteArray): Map<String, ByteArray> {
@@ -83,12 +91,24 @@ internal object LibraryImport {
     private fun xml(bytes: ByteArray): Document {
         val factory = DocumentBuilderFactory.newInstance()
         factory.isNamespaceAware = true
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-        factory.isXIncludeAware = false
+        // Android XML providers do not all implement Apache's DOCTYPE feature.
+        // Reject DTD directly and separately disable external resolution. Unsupported
+        // optional parser flags must not prevent otherwise safe EPUBs from loading.
+        val probe = bytes.toString(Charsets.UTF_8).replace("\u0000", "")
+        require(!Regex("<!\\\\s*(?:DOCTYPE|ENTITY)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(probe)) {
+            "书籍 XML 含不受支持的 DTD 或实体声明，已安全拒绝。"
+        }
+        runCatching { factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+        runCatching { factory.setFeature("http://xml.org/sax/features/external-general-entities", false) }
+        runCatching { factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+        runCatching { factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false) }
+        runCatching { factory.setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "") }
+        runCatching { factory.setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "") }
+        runCatching { factory.isXIncludeAware = false }
         factory.isExpandEntityReferences = false
-        return factory.newDocumentBuilder().parse(ByteArrayInputStream(bytes))
+        val builder = factory.newDocumentBuilder()
+        builder.setEntityResolver { _, _ -> org.xml.sax.InputSource(java.io.StringReader("")) }
+        return builder.parse(ByteArrayInputStream(bytes))
     }
     private fun Document.elements(name: String): List<Element> {
         val nodes = getElementsByTagNameNS("*", name)

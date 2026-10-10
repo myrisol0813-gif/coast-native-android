@@ -68,6 +68,8 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
 
     suspend fun books(): JsonObject = request("/api/library/books")
     suspend fun book(id: String): JsonObject = request("/api/library/books/${path(id)}")
+    suspend fun fullChapter(id: String, index: Int): JsonObject =
+        request("/api/library/books/${path(id)}/chapters/$index/text")
     suspend fun chapter(id: String, index: Int, start: Int = 0): JsonObject =
         request("/api/library/books/${path(id)}/chapters/$index?start=$start&limit=12")
     suspend fun notes(id: String): JsonObject = request("/api/library/books/${path(id)}/notes")
