@@ -2,6 +2,9 @@ package com.elementeracoast.app.feature.daily
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,9 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import com.elementeracoast.app.ui.theme.LocalCoastAppearance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -70,6 +76,7 @@ internal fun TidalPagedReader(
     onNote: (JsonObject) -> Unit,
     onProgress: (Int) -> Unit,
     onShowNotes: () -> Unit,
+    onReadingChromeChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -79,105 +86,115 @@ internal fun TidalPagedReader(
     var paletteId by remember { mutableStateOf(pref.getString("color", "paper").orEmpty()) }
     var fontSize by remember { mutableIntStateOf(pref.getInt("fontSize", 15).coerceIn(14, 17)) }
     val palette = palettes.find { it.id == paletteId } ?: palettes.first()
+    val appearance=LocalCoastAppearance.current
+    val readingFamily=appearance.readingFontFamily
+    val readingWeight=appearance.readingWeight.fontWeight
+    var chromeVisible by remember(chapterIndex) { mutableStateOf(false) }
+    LaunchedEffect(chromeVisible) { onReadingChromeChanged(chromeVisible) }
     var tocOpen by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
     val raw = remember(paragraphs) { paragraphs.map { (it.intField("index") ?: 0) to it.field("text") } }
-    val pages = remember(raw, fontSize) {
-        paginateTidalChapter(raw, when (fontSize) { 14 -> 620; 15 -> 520; 16 -> 440; else -> 380 })
-    }
-    val initial = remember(pages, initialParagraph) { tidalPageFor(pages, initialParagraph) }
-    val pager = rememberPagerState(initialPage = initial, pageCount = { pages.size })
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(chapterIndex, fontSize, initial) {
-        pager.scrollToPage(initial.coerceAtMost(pages.lastIndex))
-    }
-    LaunchedEffect(chapterIndex, pager.currentPage) {
-        pages.getOrNull(pager.currentPage)?.lastOrNull()?.let { onProgress(it.paragraphIndex) }
-    }
-
-    Column(modifier = modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Box {
-                TextButton(onClick = { tocOpen = true }) { Text("目录") }
-                DropdownMenu(expanded = tocOpen, onDismissRequest = { tocOpen = false }) {
-                    chapters.forEach { chapter ->
-                        DropdownMenuItem(
-                            text = { Text(chapter.field("title"), style = MaterialTheme.typography.bodySmall) },
-                            onClick = {
-                                tocOpen = false
-                                onChapter(chapter.intField("chapter_index") ?: 0)
-                            }
-                        )
-                    }
-                }
-            }
-            TextButton(onClick = onShowNotes) { Text("笔记") }
-            Text("第 ${pager.currentPage + 1} / ${pages.size} 页",
-                modifier = Modifier.padding(top = 13.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Box {
-                TextButton(onClick = { settingsOpen = true }) { Text("纸色 · Aa") }
-                DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
-                    palettes.forEach { option ->
-                        DropdownMenuItem(text = { Text(option.name) }, onClick = {
-                            paletteId = option.id
-                            pref.edit().putString("color", option.id).apply()
-                            settingsOpen = false
-                        })
-                    }
-                    listOf(14, 15, 16, 17).forEach { point ->
-                        DropdownMenuItem(text = { Text("字号 $point") }, onClick = {
-                            fontSize = point
-                            pref.edit().putInt("fontSize", point).apply()
-                            settingsOpen = false
-                        })
-                    }
-                }
-            }
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(palette.paper)) {
+        val charPerLine=(maxWidth.value / (fontSize*0.97f)).toInt().coerceIn(12,50)
+        val visibleLines=(maxHeight.value/(fontSize*1.77f)).toInt().coerceIn(10,65)
+        val budget=(charPerLine*(visibleLines-2)).coerceIn(180,1200)
+        val pages=remember(raw,fontSize,budget) { paginateTidalChapter(raw,budget) }
+        val initial=remember(pages,initialParagraph) {
+            if(initialParagraph<0)pages.lastIndex else tidalPageFor(pages,initialParagraph)
+        }
+        val pager=rememberPagerState(initialPage=initial,pageCount={pages.size})
+        val scope=rememberCoroutineScope()
+        LaunchedEffect(chapterIndex,fontSize,budget,initial) {
+            pager.scrollToPage(initial.coerceIn(0,pages.lastIndex))
+        }
+        LaunchedEffect(chapterIndex,pager.currentPage) {
+            pages.getOrNull(pager.currentPage)?.lastOrNull()?.let { onProgress(it.paragraphIndex) }
         }
         HorizontalPager(
-            state = pager,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            beyondViewportPageCount = 1
-        ) { index ->
-            Surface(
-                color = palette.paper,
-                contentColor = palette.ink,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 5.dp),
-                shadowElevation = 1.dp
+            state=pager,
+            modifier=Modifier.fillMaxSize(),
+            beyondViewportPageCount=1
+        ) { page ->
+            Column(
+                modifier=Modifier.fillMaxSize().clickable { chromeVisible=!chromeVisible }
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal=20.dp,vertical=26.dp),
+                verticalArrangement=Arrangement.spacedBy(10.dp)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Text(bookTitle, style = MaterialTheme.typography.labelSmall,
-                        color = palette.ink.copy(alpha = .65f))
-                    Text(chapterTitle, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    pages[index].forEach { piece ->
-                        SelectableBookText(
-                            fragment = piece,
-                            notes = notes.filter {
-                                it.intField("chapter_index") == chapterIndex &&
-                                    it.intField("paragraph_index") == piece.paragraphIndex
-                            },
-                            ink = palette.ink, highlight = palette.highlight, fontSize = fontSize,
-                            onHighlight = { start, end -> onHighlight(piece.paragraphIndex, start, end) },
-                            onNote = onNote
-                        )
+                if(page==0) {
+                    Text(chapterTitle,fontSize=(fontSize+2).sp,
+                        fontFamily=readingFamily,fontWeight=FontWeight.Medium,
+                        color=palette.ink,modifier=Modifier.padding(bottom=12.dp))
+                }
+                pages[page].forEach { piece ->
+                    SelectableBookText(
+                        fragment=piece,
+                        notes=notes.filter {
+                            it.intField("chapter_index")==chapterIndex &&
+                                it.intField("paragraph_index")==piece.paragraphIndex
+                        },
+                        ink=palette.ink,highlight=palette.highlight,fontSize=fontSize,
+                        fontFamily=readingFamily,fontWeight=readingWeight,
+                        onHighlight={start,end->onHighlight(piece.paragraphIndex,start,end)},
+                        onNote=onNote
+                    )
+                }
+            }
+        }
+        if(chromeVisible) {
+            Row(
+                modifier=Modifier.fillMaxWidth().align(Alignment.TopCenter)
+                    .background(palette.paper.copy(alpha=.98f)).padding(horizontal=12.dp,vertical=5.dp),
+                horizontalArrangement=Arrangement.SpaceBetween,
+                verticalAlignment=Alignment.CenterVertically
+            ) {
+                Box {
+                    TextButton(onClick={tocOpen=true}) { Text("目录",color=palette.ink) }
+                    DropdownMenu(expanded=tocOpen,onDismissRequest={tocOpen=false}) {
+                        chapters.forEach { chapter ->
+                            DropdownMenuItem(text={Text(chapter.field("title"),style=MaterialTheme.typography.bodySmall)},
+                                onClick={tocOpen=false;onChapter(chapter.intField("chapter_index")?:0)})
+                        }
+                    }
+                }
+                TextButton(onClick=onShowNotes) { Text("笔记",color=palette.ink) }
+                Box {
+                    TextButton(onClick={settingsOpen=true}) { Text("纸色 · Aa",color=palette.ink) }
+                    DropdownMenu(expanded=settingsOpen,onDismissRequest={settingsOpen=false}) {
+                        palettes.forEach { option ->
+                            DropdownMenuItem(text={Text(option.name)},onClick={
+                                paletteId=option.id
+                                pref.edit().putString("color",option.id).apply()
+                                settingsOpen=false
+                            })
+                        }
+                        listOf(14,15,16,17).forEach { point ->
+                            DropdownMenuItem(text={Text("字号 $point")},onClick={
+                                fontSize=point
+                                pref.edit().putInt("fontSize",point).apply()
+                                settingsOpen=false
+                            })
+                        }
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(enabled = pager.currentPage > 0, onClick = {
-                scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
-            }) { Text("‹ 上一页") }
-            TextButton(enabled = pager.currentPage < pages.lastIndex, onClick = {
-                scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
-            }) { Text("下一页 ›") }
+        if(chromeVisible) {
+            Row(
+                modifier=Modifier.fillMaxWidth().align(Alignment.BottomCenter)
+                    .background(palette.paper.copy(alpha=.98f)),
+                horizontalArrangement=Arrangement.SpaceBetween,
+                verticalAlignment=Alignment.CenterVertically
+            ) {
+                TextButton(enabled=pager.currentPage>0,onClick={
+                    scope.launch { pager.animateScrollToPage(pager.currentPage-1) }
+                }) {Text("‹",color=palette.ink)}
+                Text("第 ${pager.currentPage+1} / ${pages.size} 页",fontSize=11.sp,
+                    color=palette.ink.copy(alpha=.6f))
+                TextButton(enabled=pager.currentPage<pages.lastIndex,onClick={
+                    scope.launch { pager.animateScrollToPage(pager.currentPage+1) }
+                }) {Text("›",color=palette.ink)}
+            }
         }
     }
 }
@@ -189,6 +206,8 @@ private fun SelectableBookText(
     ink: Color,
     highlight: Color,
     fontSize: Int,
+    fontFamily: FontFamily?,
+    fontWeight: FontWeight,
     onHighlight: (Int, Int) -> Unit,
     onNote: (JsonObject) -> Unit
 ) {
@@ -234,7 +253,9 @@ private fun SelectableBookText(
                     color = ink,
                     fontSize = fontSize.sp,
                     lineHeight = (fontSize * 1.73f).sp,
-                    letterSpacing = .1.sp
+                    letterSpacing = .02.sp,
+                    fontFamily = fontFamily,
+                    fontWeight = fontWeight
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
