@@ -68,7 +68,8 @@ internal fun TidalPagedReader(
     onChapter: (Int) -> Unit,
     onHighlight: (paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onNote: (JsonObject) -> Unit,
-    onProgress: (Int) -> Unit
+    onProgress: (Int) -> Unit,
+    onShowNotes: () -> Unit
 ) {
     val context = LocalContext.current
     val pref = remember(context.applicationContext) {
@@ -109,6 +110,7 @@ internal fun TidalPagedReader(
                     }
                 }
             }
+            TextButton(onClick = onShowNotes) { Text("笔记") }
             Text("第 ${pager.currentPage + 1} / ${pages.size} 页",
                 modifier = Modifier.padding(top = 13.dp),
                 style = MaterialTheme.typography.labelSmall,
