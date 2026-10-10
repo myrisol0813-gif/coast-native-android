@@ -26,6 +26,7 @@ data class CoastShellState(
     val turnDeskReceipt: TurnDeskReceipt? = null,
     val currentModel: String = "",
     val models: List<String> = emptyList(),
+    val modelReasoningChoices: Map<String, List<String>> = emptyMap(),
     val myriAvatarDataUrl: String = "",
     val xiaohanAvatarDataUrl: String = "",
     val coverDataUrl: String = "",

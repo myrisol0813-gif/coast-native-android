@@ -29,6 +29,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Slider
+import androidx.compose.ui.platform.LocalContext
+import kotlin.math.roundToInt
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +53,7 @@ import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
 @Composable
 fun ModelQuickPicker(
     models: List<String>,
+    modelReasoningChoices: Map<String, List<String>>,
     currentModel: String,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -59,6 +63,14 @@ fun ModelQuickPicker(
     onChatGptProbe: (String) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
+    val localContext = LocalContext.current
+    val reasoningStore = remember(localContext) { ReasoningEffortStore.production(localContext) }
+    val options = if (currentModel.startsWith("chatgpt-plan:")) {
+        chatGpt.availableModels.firstOrNull { "chatgpt-plan:" + it.slug == currentModel }?.reasoningEfforts.orEmpty()
+    } else modelReasoningChoices[currentModel].orEmpty()
+    var chosenEffort by remember(currentModel, options) {
+        mutableStateOf(reasoningStore.get(currentModel, options))
+    }
     val filtered = remember(models, chatGpt.availableModels, query) {
         filterProviderCatalog(models, chatGpt.availableModels, query)
     }
@@ -85,6 +97,39 @@ fun ModelQuickPicker(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )
+            Spacer(Modifier.height(12.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .50f), RoundedCornerShape(18.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("当前模型 · 推理强度", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (options.isEmpty()) "模型目录没有提供确切档位 · 保持默认"
+                    else "按当前模型目录提供的档位选择；首格为模型默认",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                val tick = if (chosenEffort == null) 0 else options.indexOf(chosenEffort).takeIf { it >= 0 }?.plus(1) ?: 0
+                Slider(
+                    value = tick.toFloat(),
+                    onValueChange = { raw ->
+                        val selected = raw.roundToInt().coerceIn(0, options.size)
+                        val next = options.getOrNull(selected - 1)
+                        chosenEffort = next
+                        reasoningStore.set(currentModel, next, options)
+                    },
+                    valueRange = 0f..options.size.coerceAtLeast(1).toFloat(),
+                    steps = (options.size - 1).coerceAtLeast(0),
+                    enabled = options.isNotEmpty()
+                )
+                Text(
+                    chosenEffort ?: "模型默认",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(16.dp))
 
             Row(

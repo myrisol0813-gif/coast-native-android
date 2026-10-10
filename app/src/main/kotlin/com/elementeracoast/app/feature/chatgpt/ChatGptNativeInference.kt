@@ -29,7 +29,9 @@ internal sealed interface NativeChatEvent {
         val text: String,
         val usage: NativeChatUsage,
         val deskSlip: RemoteDeskSlip,
-        val furnitureRuns: List<RemoteFurnitureRun>
+        val furnitureRuns: List<RemoteFurnitureRun>,
+        val requestedReasoningEffort: String? = null,
+        val returnedReasoningEffort: String? = null
     ) : NativeChatEvent
 }
 
@@ -118,7 +120,7 @@ internal fun nativeOutputKinds(output: NativeResponseOutput): String =
  * requests for models whose account policy may not allow it.
  */
 internal fun requestsNativeWebSearch(userText: String): Boolean =
-    Regex("联网搜索|上网搜索|搜索网页|网页搜索|帮我搜索|查一下网上|查查网上|查阅网络|搜索最新|搜索新闻|搜索资料|search the web|web search", RegexOption.IGNORE_CASE)
+    Regex("联网|上网查|搜索|搜一下|查一下最新|查一下网上|查查网上|查阅网络|search the web|web search", RegexOption.IGNORE_CASE)
         .containsMatchIn(userText)
 
 /** Preserve provider-supplied URL citations without showing internal tool arguments. */
@@ -177,7 +179,8 @@ internal class ChatGptNativeInference(
     fun stream(
         model: String,
         request: RemoteChatRequest,
-        prepared: RemoteNativeChatContext
+        prepared: RemoteNativeChatContext,
+        reasoningEffort: String? = null
     ): Flow<NativeChatEvent> = callbackFlow {
         val activeCall = AtomicReference<Call?>()
         val job = launch(Dispatchers.IO) {
@@ -208,6 +211,7 @@ internal class ChatGptNativeInference(
                 }?.let(::requestsNativeWebSearch) ?: false
                 val searchSources = linkedSetOf<String>()
                 var didSearch = false
+                var returnedReasoningEffort: String? = null
                 val text = StringBuilder()
                 val runs = mutableListOf<RemoteFurnitureRun>()
                 var desk = prepared.deskSlip
@@ -220,6 +224,9 @@ internal class ChatGptNativeInference(
                         put("input", JsonArray(history))
                         put("store", false)
                         put("stream", true)
+                        if (reasoningEffort != null) put("reasoning", buildJsonObject {
+                            put("effort", reasoningEffort)
+                        })
                         // Preserve stateless reasoning across tool-call continuation on older Responses backends.
                         put("include", buildJsonArray { add("reasoning.encrypted_content") })
                         if (instructions.isNotBlank()) put("instructions", instructions)
@@ -248,7 +255,9 @@ internal class ChatGptNativeInference(
                             CoastApiErrorKind.Model,
                             "chatgpt_plan_http_" + response.code,
                             (if (round > 0) "官端 GPT 接收工具结果后无法继续（HTTP " else "官端 GPT 未接受请求（HTTP ") +
-                                response.code + "）。请检查模型权限或本轮工具调用。",
+                                response.code + "）。" + if (searchEnabled && response.code in listOf(400, 403))
+                                "本轮请求包含网页搜索，当前模型或账号可能不支持；可换模型或不请求联网。"
+                            else "请检查模型权限或本轮工具调用。",
                             response.code
                         )
                         response.body?.charStream()?.buffered()?.use { reader ->
@@ -290,6 +299,8 @@ internal class ChatGptNativeInference(
                     val response = completed ?: throw CoastApiException(
                         CoastApiErrorKind.Stream, "chatgpt_plan_incomplete", "官端 GPT 回复流提前中断。"
                     )
+                    returnedReasoningEffort = (response["reasoning"] as? JsonObject)
+                        ?.get("effort")?.jsonPrimitive?.contentOrNull ?: returnedReasoningEffort
                     val usage = response["usage"] as? JsonObject
                     val detail = usage?.get("input_tokens_details") as? JsonObject
                     usageTotal = usageTotal.copy(
@@ -337,7 +348,10 @@ internal class ChatGptNativeInference(
                             }
                         }
                         if (imageCount > 0) trySend(NativeChatEvent.Tool("vision_input", "图片输入 $imageCount 张", true))
-                        trySend(NativeChatEvent.Completed(text.toString(), usageTotal, desk, runs))
+                        trySend(NativeChatEvent.Completed(
+                            text.toString(), usageTotal, desk, runs,
+                            reasoningEffort, returnedReasoningEffort
+                        ))
                         break
                     }
                     if (round == 12 || callsMade + pending.size > 12) throw CoastApiException(

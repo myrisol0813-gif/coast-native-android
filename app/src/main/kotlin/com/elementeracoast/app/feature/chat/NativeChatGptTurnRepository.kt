@@ -28,7 +28,8 @@ internal fun isChatGptPlanModel(modelId: String): Boolean =
 internal class NativeChatGptTurnRepository(
     private val api: CoastApiClient,
     private val historyRepository: ChatRepository,
-    account: ChatGptPlanRepository
+    private val account: ChatGptPlanRepository,
+    private val reasoningStore: ReasoningEffortStore? = null
 ) : ChatRepository by historyRepository {
     private val inference = ChatGptNativeInference(account, api)
 
@@ -69,7 +70,8 @@ internal class NativeChatGptTurnRepository(
         val context = api.prepareNativeChatGpt(request)
         var content = ""
         var completed = false
-        inference.stream(model, request, context).collect { event ->
+        val effort = reasoningStore?.get(selectedModel, account.reasoningEffortsFor(model))
+        inference.stream(model, request, context, effort).collect { event ->
             when (event) {
                 is NativeChatEvent.Delta -> {
                     content += event.text
@@ -95,6 +97,15 @@ internal class NativeChatGptTurnRepository(
                         deskSlip = event.deskSlip,
                         assistantVariantId = assistantId
                     )
+                    if (event.requestedReasoningEffort != null) {
+                        ToolActivityBus.publish(
+                            id = "reasoning-${assistantId}",
+                            text = "推理档位已请求 · ${event.requestedReasoningEffort} · " +
+                                (event.returnedReasoningEffort?.let { "上游报告 $it" }
+                                    ?: "上游未报告实际档位"),
+                            success = true
+                        )
+                    }
                     val stored = historyRepository.persistHistory(conversationId, next)
                     val usage = event.usage
                     val snapshot = buildJsonObject {
@@ -105,6 +116,8 @@ internal class NativeChatGptTurnRepository(
                             put("requested_model", model)
                             put("resolved_model", model)
                             put("finish_reason", "stop")
+                            event.requestedReasoningEffort?.let { put("reasoning_effort_requested", it) }
+                            event.returnedReasoningEffort?.let { put("reasoning_effort_reported", it) }
                             if (usage.reported) put("usage", buildJsonObject {
                                 put("prompt_tokens", usage.input)
                                 put("completion_tokens", usage.output)

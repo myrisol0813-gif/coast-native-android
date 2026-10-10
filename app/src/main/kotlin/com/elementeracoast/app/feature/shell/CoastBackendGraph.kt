@@ -11,6 +11,7 @@ import com.elementeracoast.app.core.network.CoastHttpClient
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.feature.chat.ChatRepository
 import com.elementeracoast.app.feature.chat.DefaultChatRepository
+import com.elementeracoast.app.feature.chat.ReasoningEffortStore
 import com.elementeracoast.app.feature.chat.NativeChatGptTurnRepository
 import com.elementeracoast.app.feature.chatgpt.ChatGptPlanRepository
 import com.elementeracoast.app.feature.chat.ModelMetadataRemoteDataSource
@@ -54,7 +55,8 @@ data class CoastBackendGraph(
             val memoryRemote = MemoryRemoteDataSource(config, http)
             val metadataRemote = ModelMetadataRemoteDataSource(config, http)
             val titleRemote = ConversationTitleRemoteDataSource(config, http)
-            val chatRepository = DefaultChatRepository(api, cache, metadataRemote)
+            val reasoning = ReasoningEffortStore.production(context)
+            val chatRepository = DefaultChatRepository(api, cache, metadataRemote, reasoningStore = reasoning)
             return CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
                 conversations = DefaultConversationRepository(api, cache, titleRemote),
@@ -66,7 +68,7 @@ data class CoastBackendGraph(
                 dogtalk = DefaultDogtalkRepository(config, http),
                 crossWindow = DefaultCrossWindowRepository(config, http),
                 archive = DefaultGlobalArchiveRepository(api),
-                officialChat = chatGptPlan?.let { NativeChatGptTurnRepository(api, chatRepository, it) }
+                officialChat = chatGptPlan?.let { NativeChatGptTurnRepository(api, chatRepository, it, reasoning) }
             )
         }
     }

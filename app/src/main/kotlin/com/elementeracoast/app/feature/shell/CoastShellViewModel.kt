@@ -779,6 +779,8 @@ class CoastShellViewModel(
         _state.update {
             it.copy(
                 models = if (current.isNotBlank() && !isChatGptPlanModel(current) && current !in models) listOf(current) + models else models,
+                modelReasoningChoices = (catalog.groups.openAiChat + catalog.groups.freeTest)
+                    .associate { it.id to it.reasoningEfforts },
                 currentModel = current.ifBlank { models.firstOrNull().orEmpty() }
             )
         }
