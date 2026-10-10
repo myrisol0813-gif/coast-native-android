@@ -38,6 +38,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.put
 import androidx.compose.ui.platform.LocalContext
 
@@ -47,7 +48,13 @@ private fun JsonObject.rows(name: String): List<JsonObject> = (this[name] as? Js
 
 private enum class LibraryPage { Shelf, Chapter, Notes }
 @Composable
-fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Unit) {
+fun TidalLibraryScreen(
+    repository: SideRoomsRepository,
+    onSnackbar: (String) -> Unit,
+    importRequest: Int = 0,
+    onShelfChanged: (Boolean) -> Unit = {},
+    onReadingChromeChanged: (Boolean) -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var page by remember { mutableStateOf(LibraryPage.Shelf) }
@@ -61,6 +68,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
     var focus by remember { mutableIntStateOf(-1) }
     var loading by remember { mutableStateOf(true) }
     var importing by remember { mutableStateOf<String?>(null) }
+    var pendingCoverBook by remember { mutableStateOf<String?>(null) }
     var revision by remember { mutableIntStateOf(0) }
     var writeNote by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<JsonObject?>(null) }
@@ -68,6 +76,18 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
     var pendingBookDelete by remember { mutableStateOf(false) }
     var pendingNoteDelete by remember { mutableStateOf<JsonObject?>(null) }
 
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val id=pendingCoverBook
+        pendingCoverBook=null
+        if(uri!=null && !id.isNullOrBlank()) scope.launch {
+            try {
+                val jpeg=prepareTidalCover(context,uri)
+                repository.saveBookCover(id,jpeg)
+                revision++
+                onSnackbar("封面已经留在书房里了。")
+            }catch(error: Exception) { onSnackbar("封面没有保存：${error.message}") }
+        }
+    }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             loading = true
@@ -85,6 +105,15 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                 onSnackbar("书籍已经放进潮中书房。")
             } catch (error: Exception) { onSnackbar("导入失败：${error.message}") }
             finally { loading = false; importing = null }
+        }
+    }
+    LaunchedEffect(page) {
+        onShelfChanged(page == LibraryPage.Shelf)
+        onReadingChromeChanged(page != LibraryPage.Chapter)
+    }
+    LaunchedEffect(importRequest) {
+        if (importRequest > 0 && page == LibraryPage.Shelf) {
+            filePicker.launch(arrayOf("*/*"))
         }
     }
     LaunchedEffect(page, bookId, index, start, revision) {
@@ -112,6 +141,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
         page = LibraryPage.Chapter
     }
     fun openChapter(chapterIndex: Int, paragraph: Int = 0) {
+        chapter = null
         index = chapterIndex; start = 0
         focus = paragraph; page = LibraryPage.Chapter
     }
@@ -120,40 +150,59 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
     }
     val surface = Modifier.fillMaxSize()
         .then(if (page == LibraryPage.Chapter) Modifier else Modifier.verticalScroll(rememberScrollState()))
-        .padding(horizontal = if (page == LibraryPage.Chapter) 0.dp else 18.dp, vertical = if (page == LibraryPage.Chapter) 0.dp else 15.dp)
-    Column(surface, verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        .padding(horizontal = if (page == LibraryPage.Chapter) 0.dp else 18.dp)
+        .padding(top = if (page == LibraryPage.Chapter) 0.dp else 88.dp, bottom = 15.dp)
+    Column(surface, verticalArrangement = Arrangement.spacedBy(if(page==LibraryPage.Chapter) 0.dp else 13.dp)) {
         when (page) {
             LibraryPage.Shelf -> {
                 Text("我们共用一间书房，各自留笔迹。", style = MaterialTheme.typography.bodyMedium)
                 Text("支持 EPUB 和 TXT 文字阅读，暂不支持 PDF、图片与复杂版式。源文件最多 40 MB、正文最多 1,200 万字、2,048 个正文分段。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                DailyPrimaryButton("＋ 导入书籍") { filePicker.launch(arrayOf("*/*")) }
                 importing?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (books.isEmpty() && !loading) Text("书架还空着。挑一本我们一起读的书吧。")
                 books.forEach { entry ->
                     DailySurfaceCard(onClick = { openBook(entry) }) {
-                        Text(entry.s("title"), fontWeight = FontWeight.SemiBold)
-                        Text("${entry.s("format").uppercase()} · ${entry.n("chapters_count")} 章",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val chapterIndex = entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull
-                        val chaptersCount = entry.n("chapters_count").coerceAtLeast(1)
-                        val percent = if (chapterIndex == null) 0f else (chapterIndex + 1).toFloat() / chaptersCount
-                        androidx.compose.material3.LinearProgressIndicator(
-                            progress = { percent.coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = androidx.compose.ui.graphics.Color(0xFFB99A66)
-                        )
-                        Text("阅读进度 · ${if (chapterIndex == null) "尚未开始" else "第 ${chapterIndex + 1} / $chaptersCount 章"}",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("小寒 · ${entry.n("xiaohan_notes")} 条批注与读后感",
-                            style = MaterialTheme.typography.labelSmall)
-                        Text("Myri · ${entry.n("myri_notes")} 条批注与读后感",
-                            style = MaterialTheme.typography.labelSmall)
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                            Column(modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text(entry.s("title"), fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyMedium)
+                                Text("${entry.s("format").uppercase()} · ${entry.n("chapters_count")} 个正文分段",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val chapterIndex=entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull
+                                val chapterCount=entry.n("chapters_count").coerceAtLeast(1)
+                                val percent=if(chapterIndex==null)0f else (chapterIndex+1).toFloat()/chapterCount
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress={percent.coerceIn(0f,1f)},
+                                    modifier=Modifier.fillMaxWidth(),
+                                    color=androidx.compose.ui.graphics.Color(0xFFB99A66)
+                                )
+                                Text(if(chapterIndex==null)"阅读进度 · 尚未开始"
+                                    else "阅读进度 · 第 ${chapterIndex+1} / ${chapterCount} 个分段",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("小寒 · ${entry.n("xiaohan_notes")} 条批注与读后感",
+                                    style=MaterialTheme.typography.labelSmall)
+                                Text("Myri · ${entry.n("myri_notes")} 条批注与读后感",
+                                    style=MaterialTheme.typography.labelSmall)
+                            }
+                            TidalCoverSlot(
+                                bookId=entry.s("id"),
+                                hasCover=entry["has_cover"]?.jsonPrimitive?.booleanOrNull == true,
+                                revision=revision,
+                                repository=repository,
+                                onClick={
+                                    pendingCoverBook=entry.s("id")
+                                    coverPicker.launch("image/*")
+                                }
+                            )
+                        }
                     }
                 }
             }
             LibraryPage.Chapter -> {
-                TextButton(onClick = { page = LibraryPage.Shelf }, modifier = Modifier.padding(horizontal = 12.dp)) { Text("‹ 书架") }
                 val pageData = chapter
                 val currentBook = book
                 if (pageData != null && currentBook != null) {
@@ -165,7 +214,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                         paragraphs = pageData.rows("paragraphs"),
                         notes = notes,
                         initialParagraph = focus,
-                        onChapter = { chapterIndex -> openChapter(chapterIndex) },
+                        onChapter = { chapterIndex, lastPage -> openChapter(chapterIndex, if(lastPage) -1 else 0) },
                         onHighlight = { paragraph, from, to ->
                             scope.launch {
                                 try {
@@ -189,6 +238,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                             }
                         },
                         onShowNotes = { page = LibraryPage.Notes },
+                        onExit = { page = LibraryPage.Shelf },
                         modifier = Modifier.weight(1f)
                     )
                 }

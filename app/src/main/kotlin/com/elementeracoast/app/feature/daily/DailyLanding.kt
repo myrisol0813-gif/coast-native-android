@@ -57,6 +57,9 @@ fun DailyLanding(
     onSnackbar: (String) -> Unit
 ) {
     var page by remember { mutableStateOf(DailyPage.Home) }
+    var libraryShelf by remember { mutableStateOf(true) }
+    var libraryChromeVisible by remember { mutableStateOf(true) }
+    var libraryImportRequest by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val sideRooms = remember(context.applicationContext) { SideRoomsRepository.production(context.applicationContext) }
@@ -84,7 +87,8 @@ fun DailyLanding(
         Unit
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize()) {
         when (page) {
             DailyPage.Home -> FeaturePageTopBar(
                 title = "海岸日报",
@@ -127,7 +131,7 @@ fun DailyLanding(
                 compact = true
             )
             DailyPage.Calendar -> FeaturePageTopBar("海岸日历", "公历 · 日程与随记", { page = DailyPage.Home }, compact = true)
-            DailyPage.Library -> FeaturePageTopBar("潮中书房", "小狗和小蛇一起翻书", { page = DailyPage.Home }, compact = true)
+            DailyPage.Library -> Unit
             DailyPage.Pet -> FeaturePageTopBar(
                 "宠物系统",
                 "休憩箱尚未展开",
@@ -153,10 +157,28 @@ fun DailyLanding(
                 DailyPage.Diary -> DiaryScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.DiaryCompose }
                 DailyPage.DiaryCompose -> DiaryComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Diary }
                 DailyPage.Calendar -> CalendarScreen(sideRooms, onSnackbar)
-                DailyPage.Library -> TidalLibraryScreen(sideRooms, onSnackbar)
+                DailyPage.Library -> TidalLibraryScreen(
+                    sideRooms, onSnackbar,
+                    importRequest = libraryImportRequest,
+                    onShelfChanged = { libraryShelf = it },
+                    onReadingChromeChanged = { libraryChromeVisible = it }
+                )
                 DailyPage.Pet -> PetScreen()
             }
         }
+      }
+      if(page==DailyPage.Library && libraryChromeVisible) {
+          Box(Modifier.align(Alignment.TopCenter)) {
+              FeaturePageTopBar(
+                  title="潮中书房",
+                  subtitle="小狗和小蛇一起翻书",
+                  onBack={page=DailyPage.Home},
+                  actionLabel=if(libraryShelf)"＋" else null,
+                  onAction={libraryImportRequest++},
+                  compact=true
+              )
+          }
+      }
     }
 }
 
