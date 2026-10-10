@@ -106,8 +106,19 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
 
     suspend fun books(): JsonObject = request("/api/library/books")
     suspend fun book(id: String): JsonObject = request("/api/library/books/${path(id)}")
-    suspend fun fullChapter(id: String, index: Int): JsonObject =
-        request("/api/library/books/${path(id)}/chapters/$index/text")
+    // A bounded in-memory chapter cache; no disk copy of the user's private books.
+    private val chapterCache = object : LinkedHashMap<String, JsonObject>(8, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, JsonObject>): Boolean =
+            size > 5
+    }
+
+    suspend fun fullChapter(id: String, index: Int): JsonObject {
+        val key="$id:$index"
+        synchronized(chapterCache) { chapterCache[key] }?.let { return it }
+        val response=request("/api/library/books/${path(id)}/chapters/$index/text")
+        synchronized(chapterCache) { chapterCache[key]=response }
+        return response
+    }
     suspend fun chapter(id: String, index: Int, start: Int = 0): JsonObject =
         request("/api/library/books/${path(id)}/chapters/$index?start=$start&limit=12")
     suspend fun notes(id: String): JsonObject = request("/api/library/books/${path(id)}/notes")
@@ -159,7 +170,10 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
             throw error
         }
     }
-    suspend fun deleteBook(id: String) { request("/api/library/books/${path(id)}", "DELETE") }
+    suspend fun deleteBook(id: String) {
+        request("/api/library/books/${path(id)}", "DELETE")
+        synchronized(chapterCache) { chapterCache.keys.removeAll { it.startsWith("$id:") } }
+    }
     suspend fun progress(id: String, index: Int, paragraph: Int) {
         request("/api/library/books/${path(id)}/progress", "POST",
             kotlinx.serialization.json.buildJsonObject { put("chapter_index", kotlinx.serialization.json.JsonPrimitive(index)); put("paragraph_index", kotlinx.serialization.json.JsonPrimitive(paragraph)) })
