@@ -56,6 +56,30 @@ internal object LibraryImport {
         return text.replace(Regex("""\n{3,}"""), "\n\n").trim()
     }
 
+    // Spine chapters can contain HTML fragments that browsers tolerate but strict
+    // XML DocumentBuilder rejects ("Only one root element allowed", unknown entities).
+    // Keep container.xml and OPF strict; read spine content as offline text-only HTML.
+    internal fun cleanedSpineMarkup(markup: String): String {
+        val html = markup.removePrefix("\uFEFF")
+        require(!Regex("""<!\s*(?:DOCTYPE|ENTITY)\b""", RegexOption.IGNORE_CASE).containsMatchIn(html)) {
+            "EPUB 正文包含不受支持的 DTD 或实体声明。"
+        }
+        var cleaned = html.replace(Regex("""(?is)<head\b[^>]*>.*?</head\s*>"""), "")
+        for (tag in listOf("script", "style", "noscript", "iframe", "object", "svg")) {
+            cleaned = cleaned.replace(Regex("(?is)<$tag\\b[^>]*>.*?</$tag\\s*>"), "")
+        }
+        return cleaned
+    }
+
+    private fun spineText(bytes: ByteArray): String {
+        val source = cleanedSpineMarkup(bytes.toString(Charsets.UTF_8))
+        val text = android.text.Html.fromHtml(source, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
+        return text.replace('\u00A0', ' ')
+            .replace("\r\n", "\n").replace('\r', '\n')
+            .replace(Regex("""[ \t]+\n"""), "\n")
+            .replace(Regex("""\n{3,}"""), "\n\n").trim()
+    }
+
     private fun zipEntries(bytes: ByteArray): Map<String, ByteArray> {
         val items = linkedMapOf<String, ByteArray>()
         var total = 0
@@ -95,7 +119,7 @@ internal object LibraryImport {
         // Reject DTD directly and separately disable external resolution. Unsupported
         // optional parser flags must not prevent otherwise safe EPUBs from loading.
         val probe = bytes.toString(Charsets.UTF_8).replace("\u0000", "")
-        require(!Regex("<!\\\\s*(?:DOCTYPE|ENTITY)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(probe)) {
+        require(!Regex("""<!\s*(?:DOCTYPE|ENTITY)\b""", RegexOption.IGNORE_CASE).containsMatchIn(probe)) {
             "书籍 XML 含不受支持的 DTD 或实体声明，已安全拒绝。"
         }
         runCatching { factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
@@ -129,20 +153,7 @@ internal object LibraryImport {
             if (!file.getAttribute("media-type").contains("html", ignoreCase = true)) continue
             val href = java.net.URLDecoder.decode(file.getAttribute("href").substringBefore('#'), "UTF-8")
             val source = files[normalize(if (prefix.isBlank()) href else "$prefix/$href")] ?: continue
-            val document = xml(source)
-            val text = document.elements("body").firstOrNull()?.let { body ->
-                buildList {
-                    val tags = setOf("p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "li")
-                    val nodes = body.getElementsByTagName("*")
-                    for (i in 0 until nodes.length) {
-                        val node = nodes.item(i) as? Element ?: continue
-                        if (node.localName in tags) {
-                            val line = node.textContent.replace(Regex("\\s+"), " ").trim()
-                            if (line.isNotBlank()) add(line)
-                        }
-                    }
-                }.joinToString("\n\n")
-            }.orEmpty()
+            val text = spineText(source)
             if (text.isNotBlank()) sections.add("第 ${sections.size + 1} 节" to text)
         }
         require(sections.isNotEmpty()) { "EPUB 中没有可阅读的文字章节。" }
