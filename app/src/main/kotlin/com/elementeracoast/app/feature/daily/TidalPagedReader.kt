@@ -71,7 +71,7 @@ internal fun TidalPagedReader(
     paragraphs: List<JsonObject>,
     notes: List<JsonObject>,
     initialParagraph: Int,
-    onChapter: (Int) -> Unit,
+    onChapter: (Int, Boolean) -> Unit,
     onHighlight: (paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onNote: (JsonObject) -> Unit,
     onProgress: (Int) -> Unit,
@@ -102,20 +102,35 @@ internal fun TidalPagedReader(
         val initial=remember(pages,initialParagraph) {
             if(initialParagraph<0)pages.lastIndex else tidalPageFor(pages,initialParagraph)
         }
-        val pager=rememberPagerState(initialPage=initial,pageCount={pages.size})
+        val hasPrevious=chapterIndex>0
+        val hasNext=chapterIndex<chapters.size-1
+        val offset=if(hasPrevious)1 else 0
+        val total=pages.size+offset+if(hasNext)1 else 0
+        val pager=rememberPagerState(initialPage=initial+offset,pageCount={total})
         val scope=rememberCoroutineScope()
         LaunchedEffect(chapterIndex,fontSize,budget,initial) {
-            pager.scrollToPage(initial.coerceIn(0,pages.lastIndex))
+            pager.scrollToPage((initial+offset).coerceIn(0,total-1))
         }
         LaunchedEffect(chapterIndex,pager.currentPage) {
-            pages.getOrNull(pager.currentPage)?.lastOrNull()?.let { onProgress(it.paragraphIndex) }
+            when {
+                hasPrevious && pager.currentPage==0 -> onChapter(chapterIndex-1,true)
+                hasNext && pager.currentPage==total-1 -> onChapter(chapterIndex+1,false)
+                else -> pages.getOrNull(pager.currentPage-offset)?.lastOrNull()?.let {
+                    onProgress(it.paragraphIndex)
+                }
+            }
         }
         HorizontalPager(
             state=pager,
             modifier=Modifier.fillMaxSize(),
             beyondViewportPageCount=1
-        ) { page ->
-            Column(
+        ) { position ->
+            val page=position-offset
+            if(page !in pages.indices) {
+                Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {
+                    Text("正在翻向相邻章节…",color=palette.ink.copy(alpha=.5f),fontSize=12.sp)
+                }
+            } else Column(
                 modifier=Modifier.fillMaxSize().clickable { chromeVisible=!chromeVisible }
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal=20.dp,vertical=26.dp),
@@ -153,7 +168,7 @@ internal fun TidalPagedReader(
                     DropdownMenu(expanded=tocOpen,onDismissRequest={tocOpen=false}) {
                         chapters.forEach { chapter ->
                             DropdownMenuItem(text={Text(chapter.field("title"),style=MaterialTheme.typography.bodySmall)},
-                                onClick={tocOpen=false;onChapter(chapter.intField("chapter_index")?:0)})
+                                onClick={tocOpen=false;onChapter(chapter.intField("chapter_index")?:0,false)})
                         }
                     }
                 }
@@ -189,9 +204,9 @@ internal fun TidalPagedReader(
                 TextButton(enabled=pager.currentPage>0,onClick={
                     scope.launch { pager.animateScrollToPage(pager.currentPage-1) }
                 }) {Text("‹",color=palette.ink)}
-                Text("第 ${pager.currentPage+1} / ${pages.size} 页",fontSize=11.sp,
+                Text("第 ${(pager.currentPage-offset+1).coerceIn(1,pages.size)} / ${pages.size} 页",fontSize=11.sp,
                     color=palette.ink.copy(alpha=.6f))
-                TextButton(enabled=pager.currentPage<pages.lastIndex,onClick={
+                TextButton(enabled=pager.currentPage<total-1,onClick={
                     scope.launch { pager.animateScrollToPage(pager.currentPage+1) }
                 }) {Text("›",color=palette.ink)}
             }
