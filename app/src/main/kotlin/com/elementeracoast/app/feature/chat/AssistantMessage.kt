@@ -88,6 +88,14 @@ internal fun AssistantMessage(
                         color = MaterialTheme.colorScheme.onSurface,
                         style = coastReadingMessageStyle(CoastChatTokens.ChatBodyLineHeight)
                     )
+                    if (message.text.contains("\${audio_url}")) {
+                        Spacer(Modifier.height(7.dp))
+                        Text(
+                            "模型给出的链接仍是占位文字，并不是音频文件。请以本条消息下方的语音留存播放器为准。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
                         Spacer(Modifier.height(5.dp))
                         Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)

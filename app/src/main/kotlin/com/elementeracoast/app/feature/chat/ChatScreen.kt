@@ -81,9 +81,13 @@ fun ChatWindow(
     var voiceTarget by remember(state.activeConversationId) { mutableStateOf<ChatMessage?>(null) }
     var voiceWorking by remember(state.activeConversationId) { mutableStateOf(false) }
     DisposableEffect(voicePlayer) { onDispose { voicePlayer.close() } }
-    LaunchedEffect(state.activeConversationId) {
+    // Read from Coast again whenever the assistant reply is saved. The model's
+    // voice_create can finish after the initial window load; cache-only playback
+    // otherwise hides a successfully persisted MP3 until the user reopens chat.
+    val latestAssistantVariant = state.messages.lastOrNull { it.role == MessageRole.Assistant }?.remoteVariantId
+    LaunchedEffect(state.activeConversationId, latestAssistantVariant, state.isStreaming) {
         val conversationId = state.activeConversationId
-        if (conversationId.isBlank()) return@LaunchedEffect
+        if (conversationId.isBlank() || state.isStreaming) return@LaunchedEffect
         try { voiceClips = decodeVoiceClips(sideRooms.voiceClips(conversationId)) }
         catch (error: Exception) { onPlaceholder("本窗口语音尚未同步：${error.message}") }
     }
