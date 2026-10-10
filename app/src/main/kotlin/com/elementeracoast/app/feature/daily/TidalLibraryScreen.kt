@@ -38,12 +38,12 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.put
 import androidx.compose.ui.platform.LocalContext
 
 private fun JsonObject.s(name: String): String = this[name]?.jsonPrimitive?.contentOrNull.orEmpty()
 private fun JsonObject.n(name: String): Int = this[name]?.jsonPrimitive?.intOrNull ?: 0
+internal fun JsonObject.hasLibraryCover(): Boolean = this["has_cover"]?.jsonPrimitive?.contentOrNull in setOf("1", "true")
 private fun JsonObject.rows(name: String): List<JsonObject> = (this[name] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 
 private enum class LibraryPage { Shelf, Chapter, Notes }
@@ -190,7 +190,7 @@ fun TidalLibraryScreen(
                             }
                             TidalCoverSlot(
                                 bookId=entry.s("id"),
-                                hasCover=entry["has_cover"]?.jsonPrimitive?.booleanOrNull == true,
+                                hasCover=entry.hasLibraryCover(),
                                 revision=revision,
                                 repository=repository,
                                 onClick={
