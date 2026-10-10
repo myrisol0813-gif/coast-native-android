@@ -150,4 +150,54 @@ class NativeResponseOutputTest {
         }
         assertEquals(null, completedNativeStreamItem(interrupted))
     }
+
+    @Test fun searchTurnsOnOnlyWithExplicitWebSearchIntent() {
+        assertTrue(requestsNativeWebSearch("请联网搜索一下最近的消息"))
+        assertTrue(requestsNativeWebSearch("Search the web for today's updates"))
+        assertFalse(requestsNativeWebSearch("想和先生说说话"))
+    }
+
+    @Test fun responseCitationsAreDeduplicatedAndDoNotLeakUntrustedSchemes() {
+        val output = readNativeResponseOutput(buildJsonObject {
+            put("output", buildJsonArray {
+                add(buildJsonObject {
+                    put("type", "web_search_call")
+                    put("action", buildJsonObject {
+                        put("sources", buildJsonArray {
+                            add(buildJsonObject { put("url", "https://example.org/article") })
+                            add(buildJsonObject { put("url", "javascript:alert(1)") })
+                        })
+                    })
+                })
+                add(buildJsonObject {
+                    put("type", "message")
+                    put("content", buildJsonArray {
+                        add(buildJsonObject {
+                            put("type", "output_text")
+                            put("text", "已完成搜索")
+                            put("annotations", buildJsonArray {
+                                add(buildJsonObject { put("url", "https://example.org/article") })
+                                add(buildJsonObject { put("url", "https://second.org/source") })
+                            })
+                        })
+                    })
+                })
+            })
+        })
+        assertEquals(listOf("https://example.org/article", "https://second.org/source"), nativeWebSearchSources(output))
+    }
+
+    @Test fun visionCountReportsOnlyNormalizedImageParts() {
+        val input = buildJsonArray {
+            add(buildJsonObject {
+                put("role", "user")
+                put("content", buildJsonArray {
+                    add(buildJsonObject { put("type", "input_text"); put("text", "看这两张") })
+                    add(buildJsonObject { put("type", "input_image"); put("image_url", "data:image/png;base64,AA") })
+                    add(buildJsonObject { put("type", "input_image"); put("image_url", "data:image/png;base64,BB") })
+                })
+            })
+        }
+        assertEquals(2, nativeVisionCount(input))
+    }
 }
