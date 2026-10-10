@@ -18,9 +18,9 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /** Text-only EPUB/TXT import; all text is uploaded to canonical Coast, never a local book database. */
 internal object LibraryImport {
-    private const val FILE_LIMIT = 8 * 1024 * 1024
-    private const val TEXT_LIMIT = 600000
-    private const val CHAPTER_LIMIT = 160
+    private const val FILE_LIMIT = 40 * 1024 * 1024
+    private const val TEXT_LIMIT = 12000000
+    private const val CHAPTER_LIMIT = 2048
     private const val CHAPTER_CHARS = 32000
     private const val PARAGRAPH_CHARS = 4000
 
@@ -32,7 +32,7 @@ internal object LibraryImport {
         require(ext in listOf("txt", "epub")) { "潮中书房目前只支持 TXT 和 EPUB。" }
         val bytes = context.contentResolver.openInputStream(uri)?.use { it.readNBytes(FILE_LIMIT + 1) }
             ?: throw IllegalArgumentException("无法读取选中的书籍文件。")
-        require(bytes.size <= FILE_LIMIT) { "文件超过 8 MB，不会截断导入。" }
+        require(bytes.size <= FILE_LIMIT) { "源文件超过 40 MB，不会截断导入。" }
         val sections = if (ext == "txt") {
             listOf("正文" to bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF"))
         } else epubChapters(bytes)
@@ -92,10 +92,10 @@ internal object LibraryImport {
                 val entry = zip.nextEntry ?: break
                 if (!entry.isDirectory) {
                     val safe = normalize(entry.name)
-                    val raw = zip.readNBytes(2 * 1024 * 1024 + 1)
-                    require(raw.size <= 2 * 1024 * 1024) { "EPUB 的单个压缩文件过大。" }
+                    val raw = zip.readNBytes(4 * 1024 * 1024 + 1)
+                    require(raw.size <= 4 * 1024 * 1024) { "EPUB 的单个内部文件超过 4 MB。" }
                     total += raw.size
-                    require(total <= 12 * 1024 * 1024) { "EPUB 解压数据超过 12 MB。" }
+                    require(total <= 80 * 1024 * 1024) { "EPUB 解压数据超过 80 MB。" }
                     items[safe] = raw
                 }
                 zip.closeEntry()
@@ -187,12 +187,12 @@ internal object LibraryImport {
             }
             for (paragraph in paragraphs) {
                 total += paragraph.length
-                require(total <= TEXT_LIMIT) { "本版最多支持 60 万字，请导入较小的书籍。" }
+                require(total <= TEXT_LIMIT) { "单本最多支持 1,200 万字，不会截断后面的章节。" }
                 if (current > 0 && current + paragraph.length + 2 > CHAPTER_CHARS) flush()
                 buffer.add(paragraph); current += paragraph.length + 2
             }
             flush()
-            require(output.size <= CHAPTER_LIMIT) { "本版最多支持 160 章，未截断原文件。" }
+            require(output.size <= CHAPTER_LIMIT) { "单本最多支持 2,048 个正文分段，不会截断。" }
         }
         require(output.isNotEmpty()) { "没有提取到可阅读的正文。" }
         return output
