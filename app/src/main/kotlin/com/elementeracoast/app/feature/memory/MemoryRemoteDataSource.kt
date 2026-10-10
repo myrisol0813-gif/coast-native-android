@@ -100,7 +100,7 @@ class MemoryRemoteDataSource(
 
     suspend fun clearGlobalExcerpt(expectedRevision: Int): RemoteGlobalExcerptResponse = request(
         Request.Builder().url(config.url("/api/memory/global-excerpt")).patch(
-            body(json.encodeToString(RemoteGlobalExcerptClearRequest(expectedRevision = expectedRevision)))
+            body(json.encodeToString(RemoteGlobalExcerptClearRequest(action = "clear", expectedRevision = expectedRevision)))
         ).build(),
         RemoteGlobalExcerptResponse.serializer()
     )
