@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,6 +33,11 @@ import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
+import com.elementeracoast.app.feature.daily.SideRoomsRepository
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonPrimitive
 import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
 import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
@@ -69,6 +75,18 @@ fun ChatWindow(
     val context = LocalContext.current
     val attachmentScope = rememberCoroutineScope()
     val toolNotice by ToolActivityBus.notice.collectAsState()
+    val sideRooms = remember(context.applicationContext) { SideRoomsRepository.production(context.applicationContext) }
+    val voicePlayer = remember(context.applicationContext) { PrivateClipPlayer(context.applicationContext) }
+    var voiceClips by remember(state.activeConversationId) { mutableStateOf<List<VoiceClip>>(emptyList()) }
+    var voiceTarget by remember(state.activeConversationId) { mutableStateOf<ChatMessage?>(null) }
+    var voiceWorking by remember(state.activeConversationId) { mutableStateOf(false) }
+    DisposableEffect(voicePlayer) { onDispose { voicePlayer.close() } }
+    LaunchedEffect(state.activeConversationId) {
+        val conversationId = state.activeConversationId
+        if (conversationId.isBlank()) return@LaunchedEffect
+        try { voiceClips = decodeVoiceClips(sideRooms.voiceClips(conversationId)) }
+        catch (error: Exception) { onPlaceholder("本窗口语音尚未同步：${error.message}") }
+    }
 
     fun acceptPickedUris(uris: List<Uri>) {
         if (uris.isEmpty()) return
@@ -118,6 +136,17 @@ fun ChatWindow(
                     onPlaceholder("已复制")
                 },
                 onEdit = { message -> editingMessage = message },
+                voiceClips = voiceClips,
+                onVoice = { voiceTarget = it },
+                onPlayVoice = { clipId ->
+                    attachmentScope.launch {
+                        try {
+                            voicePlayer.play(sideRooms.audio(clipId))
+                        } catch (error: Exception) {
+                            onPlaceholder("语音播放失败：${error.message}")
+                        }
+                    }
+                },
                 onAction = onMessageAction,
                 onFootprint = { message ->
                     val model = message.modelId ?: "未知模型"
@@ -166,6 +195,37 @@ fun ChatWindow(
                 onPlaceholder = onPlaceholder
             )
         }
+    }
+
+    voiceTarget?.let { message ->
+        VoiceSelectionDialog(
+            message = message, working = voiceWorking,
+            onDismiss = { voiceTarget = null },
+            onGenerate = { indices ->
+                val variantId = message.remoteVariantId
+                if (variantId.isNullOrBlank()) {
+                    onPlaceholder("这条消息还没有持久化的版本 ID。")
+                } else {
+                    voiceWorking = true
+                    attachmentScope.launch {
+                        try {
+                            sideRooms.generateVoice(buildJsonObject {
+                                put("conversation_id", state.activeConversationId)
+                                put("message_id", variantId)
+                                put("paragraph_indices", buildJsonArray {
+                                    indices.forEach { add(JsonPrimitive(it)) }
+                                })
+                            })
+                            voiceClips = decodeVoiceClips(sideRooms.voiceClips(state.activeConversationId))
+                            voiceTarget = null
+                            onPlaceholder("Myraes 的声音已留在这条消息里。")
+                        } catch (error: Exception) {
+                            onPlaceholder("生成失败：${error.message}")
+                        } finally { voiceWorking = false }
+                    }
+                }
+            }
+        )
     }
 
     val soil = state.thoughtSoil
