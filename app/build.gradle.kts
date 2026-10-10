@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 85
-        versionName = "0.1.83-voice-sync"
+        versionCode = 86
+        versionName = "0.1.84-tidal-reader-v2"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
