@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 82
-        versionName = "0.1.80-search-vision-diagnostics"
+        versionCode = 83
+        versionName = "0.1.81-multimodal-input"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
