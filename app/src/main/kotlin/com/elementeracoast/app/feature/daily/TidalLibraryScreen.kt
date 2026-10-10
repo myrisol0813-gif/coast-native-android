@@ -60,6 +60,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
     var start by remember { mutableIntStateOf(0) }
     var focus by remember { mutableIntStateOf(-1) }
     var loading by remember { mutableStateOf(true) }
+    var importing by remember { mutableStateOf<String?>(null) }
     var revision by remember { mutableIntStateOf(0) }
     var writeNote by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<JsonObject?>(null) }
@@ -71,16 +72,19 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
         if (uri != null) scope.launch {
             loading = true
             try {
+                importing = "正在提取正文…"
                 val request = LibraryImport.parse(context, uri)
-                val result = repository.importBook(request)
-                bookId = result["book"]?.jsonObject?.s("id").orEmpty()
+                val result = repository.importBook(request) { current, total ->
+                    importing = "正在收书：$current / $total 个正文分段"
+                }
+                bookId = result.s("id")
                 index = 0
                 focus = 0
                 page = LibraryPage.Chapter
                 revision++
                 onSnackbar("书籍已经放进潮中书房。")
             } catch (error: Exception) { onSnackbar("导入失败：${error.message}") }
-            finally { loading = false }
+            finally { loading = false; importing = null }
         }
     }
     LaunchedEffect(page, bookId, index, start, revision) {
@@ -121,9 +125,10 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
         when (page) {
             LibraryPage.Shelf -> {
                 Text("我们共用一间书房，各自留笔迹。", style = MaterialTheme.typography.bodyMedium)
-                Text("支持 EPUB 和 TXT 文字阅读，暂不支持 PDF、图片与复杂版式。文件最多 8 MB、正文最多 60 万字、160 章。",
+                Text("支持 EPUB 和 TXT 文字阅读，暂不支持 PDF、图片与复杂版式。源文件最多 40 MB、正文最多 1,200 万字、2,048 个正文分段。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 DailyPrimaryButton("＋ 导入书籍") { filePicker.launch(arrayOf("*/*")) }
+                importing?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (books.isEmpty() && !loading) Text("书架还空着。挑一本我们一起读的书吧。")
                 books.forEach { entry ->
                     DailySurfaceCard(onClick = { openBook(entry) }) {
