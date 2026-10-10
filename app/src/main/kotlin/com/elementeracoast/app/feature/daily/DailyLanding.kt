@@ -58,6 +58,7 @@ fun DailyLanding(
 ) {
     var page by remember { mutableStateOf(DailyPage.Home) }
     var libraryShelf by remember { mutableStateOf(true) }
+    var libraryChromeVisible by remember { mutableStateOf(true) }
     var libraryImportRequest by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -129,7 +130,7 @@ fun DailyLanding(
                 compact = true
             )
             DailyPage.Calendar -> FeaturePageTopBar("海岸日历", "公历 · 日程与随记", { page = DailyPage.Home }, compact = true)
-            DailyPage.Library -> FeaturePageTopBar(
+            DailyPage.Library -> if(libraryChromeVisible) FeaturePageTopBar(
                 title = "潮中书房",
                 subtitle = "小狗和小蛇一起翻书",
                 onBack = { page = DailyPage.Home },
@@ -165,7 +166,8 @@ fun DailyLanding(
                 DailyPage.Library -> TidalLibraryScreen(
                     sideRooms, onSnackbar,
                     importRequest = libraryImportRequest,
-                    onShelfChanged = { libraryShelf = it }
+                    onShelfChanged = { libraryShelf = it },
+                    onReadingChromeChanged = { libraryChromeVisible = it }
                 )
                 DailyPage.Pet -> PetScreen()
             }
