@@ -14,7 +14,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-data class ChatGptAccountModel(val slug: String, val displayName: String)
+data class ChatGptAccountModel(
+    val slug: String,
+    val displayName: String,
+    val reasoningEfforts: List<String> = emptyList()
+)
 data class ChatGptProbeResult(
     val text: String,
     val inputTokens: Long?,
@@ -29,6 +33,20 @@ class ChatGptPlanRepository(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
     private val mutex = Mutex()
+    @Volatile private var latestModels = emptyList<ChatGptAccountModel>()
+
+    fun reasoningEffortsFor(slug: String): List<String> =
+        latestModels.firstOrNull { it.slug == slug }?.reasoningEfforts.orEmpty()
+
+    internal fun decodeEfforts(model: JsonObject): List<String> {
+        val known = listOf("none", "minimal", "low", "medium", "high", "xhigh", "max")
+        val source = model["supported_reasoning_efforts"] ?: model["reasoning_efforts"]
+            ?: (model["reasoning"] as? JsonObject)?.get("efforts")
+        val advertised = (source as? JsonArray).orEmpty().mapNotNull {
+            (it as? JsonPrimitive)?.contentOrNull
+        }
+        return known.filter(advertised::contains)
+    }
 
     fun currentAccount(): ChatGptConnection? = store.load()
     fun preferredModel(): String? = store.preferredModel()
@@ -131,14 +149,17 @@ class ChatGptPlanRepository(
                 check(response.isSuccessful) { "模型目录未能载入（HTTP " + response.code + "）。" }
                 json.parseToJsonElement(response.body?.string().orEmpty()).jsonObject
             }
-            (catalog["models"] as? JsonArray).orEmpty().mapNotNull {
+            val models = (catalog["models"] as? JsonArray).orEmpty().mapNotNull {
                 val item = it as? JsonObject ?: return@mapNotNull null
                 if (item["visibility"]?.jsonPrimitive?.contentOrNull != "list") return@mapNotNull null
                 val slug = item["slug"]?.jsonPrimitive?.contentOrNull.orEmpty()
                 if (slug.isBlank()) null else ChatGptAccountModel(
-                    slug, item["display_name"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { slug }
+                    slug, item["display_name"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { slug },
+                    decodeEfforts(item)
                 )
             }
+            latestModels = models
+            models
         }
     }
 
