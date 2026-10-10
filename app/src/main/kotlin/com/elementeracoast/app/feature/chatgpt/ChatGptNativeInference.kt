@@ -177,7 +177,8 @@ internal class ChatGptNativeInference(
     fun stream(
         model: String,
         request: RemoteChatRequest,
-        prepared: RemoteNativeChatContext
+        prepared: RemoteNativeChatContext,
+        reasoningEffort: String? = null
     ): Flow<NativeChatEvent> = callbackFlow {
         val activeCall = AtomicReference<Call?>()
         val job = launch(Dispatchers.IO) {
@@ -220,6 +221,9 @@ internal class ChatGptNativeInference(
                         put("input", JsonArray(history))
                         put("store", false)
                         put("stream", true)
+                        if (reasoningEffort != null) put("reasoning", buildJsonObject {
+                            put("effort", reasoningEffort)
+                        })
                         // Preserve stateless reasoning across tool-call continuation on older Responses backends.
                         put("include", buildJsonArray { add("reasoning.encrypted_content") })
                         if (instructions.isNotBlank()) put("instructions", instructions)
