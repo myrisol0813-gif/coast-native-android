@@ -47,7 +47,12 @@ private fun JsonObject.rows(name: String): List<JsonObject> = (this[name] as? Js
 
 private enum class LibraryPage { Shelf, Chapter, Notes }
 @Composable
-fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Unit) {
+fun TidalLibraryScreen(
+    repository: SideRoomsRepository,
+    onSnackbar: (String) -> Unit,
+    importRequest: Int = 0,
+    onShelfChanged: (Boolean) -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var page by remember { mutableStateOf(LibraryPage.Shelf) }
@@ -85,6 +90,12 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                 onSnackbar("书籍已经放进潮中书房。")
             } catch (error: Exception) { onSnackbar("导入失败：${error.message}") }
             finally { loading = false; importing = null }
+        }
+    }
+    LaunchedEffect(page) { onShelfChanged(page == LibraryPage.Shelf) }
+    LaunchedEffect(importRequest) {
+        if (importRequest > 0 && page == LibraryPage.Shelf) {
+            filePicker.launch(arrayOf("*/*"))
         }
     }
     LaunchedEffect(page, bookId, index, start, revision) {
@@ -127,7 +138,6 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                 Text("我们共用一间书房，各自留笔迹。", style = MaterialTheme.typography.bodyMedium)
                 Text("支持 EPUB 和 TXT 文字阅读，暂不支持 PDF、图片与复杂版式。源文件最多 40 MB、正文最多 1,200 万字、2,048 个正文分段。",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                DailyPrimaryButton("＋ 导入书籍") { filePicker.launch(arrayOf("*/*")) }
                 importing?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 if (books.isEmpty() && !loading) Text("书架还空着。挑一本我们一起读的书吧。")
                 books.forEach { entry ->
