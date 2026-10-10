@@ -74,6 +74,8 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                 val request = LibraryImport.parse(context, uri)
                 val result = repository.importBook(request)
                 bookId = result["book"]?.jsonObject?.s("id").orEmpty()
+                index = 0
+                focus = 0
                 page = LibraryPage.Chapter
                 revision++
                 onSnackbar("书籍已经放进潮中书房。")
@@ -171,14 +173,14 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                                     })
                                     revision++
                                     onSnackbar("这一句已经划线了。")
-                                } catch (error: Exception) { onSnackbar("划线失败：\${error.message}") }
+                                } catch (error: Exception) { onSnackbar("划线失败：${error.message}") }
                             }
                         },
                         onNote = { edit(it) },
                         onProgress = { paragraph ->
                             scope.launch {
                                 try { repository.progress(bookId, index, paragraph) }
-                                catch (error: Exception) { onSnackbar("阅读进度未保存：\${error.message}") }
+                                catch (error: Exception) { onSnackbar("阅读进度未保存：${error.message}") }
                             }
                         },
                         onShowNotes = { page = LibraryPage.Notes }
