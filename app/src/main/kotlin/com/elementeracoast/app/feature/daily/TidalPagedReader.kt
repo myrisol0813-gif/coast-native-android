@@ -69,7 +69,8 @@ internal fun TidalPagedReader(
     onHighlight: (paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onNote: (JsonObject) -> Unit,
     onProgress: (Int) -> Unit,
-    onShowNotes: () -> Unit
+    onShowNotes: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val pref = remember(context.applicationContext) {
@@ -94,7 +95,7 @@ internal fun TidalPagedReader(
         pages.getOrNull(pager.currentPage)?.lastOrNull()?.let { onProgress(it.paragraphIndex) }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp)) {
+    Column(modifier = modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Box {
                 TextButton(onClick = { tocOpen = true }) { Text("目录") }
