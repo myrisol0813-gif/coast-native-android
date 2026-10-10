@@ -67,6 +67,43 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
             if (id == null) "POST" else "PATCH", input)
     suspend fun deleteCalendar(id: String) { request("/api/calendar/entries/${path(id)}", "DELETE") }
 
+
+    suspend fun bookCover(id: String): ByteArray = withContext(Dispatchers.IO) {
+        try {
+            client.newCall(Request.Builder().url(config.url("/api/library/books/${path(id)}/cover"))
+                .get().build()).execute().use { response ->
+                if(!response.isSuccessful) throw CoastApiException(
+                    coastErrorKind(response.code,"cover_unavailable"),"cover_unavailable",
+                    "封面暂时无法读取。",response.code)
+                val length=response.body?.contentLength() ?: -1L
+                if(length>600*1024)throw IllegalArgumentException("封面超出 600 KB。")
+                val bytes=response.body?.bytes() ?: ByteArray(0)
+                if(bytes.isEmpty() || bytes.size>600*1024)throw IllegalArgumentException("封面无效或超出 600 KB。")
+                bytes
+            }
+        } catch(error: CoastApiException) { throw error }
+        catch(error: IOException) { throw CoastApiException(
+            CoastApiErrorKind.Network,"cover_network_failed","无法读取海岸封面。",cause=error) }
+    }
+    suspend fun saveBookCover(id: String, jpeg: ByteArray) = withContext(Dispatchers.IO) {
+        require(jpeg.isNotEmpty() && jpeg.size <= 600*1024) { "封面不能超过 600 KB。" }
+        val url=config.url("/api/library/books/${path(id)}/cover")
+        val request=Request.Builder().url(url).put(jpeg.toRequestBody("image/jpeg".toMediaType())).build()
+        try {
+            client.newCall(request).execute().use { response ->
+                val text=response.body?.string().orEmpty()
+                val reply=runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
+                if(!response.isSuccessful || reply?.get("ok")?.toString()=="false") {
+                    val error=reply?.get("error") as? JsonObject
+                    val reason=error?.get("message")?.jsonPrimitive?.contentOrNull ?: "无法保存书籍封面。"
+                    throw CoastApiException(coastErrorKind(response.code,"cover_failed"),"cover_failed",reason,response.code)
+                }
+            }
+        }catch(error: CoastApiException) { throw error }
+        catch(error: IOException) { throw CoastApiException(CoastApiErrorKind.Network,
+            "cover_network_failed","封面没有传到海岸。",cause=error) }
+    }
+
     suspend fun books(): JsonObject = request("/api/library/books")
     suspend fun book(id: String): JsonObject = request("/api/library/books/${path(id)}")
     suspend fun fullChapter(id: String, index: Int): JsonObject =
