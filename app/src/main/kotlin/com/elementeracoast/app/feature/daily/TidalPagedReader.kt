@@ -4,7 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import com.elementeracoast.app.ui.theme.LocalCoastAppearance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -95,7 +98,32 @@ internal fun TidalPagedReader(
     var tocOpen by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
     val raw = remember(paragraphs) { paragraphs.map { (it.intField("index") ?: 0) to it.field("text") } }
-    BoxWithConstraints(modifier = modifier.fillMaxSize().background(palette.paper)) {
+    // Observe tap candidates during Initial pass: read-only BasicTextField handles
+    // text selection itself at Main pass, but it must not swallow the chrome gesture.
+    // Never consume events, so selection and horizontal paging still work.
+    val toggleOnShortTap = Modifier.pointerInput(chapterIndex) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val started = android.os.SystemClock.uptimeMillis()
+            var moved = false
+            var lifted = false
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val pointer = event.changes.firstOrNull { it.id == down.id } ?: break
+                if ((pointer.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
+                if (!pointer.pressed) {
+                    lifted = pointer.previousPressed
+                    break
+                }
+            }
+            val shortTap = android.os.SystemClock.uptimeMillis() - started < 320L
+            // Leave visible toolbars and their menu controls fully interactive.
+            val inControls = chromeVisible && (down.position.y < 74.dp.toPx() ||
+                down.position.y > size.height - 66.dp.toPx())
+            if (lifted && !moved && shortTap && !inControls) chromeVisible = !chromeVisible
+        }
+    }
+    BoxWithConstraints(modifier = modifier.fillMaxSize().background(palette.paper).then(toggleOnShortTap)) {
         val charPerLine=(maxWidth.value / (fontSize*0.97f)).toInt().coerceIn(12,50)
         val visibleLines=(maxHeight.value/(fontSize*1.77f)).toInt().coerceIn(10,65)
         val budget=(charPerLine*(visibleLines-2)).coerceIn(180,1200)
@@ -132,7 +160,7 @@ internal fun TidalPagedReader(
                     Text("正在翻向相邻章节…",color=palette.ink.copy(alpha=.5f),fontSize=12.sp)
                 }
             } else Column(
-                modifier=Modifier.fillMaxSize().clickable { chromeVisible=!chromeVisible }
+                modifier=Modifier.fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal=20.dp,vertical=26.dp),
                 verticalArrangement=Arrangement.spacedBy(10.dp)
