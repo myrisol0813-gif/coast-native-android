@@ -120,8 +120,10 @@ internal fun nativeOutputKinds(output: NativeResponseOutput): String =
  * requests for models whose account policy may not allow it.
  */
 internal fun requestsNativeWebSearch(userText: String): Boolean =
-    Regex("联网|上网查|搜索|搜一下|查一下最新|查一下网上|查查网上|查阅网络|search the web|web search", RegexOption.IGNORE_CASE)
-        .containsMatchIn(userText)
+    Regex(
+        "联网|上网.{0,5}(搜|查|找)|网上.{0,5}(搜|查|找)|网页搜索|搜索网页|网络搜索|搜索新闻|搜索最新|搜索一下|搜一下|帮我搜索|帮我搜|search the web|web search",
+        RegexOption.IGNORE_CASE
+    ).containsMatchIn(userText)
 
 /** Preserve provider-supplied URL citations without showing internal tool arguments. */
 internal fun nativeWebSearchSources(output: NativeResponseOutput): List<String> {
@@ -160,6 +162,39 @@ internal fun nativeVisionCount(input: JsonArray): Int =
         body.orEmpty().count { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "input_image" }
     }
 
+/** A strictly structural failure report: never surface exception messages or raw model payloads. */
+internal fun diagnoseNativeInferenceFailure(
+    error: Exception, stage: String, imageCount: Int, requestCharsK: Int
+): CoastApiException {
+    val failure = when (error) {
+        is java.net.SocketTimeoutException -> "timeout"
+        is java.net.UnknownHostException -> "dns"
+        is javax.net.ssl.SSLException -> "tls"
+        is java.io.EOFException -> "connection_closed"
+        is java.net.SocketException -> "connection"
+        is java.io.IOException -> "io"
+        else -> "processing"
+    }
+    val description = when (failure) {
+        "timeout" -> "请求等待超时"
+        "dns" -> "域名解析失败"
+        "tls" -> "安全连接失败"
+        "connection_closed" -> "连接提前断开"
+        "connection", "io" -> "网络传输失败"
+        else -> "处理模型数据时发生异常"
+    }
+    val validStage = stage.takeIf { it in setOf(
+        "authorization", "input_preparation", "openai_request",
+        "openai_response", "openai_stream", "output_processing", "coast_tool_execution"
+    ) } ?: "unknown"
+    return CoastApiException(
+        if (error is java.io.IOException) CoastApiErrorKind.Network else CoastApiErrorKind.Decode,
+        "chatgpt_plan_${failure}_${validStage}",
+        "官端 GPT ${description}（阶段=${validStage}；图片数=${imageCount.coerceAtLeast(0)}；请求长度约=${requestCharsK.coerceAtLeast(0)}K字符）。未传输私密错误细节。",
+        cause = error
+    )
+}
+
 internal data class NativeChatUsage(
     val input: Long = 0,
     val cached: Long = 0,
@@ -184,8 +219,12 @@ internal class ChatGptNativeInference(
     ): Flow<NativeChatEvent> = callbackFlow {
         val activeCall = AtomicReference<Call?>()
         val job = launch(Dispatchers.IO) {
+            var stage = "authorization"
+            var imageCount = 0
+            var requestKiB = 0
             try {
                 val access = account.accessTokenForInference()
+                stage = "input_preparation"
                 val instructions = prepared.modelMessages.mapNotNull { message ->
                     val obj = message.jsonObject
                     obj["content"]?.jsonPrimitive?.contentOrNull?.takeIf {
@@ -199,16 +238,11 @@ internal class ChatGptNativeInference(
                         history.add(normalizeInput(obj))
                     }
                 }
-                val imageCount = nativeVisionCount(JsonArray(history))
-                val searchEnabled = history.lastOrNull()?.let {
-                    (it as? JsonObject)?.get("content")?.let { part ->
-                        when (part) {
-                            is JsonArray -> part.mapNotNull { e -> (e as? JsonObject)?.get("text")?.jsonPrimitive?.contentOrNull }.joinToString(" ")
-                            is JsonPrimitive -> part.contentOrNull.orEmpty()
-                            else -> ""
-                        }
-                    }
-                }?.let(::requestsNativeWebSearch) ?: false
+                imageCount = nativeVisionCount(JsonArray(history))
+                // Evaluate the user's real message, not a rewritten/assembled model context item.
+                val searchEnabled = request.messages.lastOrNull()
+                    ?.takeIf { it.role == "user" }
+                    ?.content?.let(::requestsNativeWebSearch) ?: false
                 val searchSources = linkedSetOf<String>()
                 var didSearch = false
                 var returnedReasoningEffort: String? = null
@@ -230,6 +264,11 @@ internal class ChatGptNativeInference(
                         // Preserve stateless reasoning across tool-call continuation on older Responses backends.
                         put("include", buildJsonArray { add("reasoning.encrypted_content") })
                         if (instructions.isNotBlank()) put("instructions", instructions)
+                        // A direct request to search must use search, not merely offer it as optional.
+                        // Force only the provider-hosted tool; this never selects Coast write tools.
+                        if (searchEnabled && round == 0) put("tool_choice", buildJsonObject {
+                            put("type", "web_search")
+                        })
                         if (prepared.tools.isNotEmpty() || searchEnabled) put("tools", buildJsonArray {
                             if (prepared.tools.isNotEmpty()) add(buildJsonObject {
                                 put("type", "namespace")
@@ -240,17 +279,21 @@ internal class ChatGptNativeInference(
                             if (searchEnabled) add(buildJsonObject { put("type", "web_search") })
                         })
                     }
+                    val payload = body.toString()
+                    requestKiB = payload.length / 1024 // character count only; no private content logged
+                    stage = "openai_request"
                     val call = http.newCall(Request.Builder()
                         .url("https://api.openai.com/v1/responses")
                         .header("Authorization", "Bearer " + access)
                         .header("Accept", "text/event-stream")
-                        .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
                         .build())
                     activeCall.set(call)
                     var completed: JsonObject? = null
                     val streamedItems = mutableMapOf<Int, JsonObject>()
                     val roundText = StringBuilder()
                     call.execute().use { response ->
+                        stage = "openai_response"
                         if (!response.isSuccessful) throw CoastApiException(
                             CoastApiErrorKind.Model,
                             "chatgpt_plan_http_" + response.code,
@@ -260,6 +303,7 @@ internal class ChatGptNativeInference(
                             else "请检查模型权限或本轮工具调用。",
                             response.code
                         )
+                        stage = "openai_stream"
                         response.body?.charStream()?.buffered()?.use { reader ->
                             while (true) {
                                 val line = reader.readLine() ?: break
@@ -296,6 +340,7 @@ internal class ChatGptNativeInference(
                         }
                     }
                     activeCall.set(null)
+                    stage = "output_processing"
                     val response = completed ?: throw CoastApiException(
                         CoastApiErrorKind.Stream, "chatgpt_plan_incomplete", "官端 GPT 回复流提前中断。"
                     )
@@ -310,10 +355,20 @@ internal class ChatGptNativeInference(
                         reported = usageTotal.reported || usage != null
                     )
                     val output = readNativeResponseOutput(response, streamedItems)
-                    if (output.items.any { (it as? JsonObject)?.get("type")?.jsonPrimitive?.contentOrNull == "web_search_call" }) {
+                    val finishedSearch: (JsonObject) -> Boolean = { item ->
+                        item["type"]?.jsonPrimitive?.contentOrNull == "web_search_call" &&
+                            item["status"]?.jsonPrimitive?.contentOrNull !in listOf("failed", "incomplete")
+                    }
+                    if (output.items.mapNotNull { it as? JsonObject }.any(finishedSearch)
+                        || streamedItems.values.any(finishedSearch)) {
                         didSearch = true
                     }
                     searchSources.addAll(nativeWebSearchSources(output))
+                    if (streamedItems.isNotEmpty()) {
+                        searchSources.addAll(nativeWebSearchSources(
+                            readNativeResponseOutput(buildJsonObject { }, streamedItems)
+                        ))
+                    }
                     val missingText = missingNativeFinalText(roundText.toString(), output.finalText)
                     if (missingText.isNotEmpty()) {
                         text.append(missingText)
@@ -347,7 +402,13 @@ internal class ChatGptNativeInference(
                                 trySend(NativeChatEvent.Delta(supplement))
                             }
                         }
-                        if (imageCount > 0) trySend(NativeChatEvent.Tool("vision_input", "图片输入 $imageCount 张", true))
+                        if (searchEnabled && !didSearch) {
+                            trySend(NativeChatEvent.Tool("web_search", "模型未执行本轮请求的网页搜索", false))
+                            val warning = "\n\n提示：本轮虽已向模型提供网页搜索工具，但模型未实际调用，以上内容不属于实时搜索结果。"
+                            text.append(warning)
+                            trySend(NativeChatEvent.Delta(warning))
+                        }
+                        if (imageCount > 0) trySend(NativeChatEvent.Tool("vision_input", "图片已递入模型输入 $imageCount 张（不代表模型已识别）", true))
                         trySend(NativeChatEvent.Completed(
                             text.toString(), usageTotal, desk, runs,
                             reasoningEffort, returnedReasoningEffort
@@ -359,6 +420,7 @@ internal class ChatGptNativeInference(
                     )
                     history.addAll(output.items)
                     for (tool in pending) {
+                        stage = "coast_tool_execution"
                         val requestedTool = parseNativeCoastToolCall(tool)
                         val callId = requestedTool.callId
                         val name = requestedTool.name
@@ -381,12 +443,9 @@ internal class ChatGptNativeInference(
                 close()
                 throw cancelled
             } catch (error: Exception) {
-                close(if (error is CoastApiException) error else CoastApiException(
-                    CoastApiErrorKind.Network,
-                    "chatgpt_plan_network",
-                    "官端 GPT 网络请求未完成。",
-                    cause = error
-                ))
+                val diagnosed = if (error is CoastApiException) error
+                    else diagnoseNativeInferenceFailure(error, stage, imageCount, requestKiB)
+                close(diagnosed)
                 return@launch
             } finally {
                 activeCall.getAndSet(null)?.cancel()

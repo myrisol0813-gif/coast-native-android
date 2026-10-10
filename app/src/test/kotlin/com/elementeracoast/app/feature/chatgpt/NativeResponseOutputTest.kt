@@ -154,6 +154,9 @@ class NativeResponseOutputTest {
     @Test fun searchTurnsOnOnlyWithExplicitWebSearchIntent() {
         assertTrue(requestsNativeWebSearch("请联网搜索一下最近的消息"))
         assertTrue(requestsNativeWebSearch("请搜索一下这件事"))
+        assertTrue(requestsNativeWebSearch("可以上网搜一些随便的东西给我看吗"))
+        assertTrue(requestsNativeWebSearch("请网上查一查最新资料"))
+        assertFalse(requestsNativeWebSearch("搜寻我之前保存的记忆"))
         assertTrue(requestsNativeWebSearch("Search the web for today's updates"))
         assertFalse(requestsNativeWebSearch("想和先生说说话"))
     }
@@ -186,6 +189,32 @@ class NativeResponseOutputTest {
             })
         })
         assertEquals(listOf("https://example.org/article", "https://second.org/source"), nativeWebSearchSources(output))
+    }
+
+    @Test fun imageFailureReportsStageWithoutLeakingExceptionDetails() {
+        val error = diagnoseNativeInferenceFailure(
+            java.net.SocketTimeoutException("SECRET_ACCESS_TOKEN_AND_IMAGE_BASE64"),
+            "openai_stream",
+            1,
+            1200
+        )
+        assertEquals("chatgpt_plan_timeout_openai_stream", error.type)
+        assertTrue(error.message.orEmpty().contains("图片数=1"))
+        assertTrue(error.message.orEmpty().contains("阶段=openai_stream"))
+        assertFalse(error.message.orEmpty().contains("SECRET_ACCESS_TOKEN"))
+        assertFalse(error.message.orEmpty().contains("IMAGE_BASE64"))
+    }
+
+    @Test fun invalidStagesAreRedactedBeforeErrorDisplay() {
+        val error = diagnoseNativeInferenceFailure(
+            IllegalArgumentException("auth credential and text"),
+            "user:secret/private/location",
+            0,
+            1
+        )
+        assertTrue(error.message.orEmpty().contains("阶段=unknown"))
+        assertFalse(error.message.orEmpty().contains("private/location"))
+        assertEquals("chatgpt_plan_processing_unknown", error.type)
     }
 
     @Test fun visionCountReportsOnlyNormalizedImageParts() {
