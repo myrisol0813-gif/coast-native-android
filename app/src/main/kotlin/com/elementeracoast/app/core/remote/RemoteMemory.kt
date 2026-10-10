@@ -236,7 +236,7 @@ data class RemoteGlobalExcerptResponse(
 
 @Serializable
 data class RemoteGlobalExcerptClearRequest(
-    val action: String = "clear",
+    val action: String,
     @SerialName("expected_revision") val expectedRevision: Int
 )
 
