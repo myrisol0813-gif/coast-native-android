@@ -154,6 +154,9 @@ class NativeResponseOutputTest {
     @Test fun searchTurnsOnOnlyWithExplicitWebSearchIntent() {
         assertTrue(requestsNativeWebSearch("请联网搜索一下最近的消息"))
         assertTrue(requestsNativeWebSearch("请搜索一下这件事"))
+        assertTrue(requestsNativeWebSearch("可以上网搜一些随便的东西给我看吗"))
+        assertTrue(requestsNativeWebSearch("请网上查一查最新资料"))
+        assertFalse(requestsNativeWebSearch("搜寻我之前保存的记忆"))
         assertTrue(requestsNativeWebSearch("Search the web for today's updates"))
         assertFalse(requestsNativeWebSearch("想和先生说说话"))
     }
