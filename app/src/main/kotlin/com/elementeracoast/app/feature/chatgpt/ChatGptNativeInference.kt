@@ -355,9 +355,10 @@ internal class ChatGptNativeInference(
                         reported = usageTotal.reported || usage != null
                     )
                     val output = readNativeResponseOutput(response, streamedItems)
-                    val finishedSearch = fun(item: JsonObject): Boolean =
+                    val finishedSearch: (JsonObject) -> Boolean = { item ->
                         item["type"]?.jsonPrimitive?.contentOrNull == "web_search_call" &&
                             item["status"]?.jsonPrimitive?.contentOrNull !in listOf("failed", "incomplete")
+                    }
                     if (output.items.mapNotNull { it as? JsonObject }.any(finishedSearch)
                         || streamedItems.values.any(finishedSearch)) {
                         didSearch = true
