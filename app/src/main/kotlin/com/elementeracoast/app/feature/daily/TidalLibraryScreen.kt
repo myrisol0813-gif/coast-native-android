@@ -53,7 +53,8 @@ fun TidalLibraryScreen(
     repository: SideRoomsRepository,
     onSnackbar: (String) -> Unit,
     importRequest: Int = 0,
-    onShelfChanged: (Boolean) -> Unit = {}
+    onShelfChanged: (Boolean) -> Unit = {},
+    onReadingChromeChanged: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -69,6 +70,7 @@ fun TidalLibraryScreen(
     var loading by remember { mutableStateOf(true) }
     var importing by remember { mutableStateOf<String?>(null) }
     var pendingCoverBook by remember { mutableStateOf<String?>(null) }
+    var readingChromeVisible by remember { mutableStateOf(false) }
     var revision by remember { mutableIntStateOf(0) }
     var writeNote by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<JsonObject?>(null) }
@@ -107,7 +109,10 @@ fun TidalLibraryScreen(
             finally { loading = false; importing = null }
         }
     }
-    LaunchedEffect(page) { onShelfChanged(page == LibraryPage.Shelf) }
+    LaunchedEffect(page) {
+        onShelfChanged(page == LibraryPage.Shelf)
+        if(page != LibraryPage.Chapter) onReadingChromeChanged(true)
+    }
     LaunchedEffect(importRequest) {
         if (importRequest > 0 && page == LibraryPage.Shelf) {
             filePicker.launch(arrayOf("*/*"))
@@ -147,7 +152,7 @@ fun TidalLibraryScreen(
     val surface = Modifier.fillMaxSize()
         .then(if (page == LibraryPage.Chapter) Modifier else Modifier.verticalScroll(rememberScrollState()))
         .padding(horizontal = if (page == LibraryPage.Chapter) 0.dp else 18.dp, vertical = if (page == LibraryPage.Chapter) 0.dp else 15.dp)
-    Column(surface, verticalArrangement = Arrangement.spacedBy(13.dp)) {
+    Column(surface, verticalArrangement = Arrangement.spacedBy(if(page==LibraryPage.Chapter) 0.dp else 13.dp)) {
         when (page) {
             LibraryPage.Shelf -> {
                 Text("我们共用一间书房，各自留笔迹。", style = MaterialTheme.typography.bodyMedium)
@@ -198,7 +203,7 @@ fun TidalLibraryScreen(
                 }
             }
             LibraryPage.Chapter -> {
-                TextButton(onClick = { page = LibraryPage.Shelf }, modifier = Modifier.padding(horizontal = 12.dp)) { Text("‹ 书架") }
+                if(readingChromeVisible) TextButton(onClick = { page = LibraryPage.Shelf }, modifier = Modifier.padding(horizontal = 12.dp)) { Text("‹ 书架") }
                 val pageData = chapter
                 val currentBook = book
                 if (pageData != null && currentBook != null) {
@@ -234,6 +239,10 @@ fun TidalLibraryScreen(
                             }
                         },
                         onShowNotes = { page = LibraryPage.Notes },
+                        onReadingChromeChanged = {
+                            readingChromeVisible = it
+                            onReadingChromeChanged(it)
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
