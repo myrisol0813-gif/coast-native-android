@@ -35,6 +35,54 @@ internal sealed interface NativeChatEvent {
     ) : NativeChatEvent
 }
 
+/**
+ * Read instruction strings only from system/developer messages. User content can be
+ * a multimodal array (text + image); calling jsonPrimitive on it throws.
+ */
+internal fun nativeSystemInstructions(messages: List<JsonElement>): String =
+    messages.mapNotNull { message ->
+        val obj = message as? JsonObject ?: return@mapNotNull null
+        val role = (obj["role"] as? JsonPrimitive)?.contentOrNull
+        if (role !in listOf("system", "developer")) return@mapNotNull null
+        (obj["content"] as? JsonPrimitive)?.contentOrNull
+    }.joinToString("\n\n")
+
+/** Convert the Coast message-parts contract to Responses input without dropping images. */
+internal fun normalizeNativeInput(obj: JsonObject): JsonObject {
+    val content = obj["content"]
+    if (content !is JsonArray) return obj
+    return buildJsonObject {
+        put("role", obj["role"] ?: JsonPrimitive("user"))
+        put("content", buildJsonArray {
+            content.forEach { part ->
+                val item = part as? JsonObject ?: throw CoastApiException(
+                    CoastApiErrorKind.Request, "unsupported_native_input",
+                    "图片或文字附件结构不完整。"
+                )
+                when ((item["type"] as? JsonPrimitive)?.contentOrNull) {
+                    "text" -> add(buildJsonObject {
+                        put("type", "input_text")
+                        put("text", (item["text"] as? JsonPrimitive)?.contentOrNull.orEmpty())
+                    })
+                    "image_url" -> {
+                        val url = ((item["image_url"] as? JsonObject)?.get("url") as? JsonPrimitive)
+                            ?.contentOrNull.orEmpty()
+                        if (!url.startsWith("data:image/") && !url.startsWith("https://")) {
+                            throw CoastApiException(CoastApiErrorKind.Request,
+                                "unsupported_native_image_url", "图片附件缺少有效的图像地址。")
+                        }
+                        add(buildJsonObject { put("type", "input_image"); put("image_url", url) })
+                    }
+                    else -> throw CoastApiException(
+                        CoastApiErrorKind.Request, "unsupported_native_input",
+                        "此附件格式不被官端 GPT 认可。"
+                    )
+                }
+            }
+        })
+    }
+}
+
 internal data class NativeCoastToolCall(val callId: String, val name: String)
 
 /** The namespace remains attached to every replayed tool result in stateless Responses turns. */
@@ -225,17 +273,12 @@ internal class ChatGptNativeInference(
             try {
                 val access = account.accessTokenForInference()
                 stage = "input_preparation"
-                val instructions = prepared.modelMessages.mapNotNull { message ->
-                    val obj = message.jsonObject
-                    obj["content"]?.jsonPrimitive?.contentOrNull?.takeIf {
-                        obj["role"]?.jsonPrimitive?.contentOrNull in listOf("system", "developer")
-                    }
-                }.joinToString("\n\n")
+                val instructions = nativeSystemInstructions(prepared.modelMessages)
                 val history = mutableListOf<JsonElement>()
                 prepared.modelMessages.forEach { message ->
                     val obj = message.jsonObject
                     if (obj["role"]?.jsonPrimitive?.contentOrNull !in listOf("system", "developer")) {
-                        history.add(normalizeInput(obj))
+                        history.add(normalizeNativeInput(obj))
                     }
                 }
                 imageCount = nativeVisionCount(JsonArray(history))
@@ -455,32 +498,4 @@ internal class ChatGptNativeInference(
         awaitClose { activeCall.getAndSet(null)?.cancel(); job.cancel() }
     }
 
-    private fun normalizeInput(obj: JsonObject): JsonObject {
-        val content = obj["content"]
-        if (content !is JsonArray) return obj
-        return buildJsonObject {
-            put("role", obj["role"] ?: JsonPrimitive("user"))
-            put("content", buildJsonArray {
-                content.forEach { part ->
-                    val item = part.jsonObject
-                    when (item["type"]?.jsonPrimitive?.contentOrNull) {
-                        "text" -> add(buildJsonObject {
-                            put("type", "input_text")
-                            put("text", item["text"]?.jsonPrimitive?.contentOrNull.orEmpty())
-                        })
-                        "image_url" -> add(buildJsonObject {
-                            put("type", "input_image")
-                            put("image_url", item["image_url"]?.jsonObject
-                                ?.get("url")?.jsonPrimitive?.contentOrNull.orEmpty())
-                        })
-                        else -> throw CoastApiException(
-                            CoastApiErrorKind.Request,
-                            "unsupported_native_input",
-                            "此附件格式不被官端 GPT 认可。"
-                        )
-                    }
-                }
-            })
-        }
-    }
 }
