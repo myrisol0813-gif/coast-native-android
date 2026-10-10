@@ -56,6 +56,34 @@ internal object LibraryImport {
         return text.replace(Regex("""\n{3,}"""), "\n\n").trim()
     }
 
+    // Spine chapters can contain HTML fragments that browsers tolerate but strict
+    // XML DocumentBuilder rejects ("Only one root element allowed", unknown entities).
+    // Keep container.xml and OPF strict; read spine content as offline text-only HTML.
+    internal fun cleanedSpineMarkup(markup: String): String {
+        val html = markup.removePrefix("\uFEFF")
+        // A DOCTYPE in the chapter is harmless once removed before TagSoup;
+        // never allow entity declarations or DTD internal subsets through.
+        require(!Regex("""(?is)<!\s*ENTITY\b|<!\s*DOCTYPE\b[^>]*\[""").containsMatchIn(html)) {
+            "EPUB 正文包含不受支持的实体定义。"
+        }
+        var cleaned = html.replace(Regex("""(?is)<!\s*DOCTYPE\b[^>]*>"""), "")
+            .replace(Regex("""(?is)^\s*<\?xml\b[^>]*\?>"""), "")
+            .replace(Regex("""(?is)<head\b[^>]*>.*?</head\s*>"""), "")
+        for (tag in listOf("script", "style", "noscript", "iframe", "object", "svg")) {
+            cleaned = cleaned.replace(Regex("(?is)<$tag\\b[^>]*>.*?</$tag\\s*>"), "")
+        }
+        return cleaned
+    }
+
+    private fun spineText(bytes: ByteArray): String {
+        val source = cleanedSpineMarkup(bytes.toString(Charsets.UTF_8))
+        val text = android.text.Html.fromHtml(source, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
+        return text.replace('\u00A0', ' ')
+            .replace("\r\n", "\n").replace('\r', '\n')
+            .replace(Regex("""[ \t]+\n"""), "\n")
+            .replace(Regex("""\n{3,}"""), "\n\n").trim()
+    }
+
     private fun zipEntries(bytes: ByteArray): Map<String, ByteArray> {
         val items = linkedMapOf<String, ByteArray>()
         var total = 0
@@ -95,7 +123,7 @@ internal object LibraryImport {
         // Reject DTD directly and separately disable external resolution. Unsupported
         // optional parser flags must not prevent otherwise safe EPUBs from loading.
         val probe = bytes.toString(Charsets.UTF_8).replace("\u0000", "")
-        require(!Regex("<!\\\\s*(?:DOCTYPE|ENTITY)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(probe)) {
+        require(!Regex("""<!\s*(?:DOCTYPE|ENTITY)\b""", RegexOption.IGNORE_CASE).containsMatchIn(probe)) {
             "书籍 XML 含不受支持的 DTD 或实体声明，已安全拒绝。"
         }
         runCatching { factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
@@ -110,6 +138,14 @@ internal object LibraryImport {
         builder.setEntityResolver { _, _ -> org.xml.sax.InputSource(java.io.StringReader("")) }
         return builder.parse(ByteArrayInputStream(bytes))
     }
+    private fun readMetadataXml(bytes: ByteArray, label: String): Document {
+        try {
+            return xml(bytes)
+        } catch (error: Exception) {
+            throw IllegalArgumentException("EPUB 的 $label 格式异常，无法读取书籍目录。", error)
+        }
+    }
+
     private fun Document.elements(name: String): List<Element> {
         val nodes = getElementsByTagNameNS("*", name)
         return (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }
@@ -117,10 +153,10 @@ internal object LibraryImport {
     private fun epubChapters(bytes: ByteArray): List<Pair<String, String>> {
         val files = zipEntries(bytes)
         val container = files["META-INF/container.xml"] ?: throw IllegalArgumentException("EPUB 缺少书籍入口。")
-        val opfPath = xml(container).elements("rootfile").firstOrNull()?.getAttribute("full-path")
+        val opfPath = readMetadataXml(container, "container.xml").elements("rootfile").firstOrNull()?.getAttribute("full-path")
             ?.takeIf { it.isNotBlank() } ?: throw IllegalArgumentException("EPUB 目录没有指明正文。")
         val packageFile = files[normalize(opfPath)] ?: throw IllegalArgumentException("EPUB 缺少 OPF 目录。")
-        val opf = xml(packageFile)
+        val opf = readMetadataXml(packageFile, "OPF 书籍目录")
         val manifest = opf.elements("item").associate { it.getAttribute("id") to it }
         val prefix = normalize(opfPath).substringBeforeLast('/', "")
         val sections = mutableListOf<Pair<String, String>>()
@@ -129,20 +165,7 @@ internal object LibraryImport {
             if (!file.getAttribute("media-type").contains("html", ignoreCase = true)) continue
             val href = java.net.URLDecoder.decode(file.getAttribute("href").substringBefore('#'), "UTF-8")
             val source = files[normalize(if (prefix.isBlank()) href else "$prefix/$href")] ?: continue
-            val document = xml(source)
-            val text = document.elements("body").firstOrNull()?.let { body ->
-                buildList {
-                    val tags = setOf("p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "li")
-                    val nodes = body.getElementsByTagName("*")
-                    for (i in 0 until nodes.length) {
-                        val node = nodes.item(i) as? Element ?: continue
-                        if (node.localName in tags) {
-                            val line = node.textContent.replace(Regex("\\s+"), " ").trim()
-                            if (line.isNotBlank()) add(line)
-                        }
-                    }
-                }.joinToString("\n\n")
-            }.orEmpty()
+            val text = spineText(source)
             if (text.isNotBlank()) sections.add("第 ${sections.size + 1} 节" to text)
         }
         require(sections.isNotEmpty()) { "EPUB 中没有可阅读的文字章节。" }
