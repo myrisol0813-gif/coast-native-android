@@ -14,6 +14,17 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
+/** Display only exact account-catalog effort values; unknown means no slider. */
+internal fun decodeChatGptReasoningEfforts(model: JsonObject): List<String> {
+    val known = listOf("none", "minimal", "low", "medium", "high", "xhigh", "max")
+    val source = model["supported_reasoning_efforts"] ?: model["reasoning_efforts"]
+        ?: (model["reasoning"] as? JsonObject)?.get("efforts")
+    val advertised = (source as? JsonArray).orEmpty().mapNotNull {
+        (it as? JsonPrimitive)?.contentOrNull
+    }
+    return known.filter(advertised::contains)
+}
+
 data class ChatGptAccountModel(
     val slug: String,
     val displayName: String,
@@ -37,16 +48,6 @@ class ChatGptPlanRepository(
 
     fun reasoningEffortsFor(slug: String): List<String> =
         latestModels.firstOrNull { it.slug == slug }?.reasoningEfforts.orEmpty()
-
-    internal fun decodeEfforts(model: JsonObject): List<String> {
-        val known = listOf("none", "minimal", "low", "medium", "high", "xhigh", "max")
-        val source = model["supported_reasoning_efforts"] ?: model["reasoning_efforts"]
-            ?: (model["reasoning"] as? JsonObject)?.get("efforts")
-        val advertised = (source as? JsonArray).orEmpty().mapNotNull {
-            (it as? JsonPrimitive)?.contentOrNull
-        }
-        return known.filter(advertised::contains)
-    }
 
     fun currentAccount(): ChatGptConnection? = store.load()
     fun preferredModel(): String? = store.preferredModel()
@@ -155,7 +156,7 @@ class ChatGptPlanRepository(
                 val slug = item["slug"]?.jsonPrimitive?.contentOrNull.orEmpty()
                 if (slug.isBlank()) null else ChatGptAccountModel(
                     slug, item["display_name"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { slug },
-                    decodeEfforts(item)
+                    decodeChatGptReasoningEfforts(item)
                 )
             }
             latestModels = models
