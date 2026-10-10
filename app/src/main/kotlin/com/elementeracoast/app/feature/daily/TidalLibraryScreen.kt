@@ -45,7 +45,7 @@ private fun JsonObject.s(name: String): String = this[name]?.jsonPrimitive?.cont
 private fun JsonObject.n(name: String): Int = this[name]?.jsonPrimitive?.intOrNull ?: 0
 private fun JsonObject.rows(name: String): List<JsonObject> = (this[name] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 
-private enum class LibraryPage { Shelf, Book, Chapter, Notes }
+private enum class LibraryPage { Shelf, Chapter, Notes }
 @Composable
 fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Unit) {
     val context = LocalContext.current
@@ -74,7 +74,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                 val request = LibraryImport.parse(context, uri)
                 val result = repository.importBook(request)
                 bookId = result["book"]?.jsonObject?.s("id").orEmpty()
-                page = LibraryPage.Book
+                page = LibraryPage.Chapter
                 revision++
                 onSnackbar("书籍已经放进潮中书房。")
             } catch (error: Exception) { onSnackbar("导入失败：${error.message}") }
@@ -86,34 +86,35 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
         try {
             when (page) {
                 LibraryPage.Shelf -> { books = repository.books().rows("books") }
-                LibraryPage.Book -> {
-                    book = repository.book(bookId)["book"]?.jsonObject
-                    notes = repository.notes(bookId).rows("notes")
-                }
                 LibraryPage.Notes -> {
                     book = repository.book(bookId)["book"]?.jsonObject
                     notes = repository.notes(bookId).rows("notes")
                 }
                 LibraryPage.Chapter -> {
-                    chapter = repository.chapter(bookId, index, start)["chapter"]?.jsonObject
+                    book = repository.book(bookId)["book"]?.jsonObject
+                    chapter = repository.fullChapter(bookId, index)["chapter"]?.jsonObject
                     notes = repository.notes(bookId).rows("notes")
-                    val last = chapter?.rows("paragraphs")?.lastOrNull()
-                    if (last != null) repository.progress(bookId, index, last.n("index"))
                 }
             }
         } catch (error: Exception) { onSnackbar("潮中书房暂时无法读取：${error.message}") }
         finally { loading = false }
     }
-    fun openBook(id: String) { bookId = id; page = LibraryPage.Book }
+    fun openBook(entry: JsonObject) {
+        bookId = entry.s("id")
+        index = entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull ?: 0
+        focus = entry["reader_paragraph_index"]?.jsonPrimitive?.intOrNull ?: 0
+        page = LibraryPage.Chapter
+    }
     fun openChapter(chapterIndex: Int, paragraph: Int = 0) {
-        index = chapterIndex; start = (paragraph / 12) * 12
+        index = chapterIndex; start = 0
         focus = paragraph; page = LibraryPage.Chapter
     }
     fun edit(note: JsonObject?, paragraph: Int = -1) {
         editingNote = note; annotationParagraph = paragraph; writeNote = true
     }
-    val surface = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-        .padding(horizontal = 18.dp, vertical = 15.dp)
+    val surface = Modifier.fillMaxSize()
+        .then(if (page == LibraryPage.Chapter) Modifier else Modifier.verticalScroll(rememberScrollState()))
+        .padding(horizontal = if (page == LibraryPage.Chapter) 0.dp else 18.dp, vertical = if (page == LibraryPage.Chapter) 0.dp else 15.dp)
     Column(surface, verticalArrangement = Arrangement.spacedBy(13.dp)) {
         when (page) {
             LibraryPage.Shelf -> {
@@ -123,76 +124,80 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
                 DailyPrimaryButton("＋ 导入书籍") { filePicker.launch(arrayOf("*/*")) }
                 if (books.isEmpty() && !loading) Text("书架还空着。挑一本我们一起读的书吧。")
                 books.forEach { entry ->
-                    DailySurfaceCard(onClick = { openBook(entry.s("id")) }) {
+                    DailySurfaceCard(onClick = { openBook(entry) }) {
                         Text(entry.s("title"), fontWeight = FontWeight.SemiBold)
                         Text("${entry.s("format").uppercase()} · ${entry.n("chapters_count")} 章",
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val chapterIndex = entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull
+                        val chaptersCount = entry.n("chapters_count").coerceAtLeast(1)
+                        val percent = if (chapterIndex == null) 0f else (chapterIndex + 1).toFloat() / chaptersCount
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { percent.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = androidx.compose.ui.graphics.Color(0xFFB99A66)
+                        )
+                        Text("阅读进度 · ${if (chapterIndex == null) "尚未开始" else "第 ${chapterIndex + 1} / $chaptersCount 章"}",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("小寒 · ${entry.n("xiaohan_notes")} 条批注与读后感",
+                            style = MaterialTheme.typography.labelSmall)
+                        Text("Myri · ${entry.n("myri_notes")} 条批注与读后感",
+                            style = MaterialTheme.typography.labelSmall)
                     }
-                }
-            }
-            LibraryPage.Book -> {
-                TextButton(onClick = { page = LibraryPage.Shelf }) { Text("‹ 书架") }
-                val current = book
-                if (current != null) {
-                    Text(current.s("title"), style = MaterialTheme.typography.titleLarge)
-                    val progress = current.rows("progress")
-                    progress.forEach { p -> Text(
-                        "${if (p.s("author") == "xiaohan") "小寒" else "Myri"} · 第 ${p.n("chapter_index") + 1} 章 第 ${p.n("paragraph_index") + 1} 段",
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ) }
-                    current.rows("chapters").forEach { chapterEntry ->
-                        DailySurfaceCard(onClick = { openChapter(chapterEntry.n("chapter_index")) }) {
-                            Text(chapterEntry.s("title"), fontWeight = FontWeight.Medium)
-                        }
-                    }
-                    TextButton(onClick = { page = LibraryPage.Notes }) { Text("查看双方批注与读后感 ›") }
-                    val reflections = notes.filter { it.s("kind") == "reflection" }
-                    Text("读后感", fontWeight = FontWeight.Bold)
-                    reflections.forEach { note -> NoteBlock(note,
-                        onJump = {  }, onEdit = { edit(note) }, onDelete = { pendingNoteDelete = note }) }
-                    TextButton(onClick = { edit(null) }) { Text("＋ 写一篇读后感") }
-                    TextButton(onClick = { pendingBookDelete = true }) { Text("删除整本书及全部笔记") }
                 }
             }
             LibraryPage.Chapter -> {
-                TextButton(onClick = { page = LibraryPage.Book }) { Text("‹ 目录") }
+                TextButton(onClick = { page = LibraryPage.Shelf }, modifier = Modifier.padding(horizontal = 12.dp)) { Text("‹ 书架") }
                 val pageData = chapter
-                if (pageData != null) {
-                    Text(pageData.s("chapter_title"), style = MaterialTheme.typography.titleLarge)
-                    pageData.rows("paragraphs").forEach { paragraph ->
-                        DailySurfaceCard {
-                            Text(paragraph.s("text"),
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    lineHeight = androidx.compose.ui.unit.TextUnit(29f, androidx.compose.ui.unit.TextUnitType.Sp)
-                                ))
-                            TextButton(onClick = { edit(null, paragraph.n("index")) }) { Text("划线 · 写批注") }
-                            notes.filter { note -> note.s("kind") == "annotation" && note.n("chapter_index") == index
-                                && note.n("paragraph_index") == paragraph.n("index") }.forEach { note ->
-                                NoteBlock(note,onJump={},
-                                    onEdit={ edit(note) },onDelete={ pendingNoteDelete = note })
+                val currentBook = book
+                if (pageData != null && currentBook != null) {
+                    TidalPagedReader(
+                        bookTitle = currentBook.s("title"),
+                        chapterTitle = pageData.s("chapter_title"),
+                        chapterIndex = index,
+                        chapters = currentBook.rows("chapters"),
+                        paragraphs = pageData.rows("paragraphs"),
+                        notes = notes,
+                        initialParagraph = focus,
+                        onChapter = { chapterIndex -> openChapter(chapterIndex) },
+                        onHighlight = { paragraph, from, to ->
+                            scope.launch {
+                                try {
+                                    repository.writeNote(bookId, buildJsonObject {
+                                        put("kind", "highlight")
+                                        put("chapter_index", index)
+                                        put("paragraph_index", paragraph)
+                                        put("start_offset", from)
+                                        put("end_offset", to)
+                                    })
+                                    revision++
+                                    onSnackbar("这一句已经划线了。")
+                                } catch (error: Exception) { onSnackbar("划线失败：\${error.message}") }
                             }
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(enabled = start > 0, onClick = { start = (start-12).coerceAtLeast(0) }) { Text("‹ 上一页") }
-                        Text("第 ${start+1} 段起",style=MaterialTheme.typography.labelSmall)
-                        val next = pageData["next_paragraph"]?.jsonPrimitive?.intOrNull
-                        TextButton(enabled = next != null, onClick = { if (next != null) start = next }) { Text("下一页 ›") }
-                    }
+                        },
+                        onNote = { edit(it) },
+                        onProgress = { paragraph ->
+                            scope.launch {
+                                try { repository.progress(bookId, index, paragraph) }
+                                catch (error: Exception) { onSnackbar("阅读进度未保存：\${error.message}") }
+                            }
+                        },
+                        onShowNotes = { page = LibraryPage.Notes }
+                    )
                 }
             }
             LibraryPage.Notes -> {
-                TextButton(onClick = { page = LibraryPage.Book }) { Text("‹ 返回目录") }
+                TextButton(onClick = { page = LibraryPage.Chapter }) { Text("‹ 返回正文") }
                 Text("批注与读后感",style=MaterialTheme.typography.titleLarge)
+                TextButton(onClick = { edit(null) }) { Text("＋ 写一篇读后感") }
                 for (author in listOf("xiaohan","myri")) {
                     Text(if (author=="xiaohan") "小寒的笔记" else "Myri 的笔记", fontWeight = FontWeight.Bold)
-                    notes.filter { it.s("author")==author }.forEach { note ->
+                    notes.filter { it.s("author")==author && it.s("kind") != "highlight" }.forEach { note ->
                         NoteBlock(note, onJump = {
                             if (note.s("kind")=="annotation") openChapter(note.n("chapter_index"),note.n("paragraph_index"))
                         },onEdit={edit(note)},onDelete={pendingNoteDelete=note})
                     }
                 }
+                TextButton(onClick = { pendingBookDelete = true }) { Text("删除整本书及全部笔记") }
             }
         }
         if (loading) Text("正在翻阅海岸书房…",color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -203,7 +208,7 @@ fun TidalLibraryScreen(repository: SideRoomsRepository, onSnackbar: (String) -> 
         var body by remember(current,annotationParagraph) { mutableStateOf(current?.s("body").orEmpty()) }
         val kind=current?.s("kind") ?: if (annotationParagraph >= 0) "annotation" else "reflection"
         AlertDialog(
-            onDismissRequest = { writeNote = false }, title = { Text(if (kind=="annotation") "书页边写字" else "留一篇读后感") },
+            onDismissRequest = { writeNote = false }, title = { Text(if (kind=="annotation" || kind=="highlight") "书页边写字" else "留一篇读后感") },
             text = { DailyField("正文 · 1—4000 字",body,{body=it.take(4000)},minLines=5,maxLines=10) },
             confirmButton = { TextButton(onClick = {
                 if(body.isBlank()){onSnackbar("先写一点批注。");return@TextButton}
