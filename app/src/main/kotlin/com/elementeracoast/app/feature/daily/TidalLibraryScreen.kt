@@ -1,5 +1,6 @@
 package com.elementeracoast.app.feature.daily
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonArray
@@ -38,12 +40,12 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.put
 import androidx.compose.ui.platform.LocalContext
 
 private fun JsonObject.s(name: String): String = this[name]?.jsonPrimitive?.contentOrNull.orEmpty()
 private fun JsonObject.n(name: String): Int = this[name]?.jsonPrimitive?.intOrNull ?: 0
+internal fun JsonObject.hasLibraryCover(): Boolean = this["has_cover"]?.jsonPrimitive?.contentOrNull in setOf("1", "true")
 private fun JsonObject.rows(name: String): List<JsonObject> = (this[name] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 
 private enum class LibraryPage { Shelf, Chapter, Notes }
@@ -62,6 +64,7 @@ fun TidalLibraryScreen(
     var bookId by remember { mutableStateOf("") }
     var book by remember { mutableStateOf<JsonObject?>(null) }
     var notes by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
+    var loadedNotesKey by remember { mutableStateOf("") }
     var chapter by remember { mutableStateOf<JsonObject?>(null) }
     var index by remember { mutableIntStateOf(0) }
     var start by remember { mutableIntStateOf(0) }
@@ -116,25 +119,46 @@ fun TidalLibraryScreen(
             filePicker.launch(arrayOf("*/*"))
         }
     }
+    BackHandler(enabled = page != LibraryPage.Shelf) {
+        page = if (page == LibraryPage.Notes) LibraryPage.Chapter else LibraryPage.Shelf
+    }
     LaunchedEffect(page, bookId, index, start, revision) {
         loading = true
         try {
             when (page) {
                 LibraryPage.Shelf -> { books = repository.books().rows("books") }
                 LibraryPage.Notes -> {
-                    book = repository.book(bookId)["book"]?.jsonObject
+                    if (book?.s("id") != bookId) book = repository.book(bookId)["book"]?.jsonObject
                     notes = repository.notes(bookId).rows("notes")
+                    loadedNotesKey = "$bookId:$revision"
                 }
                 LibraryPage.Chapter -> {
-                    book = repository.book(bookId)["book"]?.jsonObject
+                    if (book?.s("id") != bookId) book = repository.book(bookId)["book"]?.jsonObject
                     chapter = repository.fullChapter(bookId, index)["chapter"]?.jsonObject
-                    notes = repository.notes(bookId).rows("notes")
+                    if (loadedNotesKey != "$bookId:$revision") {
+                        notes = repository.notes(bookId).rows("notes")
+                        loadedNotesKey = "$bookId:$revision"
+                    }
                 }
             }
-        } catch (error: Exception) { onSnackbar("潮中书房暂时无法读取：${error.message}") }
+        } catch (error: CancellationException) { throw error }
+        catch (error: Exception) { onSnackbar("潮中书房暂时无法读取：${error.message}") }
         finally { loading = false }
     }
+    LaunchedEffect(page, bookId, index, chapter) {
+        if (page == LibraryPage.Chapter && chapter != null) {
+            val count = book?.rows("chapters")?.size ?: 0
+            for (neighbor in listOf(index + 1, index - 1)) {
+                if (neighbor !in 0 until count) continue
+                try { repository.fullChapter(bookId, neighbor) }
+                catch (error: CancellationException) { throw error }
+                catch (_: Exception) { /* Nonessential prefetch; actual page reports failures. */ }
+            }
+        }
+    }
     fun openBook(entry: JsonObject) {
+        if (bookId != entry.s("id")) { book = null; chapter = null }
+        loadedNotesKey = ""
         bookId = entry.s("id")
         index = entry["reader_chapter_index"]?.jsonPrimitive?.intOrNull ?: 0
         focus = entry["reader_paragraph_index"]?.jsonPrimitive?.intOrNull ?: 0
@@ -190,7 +214,7 @@ fun TidalLibraryScreen(
                             }
                             TidalCoverSlot(
                                 bookId=entry.s("id"),
-                                hasCover=entry["has_cover"]?.jsonPrimitive?.booleanOrNull == true,
+                                hasCover=entry.hasLibraryCover(),
                                 revision=revision,
                                 repository=repository,
                                 onClick={
