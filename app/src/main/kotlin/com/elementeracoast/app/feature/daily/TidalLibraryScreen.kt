@@ -69,7 +69,6 @@ fun TidalLibraryScreen(
     var loading by remember { mutableStateOf(true) }
     var importing by remember { mutableStateOf<String?>(null) }
     var pendingCoverBook by remember { mutableStateOf<String?>(null) }
-    var readingChromeVisible by remember { mutableStateOf(false) }
     var revision by remember { mutableIntStateOf(0) }
     var writeNote by remember { mutableStateOf(false) }
     var editingNote by remember { mutableStateOf<JsonObject?>(null) }
@@ -110,7 +109,7 @@ fun TidalLibraryScreen(
     }
     LaunchedEffect(page) {
         onShelfChanged(page == LibraryPage.Shelf)
-        if(page != LibraryPage.Chapter) onReadingChromeChanged(true)
+        onReadingChromeChanged(page != LibraryPage.Chapter)
     }
     LaunchedEffect(importRequest) {
         if (importRequest > 0 && page == LibraryPage.Shelf) {
@@ -151,7 +150,8 @@ fun TidalLibraryScreen(
     }
     val surface = Modifier.fillMaxSize()
         .then(if (page == LibraryPage.Chapter) Modifier else Modifier.verticalScroll(rememberScrollState()))
-        .padding(horizontal = if (page == LibraryPage.Chapter) 0.dp else 18.dp, vertical = if (page == LibraryPage.Chapter) 0.dp else 15.dp)
+        .padding(horizontal = if (page == LibraryPage.Chapter) 0.dp else 18.dp)
+        .padding(top = if (page == LibraryPage.Chapter) 0.dp else 88.dp, bottom = 15.dp)
     Column(surface, verticalArrangement = Arrangement.spacedBy(if(page==LibraryPage.Chapter) 0.dp else 13.dp)) {
         when (page) {
             LibraryPage.Shelf -> {
@@ -203,7 +203,6 @@ fun TidalLibraryScreen(
                 }
             }
             LibraryPage.Chapter -> {
-                if(readingChromeVisible) TextButton(onClick = { page = LibraryPage.Shelf }, modifier = Modifier.padding(horizontal = 12.dp)) { Text("‹ 书架") }
                 val pageData = chapter
                 val currentBook = book
                 if (pageData != null && currentBook != null) {
@@ -239,10 +238,7 @@ fun TidalLibraryScreen(
                             }
                         },
                         onShowNotes = { page = LibraryPage.Notes },
-                        onReadingChromeChanged = {
-                            readingChromeVisible = it
-                            onReadingChromeChanged(it)
-                        },
+                        onExit = { page = LibraryPage.Shelf },
                         modifier = Modifier.weight(1f)
                     )
                 }
