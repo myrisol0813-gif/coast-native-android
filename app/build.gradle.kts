@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 78
-        versionName = "0.1.76-chatgpt-sse-output"
+        versionCode = 79
+        versionName = "0.1.77-inline-images-excerpt-clear"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
