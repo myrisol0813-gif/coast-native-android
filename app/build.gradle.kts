@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 90
-        versionName = "0.1.88-reader-fix"
+        versionCode = 92
+        versionName = "0.1.90-fucheers-removed"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
