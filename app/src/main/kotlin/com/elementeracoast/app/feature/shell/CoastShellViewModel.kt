@@ -772,7 +772,6 @@ class CoastShellViewModel(
         if (catalog == null) return
         val models = buildList {
             addAll(catalog.groups.openAiChat.map { it.id })
-            addAll(catalog.groups.fucheersChat.map { it.id })
             addAll(catalog.groups.freeTest.map { it.id })
             addAll(catalog.groups.openAiImage.map { it.id })
         }.filter(String::isNotBlank).distinct()
@@ -780,7 +779,7 @@ class CoastShellViewModel(
         _state.update {
             it.copy(
                 models = if (current.isNotBlank() && !isChatGptPlanModel(current) && current !in models) listOf(current) + models else models,
-                modelReasoningChoices = (catalog.groups.openAiChat + catalog.groups.fucheersChat + catalog.groups.freeTest)
+                modelReasoningChoices = (catalog.groups.openAiChat + catalog.groups.freeTest)
                     .associate { it.id to it.reasoningEfforts },
                 currentModel = current.ifBlank { models.firstOrNull().orEmpty() }
             )
