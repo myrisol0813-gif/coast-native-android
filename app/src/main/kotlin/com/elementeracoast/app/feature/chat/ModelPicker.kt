@@ -93,7 +93,7 @@ fun ModelQuickPicker(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "海岸支持 OpenRouter、Fucheers 与官端 ChatGPT 套餐，同名模型保留渠道身份。",
+                "海岸 / OpenRouter 与官端 ChatGPT 套餐均可设为当前聊天模型。官端套餐参数按官方能力生效。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -174,7 +174,7 @@ fun ModelQuickPicker(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 item(key = "coast-provider-heading") {
-                    ProviderSectionHeading("海岸 · OpenRouter / Fucheers", "模型名下方标明渠道，选择后才切换")
+                    ProviderSectionHeading("海岸 · OpenRouter", "可选择当前聊天模型")
                 }
                 if (filtered.coast.isEmpty()) {
                     item(key = "coast-provider-empty") {
@@ -203,11 +203,6 @@ fun ModelQuickPicker(
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                if (model.startsWith("fucheers:")) "Fucheers" else "OpenRouter",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelSmall
                             )
                             if (selected) {
                                 Text(
