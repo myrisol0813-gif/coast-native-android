@@ -9,6 +9,6 @@ fun modelDisplayName(modelId: String): String {
     if (canonical.startsWith("chatgpt-plan:")) {
         return "官端 GPT · " + canonical.removePrefix("chatgpt-plan:")
     }
-    val leaf = canonical.substringAfterLast('/').ifBlank { canonical }
+    val leaf = canonical.removePrefix("fucheers:").substringAfterLast('/').ifBlank { canonical }
     return leaf.replaceFirst(Regex("^gpt-", RegexOption.IGNORE_CASE), "")
 }
