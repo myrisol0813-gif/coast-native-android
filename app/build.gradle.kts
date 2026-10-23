@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 98
-        versionName = "0.1.96-cloud-outline"
+        versionCode = 99
+        versionName = "0.1.97-cloud-outline-contrast"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 

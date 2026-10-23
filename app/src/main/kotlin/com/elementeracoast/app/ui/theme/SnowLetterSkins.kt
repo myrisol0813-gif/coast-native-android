@@ -102,8 +102,8 @@ fun SnowLetterSurface(
                 .then(
                     if (appearance.cloudOutlineEnabled) {
                         Modifier.border(
-                            0.5.dp,
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = .40f * messageAlpha),
+                            0.75.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = .70f * messageAlpha),
                             shape
                         )
                     } else {
