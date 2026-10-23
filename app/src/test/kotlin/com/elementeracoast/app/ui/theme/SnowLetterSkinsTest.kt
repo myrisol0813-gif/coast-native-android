@@ -6,23 +6,29 @@ import org.junit.Test
 
 class SnowLetterSkinsTest {
     @Test
-    fun wavePaperAppliesToBothConversationRoles() {
-        assertTrue(SnowLetterSurfaceRole.UserBubble.usesLetterPaper(CoastPaperMode.Wave))
-        assertTrue(SnowLetterSurfaceRole.AssistantBubble.usesLetterPaper(CoastPaperMode.Wave))
-    }
+    fun embossedModeKeepsTheExistingRoundedConversationPaper() {
+        assertTrue(SnowLetterSurfaceRole.UserBubble.usesEmbossedPaper(CoastPaperMode.Wave))
+        assertTrue(SnowLetterSurfaceRole.AssistantBubble.usesEmbossedPaper(CoastPaperMode.Wave))
 
-    @Test
-    fun smoothPaperKeepsBothBubblesPlain() {
-        assertFalse(SnowLetterSurfaceRole.UserBubble.usesLetterPaper(CoastPaperMode.Smooth))
-        assertFalse(SnowLetterSurfaceRole.AssistantBubble.usesLetterPaper(CoastPaperMode.Smooth))
-    }
-
-    @Test
-    fun statusComposerAndDogtalkSurfacesStayUnaffected() {
         for (role in SnowLetterSurfaceRole.entries) {
             if (role == SnowLetterSurfaceRole.UserBubble || role == SnowLetterSurfaceRole.AssistantBubble) continue
-            assertFalse(role.usesLetterPaper(CoastPaperMode.Wave))
-            assertFalse(role.usesLetterPaper(CoastPaperMode.Smooth))
+            assertFalse(role.usesEmbossedPaper(CoastPaperMode.Wave))
+        }
+    }
+
+    @Test
+    fun cutModeIsIndependentAndAvailableToSnowLetterSurfaces() {
+        for (role in SnowLetterSurfaceRole.entries) {
+            assertTrue(role.usesCutPaper(CoastPaperMode.Cut))
+            assertFalse(role.usesEmbossedPaper(CoastPaperMode.Cut))
+        }
+    }
+
+    @Test
+    fun smoothModeUsesOnlyFallbackShapes() {
+        for (role in SnowLetterSurfaceRole.entries) {
+            assertFalse(role.usesEmbossedPaper(CoastPaperMode.Smooth))
+            assertFalse(role.usesCutPaper(CoastPaperMode.Smooth))
         }
     }
 }
