@@ -17,6 +17,12 @@ class StarryCloudShapeTest {
             .forEach { role -> assertFalse(role.name, role.usesStarryCloud(CoastThemePreset.StarryCoast)) }
     }
 
+    @Test fun invalidOrTinyEdgeLengthsNeverCreateExcessCloudLobes() {
+        assertEquals(1, starryCloudLobeCount(-5f, 80f, 5))
+        assertEquals(1, starryCloudLobeCount(100f, 0f, 5))
+        assertEquals(1, starryCloudLobeCount(100f, 100f, 0))
+    }
+
     @Test fun cloudSegmentsAdaptWithoutExplodingOnLongMessages() {
         assertEquals(1, starryCloudLobeCount(0f, 80f, 5))
         assertEquals(1, starryCloudLobeCount(40f, 80f, 5))
