@@ -25,6 +25,17 @@ class SnowLetterSkinsTest {
     }
 
     @Test
+    fun cloudPaperModeDoesNotStealExistingPaperModes() {
+        for (role in SnowLetterSurfaceRole.entries) {
+            assertFalse(role.usesCutPaper(CoastPaperMode.Cloud))
+            assertFalse(role.usesEmbossedPaper(CoastPaperMode.Cloud))
+            assertFalse(role.usesCloudPaper(CoastPaperMode.Cut))
+            assertFalse(role.usesCloudPaper(CoastPaperMode.Wave))
+            assertFalse(role.usesCloudPaper(CoastPaperMode.Smooth))
+        }
+    }
+
+    @Test
     fun smoothModeUsesOnlyFallbackShapes() {
         for (role in SnowLetterSurfaceRole.entries) {
             assertFalse(role.usesEmbossedPaper(CoastPaperMode.Smooth))

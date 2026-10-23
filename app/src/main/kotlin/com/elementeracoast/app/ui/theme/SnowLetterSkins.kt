@@ -44,9 +44,13 @@ internal fun SnowLetterSurfaceRole.usesEmbossedPaper(paperMode: CoastPaperMode):
 internal fun SnowLetterSurfaceRole.usesCutPaper(paperMode: CoastPaperMode): Boolean =
     paperMode == CoastPaperMode.Cut
 
-internal fun SnowLetterSurfaceRole.usesStarryCloud(preset: CoastThemePreset): Boolean =
-    preset == CoastThemePreset.StarryCoast &&
-        (this == SnowLetterSurfaceRole.AssistantBubble || this == SnowLetterSurfaceRole.UserBubble)
+/** Cloud is a local paper-shape choice shared by every theme, like Cut.
+ * Small icon controls keep their legible round fallback instead of tiny cloud lobes.
+ */
+internal fun SnowLetterSurfaceRole.usesCloudPaper(paperMode: CoastPaperMode): Boolean =
+    paperMode == CoastPaperMode.Cloud &&
+        this != SnowLetterSurfaceRole.ActionButton &&
+        this != SnowLetterSurfaceRole.ComposerButton
 
 @Composable
 fun SnowLetterSurface(
@@ -62,7 +66,7 @@ fun SnowLetterSurface(
     val appearance = LocalCoastAppearance.current
     val isMessageSurface = role == SnowLetterSurfaceRole.AssistantBubble || role == SnowLetterSurfaceRole.UserBubble
     val messageAlpha = appearance.messageSurfaceAlpha.coerceIn(.55f, 1f)
-    val cloud = role.usesStarryCloud(appearance.preset)
+    val cloud = role.usesCloudPaper(appearance.paperMode)
     val embossed = role.usesEmbossedPaper(appearance.paperMode)
     val cut = role.usesCutPaper(appearance.paperMode)
 
@@ -79,13 +83,13 @@ fun SnowLetterSurface(
 
     val surfaceModifier = when {
         cloud -> {
-            val shape = StarryCloudShape
+            val shape = CoastCloudShape
             val cloudFill = if (role == SnowLetterSurfaceRole.UserBubble && appearance.userBubbleColor == null) {
                 fallbackColor.copy(alpha = fallbackColor.alpha * messageAlpha)
             } else {
                 paperFill
             }
-            val shadowTint = Color(0xFF030B1F)
+            val shadowTint = MaterialTheme.colorScheme.onSurface
             Modifier
                 .shadow(
                     elevation = 2.dp,

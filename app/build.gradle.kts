@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 96
-        versionName = "0.1.94-starry-cloud"
+        versionCode = 97
+        versionName = "0.1.95-cloud-paper"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 

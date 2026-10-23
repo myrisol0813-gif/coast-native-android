@@ -12,9 +12,9 @@ import kotlin.math.roundToInt
 /**
  * Wide, low-amplitude cloud lobes. The outline is drawn at the measured bubble size:
  * long text extends the sides instead of stretching a raster cloud or clipping glyphs.
- * Only StarryCoast message surfaces use this Shape.
+ * Selected by the shared paper-mode control for all compatible surfaces.
  */
-internal object StarryCloudShape : Shape {
+internal object CoastCloudShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
         val path = Path()
         val width = size.width
@@ -23,8 +23,8 @@ internal object StarryCloudShape : Shape {
 
         val corner = minOf(with(density) { 20.dp.toPx() }, width * .22f, height * .32f)
         val inset = minOf(with(density) { 5.dp.toPx() }, width * .06f, height * .12f)
-        val topLobes = starryCloudLobeCount(width - 2f * corner, with(density) { 88.dp.toPx() }, 5)
-        val sideLobes = starryCloudLobeCount(height - 2f * corner, with(density) { 110.dp.toPx() }, 9)
+        val topLobes = coastCloudLobeCount(width - 2f * corner, with(density) { 88.dp.toPx() }, 5)
+        val sideLobes = coastCloudLobeCount(height - 2f * corner, with(density) { 110.dp.toPx() }, 9)
         val topSpan = (width - 2f * corner) / topLobes
         val sideSpan = (height - 2f * corner) / sideLobes
 
@@ -64,6 +64,6 @@ internal object StarryCloudShape : Shape {
 }
 
 /** Pure sizing rule shared by every edge; bounded for long streamed messages. */
-internal fun starryCloudLobeCount(spanPx: Float, preferredPx: Float, maximum: Int): Int =
+internal fun coastCloudLobeCount(spanPx: Float, preferredPx: Float, maximum: Int): Int =
     if (spanPx <= 0f || preferredPx <= 0f) 1
     else (spanPx / preferredPx).roundToInt().coerceIn(1, maximum.coerceAtLeast(1))
