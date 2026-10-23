@@ -7,6 +7,7 @@ import com.elementeracoast.app.ui.theme.CoastPaperMode
 import com.elementeracoast.app.ui.theme.CoastReadingWeight
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WolfLocalParityTest {
@@ -54,6 +55,26 @@ class WolfLocalParityTest {
         assertEquals(CoastPaperMode.Smooth, reloaded.appearance.paperMode)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
+    }
+
+    @Test fun cloudOutlineDefaultsOnAndPersistsAcrossThemesAndPaperModes() {
+        val persistence = MemoryLocalPersistence()
+        val store = WolfStore(persistence)
+        assertTrue(store.state.value.appearance.cloudOutlineEnabled)
+
+        store.setPaperMode(CoastPaperMode.Cloud)
+        store.setCloudOutlineEnabled(false)
+        store.setTheme(CoastThemePreset.BlushMyri)
+        assertFalse(WolfStore(persistence).state.value.appearance.cloudOutlineEnabled)
+
+        store.setPaperMode(CoastPaperMode.Cut)
+        store.setTheme(CoastThemePreset.StarryCoast)
+        val reloaded = WolfStore(persistence)
+        assertFalse(reloaded.state.value.appearance.cloudOutlineEnabled)
+        assertEquals(CoastPaperMode.Cut, reloaded.state.value.appearance.paperMode)
+
+        reloaded.setCloudOutlineEnabled(true)
+        assertTrue(WolfStore(persistence).state.value.appearance.cloudOutlineEnabled)
     }
 
     @Test fun localFontSlotFallsBackWhenPathIsMissing() {
