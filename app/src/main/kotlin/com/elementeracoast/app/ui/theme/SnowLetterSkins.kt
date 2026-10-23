@@ -99,7 +99,17 @@ fun SnowLetterSurface(
                     spotColor = shadowTint.copy(alpha = .16f * messageAlpha)
                 )
                 .background(cloudFill, shape)
-                .border(0.75.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .26f * messageAlpha), shape)
+                .then(
+                    if (appearance.cloudOutlineEnabled) {
+                        Modifier.border(
+                            0.5.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = .40f * messageAlpha),
+                            shape
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
         }
         embossed -> {
             val paperShape = if (role == SnowLetterSurfaceRole.UserBubble) fallbackShape else RoundedCornerShape(17.dp)
