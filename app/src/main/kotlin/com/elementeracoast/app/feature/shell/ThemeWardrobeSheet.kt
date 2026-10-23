@@ -49,6 +49,13 @@ internal fun ThemeWardrobeSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
+            if (current == CoastThemePreset.StarryCoast) {
+                Text(
+                    "自定义聊天背景优先；移除后显示星夜底图。上下框随主题显示。",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
             Spacer(Modifier.height(12.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(CoastThemePreset.entries, key = { it.name }) { preset ->

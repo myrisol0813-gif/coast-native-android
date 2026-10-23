@@ -48,8 +48,14 @@ fun SnowLetterChatScaffold(
 ) {
     val appearance = LocalCoastAppearance.current
     val enabled = appearance.preset.usesSnowLetterDecorations()
+    val artwork = appearance.preset.chatArtwork()
     val backgroundBitmap by rememberChatBackground(appearance.chatBackgroundImagePath)
     Box(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
+        // A successfully decoded custom background retains the existing priority.
+        // Missing/unreadable custom files fall back to this preset's bundled art.
+        if (backgroundBitmap == null && artwork != null) {
+            ChatArtworkBackground(artwork, Modifier.fillMaxSize())
+        }
         backgroundBitmap?.let { bitmap ->
             Image(
                 bitmap = bitmap,
