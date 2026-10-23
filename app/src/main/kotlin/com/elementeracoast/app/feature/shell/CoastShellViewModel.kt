@@ -821,6 +821,29 @@ class CoastShellViewModel(
         }
     }
 
+    fun setThoughtSoilEnabled(enabled: Boolean) {
+        val conversationId = _state.value.activeConversationId
+        if (conversationId.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val soil = backend.thoughtSoil.setEnabled(conversationId, enabled)
+                if (_state.value.activeConversationId == conversationId) {
+                    _state.update {
+                        it.copy(
+                            thoughtSoil = soil,
+                            backendOffline = false,
+                            snackbarMessage = if (enabled)
+                                "思维壤已开启，会继续整理并递入上下文。"
+                            else "思维壤已关闭；旧内容保留，但不再整理，也不递入上下文。"
+                        )
+                    }
+                }
+            } catch (error: CoastApiException) {
+                handleBackendError(error, "思维壤开关更新失败", keepAuthenticatedOnNetworkError = true)
+            }
+        }
+    }
+
     private suspend fun organizeThoughtSoilAfterReply(conversationId: String, modelId: String) {
         try {
             val soil = backend.thoughtSoil.organizeAfterReply(conversationId, modelId)
