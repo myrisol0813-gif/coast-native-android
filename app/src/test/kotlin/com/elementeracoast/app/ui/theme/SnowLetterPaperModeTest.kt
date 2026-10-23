@@ -6,19 +6,27 @@ import org.junit.Test
 
 class SnowLetterPaperModeTest {
     @Test
-    fun waveAppliesToPaperSurfacesButNotCompactControls() {
-        assertTrue(SnowLetterSurfaceRole.AssistantBubble.usesLetterPaper(CoastPaperMode.Wave))
-        assertTrue(SnowLetterSurfaceRole.StatusCard.usesLetterPaper(CoastPaperMode.Wave))
-        assertTrue(SnowLetterSurfaceRole.DogtalkCard.usesLetterPaper(CoastPaperMode.Wave))
-        assertFalse(SnowLetterSurfaceRole.ComposerField.usesLetterPaper(CoastPaperMode.Wave))
-        assertFalse(SnowLetterSurfaceRole.ActionButton.usesLetterPaper(CoastPaperMode.Wave))
-        assertFalse(SnowLetterSurfaceRole.DogtalkField.usesLetterPaper(CoastPaperMode.Wave))
+    fun embossedModeKeepsTheExistingRoundedMessagePaperOnly() {
+        assertTrue(SnowLetterSurfaceRole.AssistantBubble.usesEmbossedPaper(CoastPaperMode.Wave))
+        assertTrue(SnowLetterSurfaceRole.UserBubble.usesEmbossedPaper(CoastPaperMode.Wave))
+        assertFalse(SnowLetterSurfaceRole.StatusCard.usesEmbossedPaper(CoastPaperMode.Wave))
+        assertFalse(SnowLetterSurfaceRole.DogtalkCard.usesEmbossedPaper(CoastPaperMode.Wave))
+        assertFalse(SnowLetterSurfaceRole.ComposerField.usesEmbossedPaper(CoastPaperMode.Wave))
     }
 
     @Test
-    fun smoothKeepsEverySurfaceOnItsFallbackShape() {
+    fun cutModeIsIndependentAndAvailableToEverySnowLetterSurface() {
         SnowLetterSurfaceRole.entries.forEach { role ->
-            assertFalse(role.usesLetterPaper(CoastPaperMode.Smooth))
+            assertTrue(role.usesCutPaper(CoastPaperMode.Cut))
+            assertFalse(role.usesEmbossedPaper(CoastPaperMode.Cut))
+        }
+    }
+
+    @Test
+    fun smoothModeUsesOnlyFallbackShapes() {
+        SnowLetterSurfaceRole.entries.forEach { role ->
+            assertFalse(role.usesEmbossedPaper(CoastPaperMode.Smooth))
+            assertFalse(role.usesCutPaper(CoastPaperMode.Smooth))
         }
     }
 }
