@@ -44,6 +44,10 @@ internal fun SnowLetterSurfaceRole.usesEmbossedPaper(paperMode: CoastPaperMode):
 internal fun SnowLetterSurfaceRole.usesCutPaper(paperMode: CoastPaperMode): Boolean =
     paperMode == CoastPaperMode.Cut
 
+internal fun SnowLetterSurfaceRole.usesStarryCloud(preset: CoastThemePreset): Boolean =
+    preset == CoastThemePreset.StarryCoast &&
+        (this == SnowLetterSurfaceRole.AssistantBubble || this == SnowLetterSurfaceRole.UserBubble)
+
 @Composable
 fun SnowLetterSurface(
     modifier: Modifier = Modifier,
@@ -58,6 +62,7 @@ fun SnowLetterSurface(
     val appearance = LocalCoastAppearance.current
     val isMessageSurface = role == SnowLetterSurfaceRole.AssistantBubble || role == SnowLetterSurfaceRole.UserBubble
     val messageAlpha = appearance.messageSurfaceAlpha.coerceIn(.55f, 1f)
+    val cloud = role.usesStarryCloud(appearance.preset)
     val embossed = role.usesEmbossedPaper(appearance.paperMode)
     val cut = role.usesCutPaper(appearance.paperMode)
 
@@ -73,6 +78,25 @@ fun SnowLetterSurface(
     }
 
     val surfaceModifier = when {
+        cloud -> {
+            val shape = StarryCloudShape
+            val cloudFill = if (role == SnowLetterSurfaceRole.UserBubble && appearance.userBubbleColor == null) {
+                fallbackColor.copy(alpha = fallbackColor.alpha * messageAlpha)
+            } else {
+                paperFill
+            }
+            val shadowTint = Color(0xFF030B1F)
+            Modifier
+                .shadow(
+                    elevation = 2.dp,
+                    shape = shape,
+                    clip = false,
+                    ambientColor = shadowTint.copy(alpha = .20f * messageAlpha),
+                    spotColor = shadowTint.copy(alpha = .16f * messageAlpha)
+                )
+                .background(cloudFill, shape)
+                .border(0.75.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .26f * messageAlpha), shape)
+        }
         embossed -> {
             val paperShape = if (role == SnowLetterSurfaceRole.UserBubble) fallbackShape else RoundedCornerShape(17.dp)
             val shadowTint = Color(0xFF8495A6)
