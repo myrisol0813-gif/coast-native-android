@@ -12,6 +12,7 @@ enum class CoastThemePreset(val label: String, val tag: String) {
     BlushMyri("粉嫩 Myri", "柔软粉色"),
     WhiteWolfSnow("白狼雪野", "雪地冷光"),
     SnowLetter("雪地来信", "白狼黑蛇"),
+    StarryCoast("星夜海岸", "深蓝暖金"),
     BurningCloud("火烧云", "夕阳金橙"),
     AuroraNight("极光夜航", "蓝绿极光"),
     PixelPet("像素电子宠物", "复古像素"),
@@ -104,6 +105,18 @@ fun CoastThemePreset.palette(): CoastThemePalette = when (this) {
         border = Color(0xFFC9DAE8),
         accent = Color(0xFFD7A84D),
         isLight = true
+    )
+    CoastThemePreset.StarryCoast -> CoastThemePalette(
+        background = Color(0xFF08152F),
+        surface = Color(0xFF122345),
+        card = Color(0xFF1C3157),
+        primary = Color(0xFFF2CE7E),
+        secondary = Color(0xFFD7B977),
+        textPrimary = Color(0xFFFFF1D2),
+        textSecondary = Color(0xFFD8DEED),
+        border = Color(0xFF687EA5),
+        accent = Color(0xFFFFD98A),
+        isLight = false
     )
     CoastThemePreset.BurningCloud -> CoastThemePalette(
         background = Color(0xFFFFF3E5),

@@ -1,7 +1,6 @@
 package com.elementeracoast.app.feature.chat
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +24,7 @@ import com.elementeracoast.app.core.model.MessageAction
 import com.elementeracoast.app.core.model.MessageRole
 import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 import com.elementeracoast.app.ui.theme.CoastChatTokens
+import com.elementeracoast.app.ui.theme.ChatArtworkViewport
 
 @Composable
 internal fun ChatTimeline(
@@ -57,13 +57,13 @@ internal fun ChatTimeline(
         if (target >= 0) listState.scrollToItem(target)
     }
 
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    ChatArtworkViewport(modifier = modifier.fillMaxSize()) { artworkPadding ->
         if (messages.isEmpty()) {
             Column(modifier = Modifier.align(Alignment.Center).padding(horizontal = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("潮水退到纸页外。", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("写点什么，新的窗口会从这里长出来。", modifier = Modifier.padding(top = 7.dp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .68f))
             }
-            return@Box
+            return@ChatArtworkViewport
         }
         LazyColumn(
             state = listState,
@@ -71,8 +71,8 @@ internal fun ChatTimeline(
             contentPadding = PaddingValues(
                 start = CoastChatTokens.TimelineHorizontalPadding,
                 end = CoastChatTokens.TimelineHorizontalPadding,
-                top = CoastChatTokens.TimelineTopPadding,
-                bottom = CoastChatTokens.TimelineBottomPadding
+                top = CoastChatTokens.TimelineTopPadding + artworkPadding.calculateTopPadding(),
+                bottom = CoastChatTokens.TimelineBottomPadding + artworkPadding.calculateBottomPadding()
             ),
             verticalArrangement = Arrangement.spacedBy(CoastChatTokens.MessageGap)
         ) {

@@ -29,7 +29,7 @@ class RoomTypeContractTest {
     @Test
     fun nativeThemeContractKeepsDefaultAndWardrobePresets() {
         assertEquals(CoastThemePreset.CoastDefault, CoastThemePreset.entries.first())
-        assertEquals(13, CoastThemePreset.entries.size)
+        assertEquals(14, CoastThemePreset.entries.size)
         assertEquals("默认海岸", CoastThemePreset.CoastDefault.label)
         assertTrue(CoastThemePreset.entries.any { it == CoastThemePreset.DeepBlueGold })
         assertTrue(CoastThemePreset.entries.any { it == CoastThemePreset.SnowLetter })
