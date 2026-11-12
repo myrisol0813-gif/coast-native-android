@@ -4,6 +4,7 @@ import com.elementeracoast.app.core.auth.AuthRepository
 import com.elementeracoast.app.core.auth.AuthSession
 import com.elementeracoast.app.core.auth.SessionRestoreResult
 import com.elementeracoast.app.core.local.MemoryLocalPersistence
+import com.elementeracoast.app.core.model.ConversationContextSettings
 import com.elementeracoast.app.core.model.CrossWindowLimits
 import com.elementeracoast.app.core.model.CrossWindowMode
 import com.elementeracoast.app.core.model.CrossWindowRequest
