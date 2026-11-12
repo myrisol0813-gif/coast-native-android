@@ -42,6 +42,10 @@ Current canonical paths include:
 
 The current shared-state acceptance pass also carries support for the canonical assistant-variant `desk_slip` history field. Once the matching Coast/PWA backend change is promoted, the current window's `本轮桌面` can survive switching away and back in both clients.
 
+## Optional Cream Paper theme
+
+Native 102 (`0.1.100-cream-paper`) restores **奶油纸牌** to the current theme wardrobe and appearance screen without reverting newer conversation-context work: cream/blush cards, cocoa outlines and hard offset shadows sit on top of the current Reality Context, short-reply and thought-soil behavior. See [theme details and device checks](docs/CREAM_PAPER_THEME.md). Existing themes and local reading/background preferences remain available.
+
 ## Native state ownership
 
 Server-owned feature repositories currently include:

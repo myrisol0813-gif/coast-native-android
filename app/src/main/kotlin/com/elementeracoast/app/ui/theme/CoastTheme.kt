@@ -104,6 +104,11 @@ fun CoastTheme(
             readingFontFamily = readingFamily
         )
     ) {
-        MaterialTheme(colorScheme = colors, typography = CoastTypography, content = content)
+        MaterialTheme(
+            colorScheme = colors,
+            typography = CoastTypography,
+            shapes = if (preset == CoastThemePreset.CreamPaper) CreamPaperStyle.Shapes else MaterialTheme.shapes,
+            content = content
+        )
     }
 }
