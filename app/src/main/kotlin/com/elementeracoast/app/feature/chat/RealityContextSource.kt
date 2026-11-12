@@ -133,7 +133,7 @@ class AndroidRealityContextSource(
         )
         val location = providers.mapNotNull { provider ->
             runCatching { manager.getLastKnownLocation(provider) }.getOrNull()
-        }.maxByOrNull(Location::getTime) ?: return null
+        }.maxByOrNull { it.time } ?: return null
 
         val geocoded = runCatching {
             Geocoder(app, Locale.getDefault()).getFromLocation(location.latitude, location.longitude, 1)
@@ -145,11 +145,8 @@ class AndroidRealityContextSource(
                 .distinct()
                 .take(3)
                 .joinToString(" · ")
-        }.orEmpty().ifBlank {
-            val lat = (location.latitude * 10.0).roundToInt() / 10.0
-            val lon = (location.longitude * 10.0).roundToInt() / 10.0
-            "约 $lat, $lon"
-        }
+        }.orEmpty()
+        if (label.isBlank()) return null
         return RemoteRealityLocation(label.take(120))
     }
 
@@ -181,7 +178,10 @@ class AndroidRealityContextSource(
             persistence.put(key, current.toString())
             return null
         }
-        return RemoteRealitySteps((current - baseline).roundToInt().coerceAtLeast(0))
+        return RemoteRealitySteps(
+            count = (current - baseline).roundToInt().coerceAtLeast(0),
+            basis = "自本日海岸首次读取后"
+        )
     }
 
     private fun appLabel(packageName: String): String {
