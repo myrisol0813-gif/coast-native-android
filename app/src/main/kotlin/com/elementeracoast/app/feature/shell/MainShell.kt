@@ -231,6 +231,10 @@ fun MainShell(
                 thoughtSoilEnabled = state.thoughtSoil?.autoRefreshEnabled ?: true,
                 onSettingsChange = onSetContextSettings,
                 onSetThoughtSoilEnabled = onSetThoughtSoilEnabled,
+                onOpenIslandLetter = {
+                    showWindowContext = false
+                    onOpenFeature(FeatureDestination.IslandLetter)
+                },
                 onDismiss = { showWindowContext = false }
             )
         }
