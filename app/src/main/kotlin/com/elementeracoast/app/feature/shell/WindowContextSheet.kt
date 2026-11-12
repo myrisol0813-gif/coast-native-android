@@ -58,7 +58,7 @@ private val REALITY_FIELDS = listOf(
     RealityFieldUi(RealityContextFields.RECENT_APP, "最近使用 App", "进入海岸前最近一个非 Coast App"),
     RealityFieldUi(RealityContextFields.APP_USAGE, "今日 App 使用时间", "今天使用最多的前 5 个 App"),
     RealityFieldUi(RealityContextFields.CALENDAR, "海岸日历", "未来 7 天所有重要日期"),
-    RealityFieldUi(RealityContextFields.STEPS, "步数", "今日步数；无可靠数据时不递入")
+    RealityFieldUi(RealityContextFields.STEPS, "步数", "轻量系统计步；本日首次读取建立基线，无可靠数据时不递入")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
