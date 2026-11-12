@@ -95,6 +95,12 @@ internal fun WindowContextSheet(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val wantsUsagePermission = settings.realityEnabled && (
+        settings.has(RealityContextFields.RECENT_APP) || settings.has(RealityContextFields.APP_USAGE)
+    )
+    val wantsStepsPermission = settings.has(RealityContextFields.STEPS)
+    val wantsLocationPermission = settings.has(RealityContextFields.LOCATION)
+
     val stepsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         refreshPermissions()
     }
@@ -194,7 +200,7 @@ internal fun WindowContextSheet(
                 )
             }
 
-            if (settings.realityEnabled) {
+            if (wantsUsagePermission || wantsStepsPermission || wantsLocationPermission) {
                 SoftSettingsCard {
                     Text("手机权限", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                     Text(
@@ -203,30 +209,36 @@ internal fun WindowContextSheet(
                         style = MaterialTheme.typography.bodySmall
                     )
 
-                    PermissionRow(
-                        title = "App 使用情况",
-                        status = if (usageAccess) "已允许" else "未允许",
-                        action = if (usageAccess) null else "去系统开启",
-                        onAction = {
-                            context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                        }
-                    )
-                    PermissionRow(
-                        title = "步数",
-                        status = if (stepsAccess) "已允许" else "未允许",
-                        action = if (stepsAccess || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) null else "允许",
-                        onAction = {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                stepsPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                    if (wantsUsagePermission) {
+                        PermissionRow(
+                            title = "App 使用情况",
+                            status = if (usageAccess) "已允许" else "未允许",
+                            action = if (usageAccess) null else "去系统开启",
+                            onAction = {
+                                context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                             }
-                        }
-                    )
-                    PermissionRow(
-                        title = "粗略位置",
-                        status = if (locationAccess) "已允许" else "未允许",
-                        action = if (locationAccess) null else "允许",
-                        onAction = { locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
-                    )
+                        )
+                    }
+                    if (wantsStepsPermission) {
+                        PermissionRow(
+                            title = "步数",
+                            status = if (stepsAccess) "已允许" else "未允许",
+                            action = if (stepsAccess || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) null else "允许",
+                            onAction = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                    stepsPermission.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                                }
+                            }
+                        )
+                    }
+                    if (wantsLocationPermission) {
+                        PermissionRow(
+                            title = "粗略位置",
+                            status = if (locationAccess) "已允许" else "未允许",
+                            action = if (locationAccess) null else "允许",
+                            onAction = { locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION) }
+                        )
+                    }
                 }
             }
 
