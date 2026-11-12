@@ -211,7 +211,8 @@ data class RemoteRealityAppUsage(
 
 @Serializable
 data class RemoteRealitySteps(
-    val count: Int
+    val count: Int,
+    val basis: String = ""
 )
 
 @Serializable
