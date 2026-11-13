@@ -41,11 +41,21 @@ internal fun UserMessage(
     onAction: (MessageAction) -> Unit
 ) {
     if (message.messageSource == "official_mcp") {
-        OfficialMcpLetter(
-            conversationId = conversationId,
-            message = message,
-            attachmentPreviewSource = attachmentPreviewSource
-        )
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+            if (timeLabel.isNotBlank()) {
+                Text(
+                    text = timeLabel,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .52f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            OfficialMcpLetter(
+                conversationId = conversationId,
+                message = message,
+                attachmentPreviewSource = attachmentPreviewSource
+            )
+        }
         return
     }
 
