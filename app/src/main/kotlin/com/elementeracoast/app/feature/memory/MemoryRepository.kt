@@ -28,6 +28,7 @@ interface MemoryRepository {
     suspend fun refreshInstructions()
     suspend fun refreshUserPortrait()
     suspend fun setUserPortraitWriteEnabled(enabled: Boolean)
+    suspend fun clearUserPortrait(expectedRevision: Int)
     suspend fun confirmUserPortraitCandidate(id: String, editedBody: String? = null)
     suspend fun discardUserPortraitCandidate(id: String)
     suspend fun refreshGlobalExcerpt()
@@ -146,6 +147,11 @@ class DefaultMemoryRepository(
 
     override suspend fun setUserPortraitWriteEnabled(enabled: Boolean) {
         remote.setUserPortraitWriteEnabled(enabled)
+        refreshUserPortrait()
+    }
+
+    override suspend fun clearUserPortrait(expectedRevision: Int) {
+        remote.clearUserPortrait(expectedRevision)
         refreshUserPortrait()
     }
 
