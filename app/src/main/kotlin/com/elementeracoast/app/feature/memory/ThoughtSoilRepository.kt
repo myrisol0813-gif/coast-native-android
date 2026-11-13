@@ -37,11 +37,12 @@ class DefaultThoughtSoilRepository(
                 "思维壤准备失败；未调用其他模型额度。"
             }
             val modelSlug = modelId.removePrefix("chatgpt-plan:")
+            val reasoningEffort = selectThoughtSoilReasoningEffort(account.reasoningEffortsFor(modelSlug))
             val result = account.completeText(
                 model = modelSlug,
                 prompt = prepared.prompt,
-                reasoningEffort = selectThoughtSoilReasoningEffort(account.reasoningEffortsFor(modelSlug)),
-                maxOutputTokens = THOUGHT_SOIL_MAX_OUTPUT_TOKENS
+                reasoningEffort = reasoningEffort,
+                maxOutputTokens = if (reasoningEffort != null) THOUGHT_SOIL_MAX_OUTPUT_TOKENS else null
             )
             require(result.text.length <= prepared.maxResultChars) {
                 "GPT 思维壤整理结果超出后端允许长度；未覆盖原资料。"
