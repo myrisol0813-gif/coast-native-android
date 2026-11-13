@@ -60,6 +60,16 @@ class ThoughtSoilApiContractTest {
               "content":"不知道以后会长成什么，但想留下。",
               "source_excerpt":"还没说完的问题"
             }],
+            "user_portrait_candidate":{
+              "candidate_id":"up1",
+              "reason":"更清楚地认识了她",
+              "source_excerpt":"这一轮的句子"
+            },
+            "self_portrait_candidate":{
+              "candidate_id":"sp1",
+              "reason":"更清楚地认识了自己",
+              "source_excerpt":"这一轮的回应"
+            },
             "revision":3,
             "organized_by_model":"openai/gpt-5.6"
           }
@@ -88,6 +98,8 @@ class ThoughtSoilApiContractTest {
         assertEquals(listOf("还想继续看看"), organized.soil.afterthoughts)
         assertEquals("值得记住的决定", organized.soil.memoryCandidates.single().title)
         assertEquals("未尽的问题", organized.soil.seedCandidates.single().title)
+        assertEquals("up1", organized.soil.userPortraitCandidate?.candidateId)
+        assertEquals("sp1", organized.soil.selfPortraitCandidate?.candidateId)
         assertEquals(false, disabled.autoRefreshEnabled)
 
         val getRequest = server.takeRequest()

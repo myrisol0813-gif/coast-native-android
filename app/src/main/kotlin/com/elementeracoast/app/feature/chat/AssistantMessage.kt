@@ -44,6 +44,7 @@ import com.elementeracoast.app.ui.theme.snowLetterInnerPadding
 internal fun AssistantMessage(
     conversationId: String,
     message: ChatMessage,
+    timeLabel: String,
     isStreamingTail: Boolean,
     avatarBitmap: ImageBitmap?,
     thoughtSoil: ThoughtSoilSnapshot?,
@@ -65,8 +66,16 @@ internal fun AssistantMessage(
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AssistantAvatar(avatarBitmap, onAvatarClick)
-            if (thoughtSoil != null) {
+            if (timeLabel.isNotBlank()) {
                 Spacer(Modifier.width(8.dp))
+                Text(
+                    text = timeLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .52f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            if (thoughtSoil != null) {
+                Spacer(Modifier.width(12.dp))
                 ThoughtSoilHeaderPill(soil = thoughtSoil, onClick = onOpenThoughtSoil)
             }
         }

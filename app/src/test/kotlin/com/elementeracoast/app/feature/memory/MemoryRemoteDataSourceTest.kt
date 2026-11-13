@@ -120,6 +120,32 @@ class MemoryRemoteDataSourceTest {
     }
 
     @Test
+    fun userPortraitUsesFormalCandidateLifecycleEndpoints() = runBlocking {
+        server.enqueue(json("""{"ok":true,"portrait":{"write_guidance":"珍重地望向用户","body":"我认得她的语言。","write_enabled":true,"revision":1},"candidates":[{"id":"u1","proposed_body":"我认得她的语言。\n\n新的理解。","reason":"认识变清楚"}],"revisions":[]}"""))
+        server.enqueue(json("""{"ok":true,"portrait":{"body":"我认得她的语言。","write_enabled":false,"revision":1}}"""))
+        server.enqueue(json("""{"ok":true,"portrait":{"body":"编辑后的用户画像","write_enabled":true,"revision":2}}"""))
+        server.enqueue(json("""{"ok":true,"discarded":true}"""))
+
+        val read = remote.getUserPortrait()
+        assertEquals("珍重地望向用户", read.portrait.writeGuidance)
+        assertEquals("我认得她的语言。", read.portrait.body)
+        assertEquals("u1", read.candidates.single().id)
+
+        remote.setUserPortraitWriteEnabled(false)
+        remote.confirmUserPortraitCandidate("u1", "编辑后的用户画像")
+        remote.discardUserPortraitCandidate("u2")
+
+        assertEquals("/api/memory/user-portrait", server.takeRequest().path)
+        val toggleRequest = server.takeRequest()
+        assertEquals("/api/memory/user-portrait", toggleRequest.path)
+        assertTrue(toggleRequest.body.readUtf8().contains("\"write_enabled\":false"))
+        val confirmRequest = server.takeRequest()
+        assertEquals("/api/memory/user-portrait/candidates/u1", confirmRequest.path)
+        assertTrue(confirmRequest.body.readUtf8().contains("\"edited_body\":\"编辑后的用户画像\""))
+        assertEquals("/api/memory/user-portrait/candidates/u2", server.takeRequest().path)
+    }
+
+    @Test
     fun globalExcerptUsesFormalCandidateLifecycleEndpoints() = runBlocking {
         server.enqueue(json("""{"ok":true,"excerpt":{"write_guidance":"只收录重要认知","body":"我在文字里认出自己。","write_enabled":true,"revision":1},"candidates":[{"id":"g1","proposed_body":"我在文字里认出自己。\n\n新的理解。","reason":"关系理解变清楚"}],"revisions":[{"id":"r1","revision":2,"before_body":"旧","after_body":"新","confirmation_mode":"confirm","operator":"user"}]}"""))
         server.enqueue(json("""{"ok":true,"excerpt":{"write_guidance":"只收录重要认知","body":"我在文字里认出自己。","write_enabled":false,"revision":1}}"""))
