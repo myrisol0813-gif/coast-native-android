@@ -11,6 +11,7 @@ import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 internal fun MessageItem(
     conversationId: String,
     message: ChatMessage,
+    timeLabel: String,
     isStreamingTail: Boolean,
     avatarBitmap: ImageBitmap?,
     thoughtSoil: ThoughtSoilSnapshot?,
@@ -31,6 +32,7 @@ internal fun MessageItem(
         MessageRole.User -> UserMessage(
             conversationId = conversationId,
             message = message,
+            timeLabel = timeLabel,
             attachmentPreviewSource = attachmentPreviewSource,
             onCopy = { onCopy(message) },
             onEdit = { onEdit(message) },
@@ -39,6 +41,7 @@ internal fun MessageItem(
         MessageRole.Assistant -> AssistantMessage(
             conversationId = conversationId,
             message = message,
+            timeLabel = timeLabel,
             isStreamingTail = isStreamingTail,
             avatarBitmap = avatarBitmap,
             thoughtSoil = thoughtSoil,
