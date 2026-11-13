@@ -240,9 +240,9 @@ jobs:
           grep -q 'mutableStateOf<Set<Int>>(emptySet())' "$chat/TurnDeskSheet.kt"
 
           # V1 closeout polish: thought-soil cards and Snow Letter composer glyphs stay centralized.
-          grep -q '"当前思维壤"' "$chat/SoilSheet.kt"
-          grep -q '"手持种"' "$chat/SoilSheet.kt"
-          grep -q '"待确认袋"' "$chat/SoilSheet.kt"
+          grep -q '"当前"' "$chat/SoilSheet.kt"
+          grep -q '"余思"' "$chat/SoilSheet.kt"
+          grep -q '"去处"' "$chat/SoilSheet.kt"
           grep -q '"来源 / 更新时间"' "$chat/SoilSheet.kt"
           grep -q 'SnowLetterSurfaceRole.StatusCard' "$chat/SoilSheet.kt"
           grep -q 'snowLetterComposerGlyphColor' "$chat/InputBar.kt"
