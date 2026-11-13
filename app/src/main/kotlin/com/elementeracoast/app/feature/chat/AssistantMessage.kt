@@ -45,6 +45,7 @@ internal fun AssistantMessage(
     conversationId: String,
     message: ChatMessage,
     isStreamingTail: Boolean,
+    timeLabel: String,
     avatarBitmap: ImageBitmap?,
     thoughtSoil: ThoughtSoilSnapshot?,
     metadataMessageId: String?,
@@ -65,8 +66,14 @@ internal fun AssistantMessage(
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AssistantAvatar(avatarBitmap, onAvatarClick)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = timeLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .52f),
+                style = MaterialTheme.typography.labelSmall
+            )
             if (thoughtSoil != null) {
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(10.dp))
                 ThoughtSoilHeaderPill(soil = thoughtSoil, onClick = onOpenThoughtSoil)
             }
         }
