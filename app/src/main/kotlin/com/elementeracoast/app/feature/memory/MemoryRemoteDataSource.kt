@@ -98,6 +98,13 @@ class MemoryRemoteDataSource(
         RemoteGlobalExcerptResponse.serializer()
     )
 
+    suspend fun clearUserPortrait(expectedRevision: Int): RemoteGlobalExcerptResponse = request(
+        Request.Builder().url(config.url("/api/memory/user-portrait")).patch(
+            body(json.encodeToString(RemoteGlobalExcerptClearRequest(action = "clear", expectedRevision = expectedRevision)))
+        ).build(),
+        RemoteGlobalExcerptResponse.serializer()
+    )
+
     suspend fun confirmUserPortraitCandidate(id: String, editedBody: String? = null): RemoteGlobalExcerptResponse = request(
         Request.Builder().url(config.url("/api/memory/user-portrait/candidates/${path(id)}")).patch(
             body(json.encodeToString(RemoteGlobalExcerptConfirmRequest(
