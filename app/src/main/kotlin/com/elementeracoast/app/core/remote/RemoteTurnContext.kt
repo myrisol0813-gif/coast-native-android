@@ -362,7 +362,6 @@ data class RemotePlanSoilPrepareResponse(
 )
 
 @Serializable
-@Serializable
 data class RemotePortraitCandidateSummary(
     @SerialName("candidate_id") val candidateId: String = "",
     val reason: String = "",
