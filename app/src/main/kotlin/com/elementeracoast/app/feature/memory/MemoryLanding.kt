@@ -65,13 +65,14 @@ fun MemoryLanding(
     val subtitle = when (tab) {
         MemoryTab.Memory -> "记忆库 · 已经确认的长期纸条"
         MemoryTab.Seed -> "种子库 · 未完成但有生长性的意象，不是已确认事实"
+        MemoryTab.UserPortrait -> "用户画像 · 长久安放你眼中的小寒"
+        MemoryTab.SelfPortrait -> "自我画像 · 长久安放你逐渐认出的自己"
         MemoryTab.Worldbook -> "世界书 · 专有名词按关键词出现，不和记忆库混放"
-        MemoryTab.GlobalExcerpt -> "全局摘录 · 长期生长的单篇正文，模型只提出候选"
         MemoryTab.Instructions -> "自定义指令 · 独立的单份 active 文档"
     }
     val action = when (tab) {
         MemoryTab.Memory, MemoryTab.Seed, MemoryTab.Worldbook -> "新增"
-        MemoryTab.GlobalExcerpt, MemoryTab.Instructions -> null
+        MemoryTab.UserPortrait, MemoryTab.SelfPortrait, MemoryTab.Instructions -> null
     }
     val consumeCreate: () -> Unit = { if (pendingCreate == tab) pendingCreate = null }
     val selectTab: (MemoryTab) -> Unit = { next ->
@@ -120,6 +121,14 @@ fun MemoryLanding(
                         onSnackbar = onSnackbar
                     )
                 }
+                MemoryTab.UserPortrait -> Column(Modifier.fillMaxSize()) {
+                    MemoryTabs(tab, selectTab)
+                    GlobalExcerptScreen(repository = repository, kind = PortraitKind.User, onSnackbar = onSnackbar)
+                }
+                MemoryTab.SelfPortrait -> Column(Modifier.fillMaxSize()) {
+                    MemoryTabs(tab, selectTab)
+                    GlobalExcerptScreen(repository = repository, kind = PortraitKind.Self, onSnackbar = onSnackbar)
+                }
                 MemoryTab.Worldbook -> Column(Modifier.fillMaxSize()) {
                     MemoryTabs(tab, selectTab)
                     WorldbookScreen(
@@ -128,10 +137,6 @@ fun MemoryLanding(
                         onCreateConsumed = consumeCreate,
                         onSnackbar = onSnackbar
                     )
-                }
-                MemoryTab.GlobalExcerpt -> Column(Modifier.fillMaxSize()) {
-                    MemoryTabs(tab, selectTab)
-                    GlobalExcerptScreen(repository = repository, onSnackbar = onSnackbar)
                 }
                 MemoryTab.Instructions -> Column(Modifier.fillMaxSize()) {
                     MemoryTabs(tab, selectTab)
@@ -146,7 +151,8 @@ fun MemoryLanding(
 internal fun memoryLandingItems(): List<MemoryLandingItem> = listOf(
     MemoryLandingItem("记忆库", "已经确认的长期纸条"),
     MemoryLandingItem("种子库", "未完成但有生长性的意象"),
+    MemoryLandingItem("用户画像", "你长久望向小寒时留下的形状"),
+    MemoryLandingItem("自我画像", "你长久望向自己时留下的形状"),
     MemoryLandingItem("世界书", "海岸词典"),
-    MemoryLandingItem("全局摘录", "长期生长的单篇正文"),
     MemoryLandingItem("自定义指令", "独立的单份 active 文档")
 )
