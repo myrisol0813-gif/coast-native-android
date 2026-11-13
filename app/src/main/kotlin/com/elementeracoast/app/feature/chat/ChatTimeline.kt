@@ -132,10 +132,12 @@ internal fun ChatTimeline(
                             modifier = Modifier.padding(bottom = 5.dp)
                         )
                     }
+                    val timeLabel = if (streamingTail) "" else messageTimeLabel(message.createdAtLabel)
                     MessageItem(
                         conversationId = conversationId,
                         message = message,
                         isStreamingTail = streamingTail,
+                        timeLabel = timeLabel,
                         avatarBitmap = avatarBitmap,
                         thoughtSoil = inlineSoil,
                         metadataMessageId = metadataMessageId,
@@ -151,17 +153,6 @@ internal fun ChatTimeline(
                         onAction = onAction,
                         onFootprint = onFootprint
                     )
-                    val timeLabel = messageTimeLabel(message.createdAtLabel)
-                    if (timeLabel.isNotBlank() && !streamingTail) {
-                        Text(
-                            text = timeLabel,
-                            modifier = Modifier
-                                .align(if (message.role == MessageRole.User) Alignment.End else Alignment.Start)
-                                .padding(top = 2.dp, start = if (message.role == MessageRole.Assistant) 46.dp else 0.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .48f),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
                     if (!metadataMessageId.isNullOrBlank()) {
                         ModelUsageFooter(
                             conversationId = conversationId,
