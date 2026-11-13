@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 102
-        versionName = "0.1.100-cream-paper"
+        versionCode = 103
+        versionName = "0.1.101-thought-soil-v2"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 

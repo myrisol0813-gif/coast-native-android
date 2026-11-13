@@ -141,7 +141,7 @@ internal fun AssistantMessage(
 
 @Composable
 private fun ThoughtSoilHeaderPill(soil: ThoughtSoilSnapshot, onClick: () -> Unit) {
-    val label = "思维壤 · ${soil.handSeeds.size.coerceAtMost(7)} 粒手持种"
+    val label = "思维壤 · ${soil.afterthoughts.size} 条余思"
     SnowLetterSurface(
         modifier = Modifier.clickable(onClick = onClick),
         role = SnowLetterSurfaceRole.StatusCard,
