@@ -91,6 +91,24 @@ trademark rights to the Elementera Coast / CoastGPT names or marks.
 Repository secrets, signing material, session credentials, private user data,
 conversations and memories are not part of this repository.
 
+## Coast Vault / 拾潮 / 原文搜索（Native 108 草稿）
+
+当前 Native 分支的 `versionCode=108`、`versionName=0.1.106-coast-vault`，
+必须和对应的私人后端 Coast Vault API 一同验收；安装本地 APK 并不能单独上线云端接口。
+
+- 「基本文件库」列出后端已经持久化的聊天图片、文件和已生成的语音；
+  取消红心不会删除原文件，也不会重新触发收费语音生成。
+- 「拾潮」是用户主动挑选的收藏层，支持消息自然段、已生成媒体、旧思维壤土层选段、
+  备注关键词检索及回到精确原消息；两类文件库使用真实服务器索引。
+- 侧栏全文搜索可以返回匹配原始 turn/message/variant 的索引，点击旧变体只是本地展示；
+  **绝不把旧变体预览写回可变的正式历史缓存或强制同步到后端。**
+- Native 与 PWA 都不能凭安装升级恢复服务端本来不存在的历史媒体。旧版 assistant
+  红心由服务器端安全预览和经用户备份、明确确认的幂等迁移流程补进拾潮，
+  不在 App 启动或对话发送时自动迁移。
+
+本版仍须完成真实生产端对应部署和 Android 设备验收才能进入正式发行；
+PR 构建成功不等于已经合并、部署或验证生产数据库。
+
 ## Stable signing
 
 Gradle and GitHub Actions already support a persistent signing key. No keystore or password belongs in source control.
