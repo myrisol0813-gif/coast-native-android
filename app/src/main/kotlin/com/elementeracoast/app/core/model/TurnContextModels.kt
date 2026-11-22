@@ -31,7 +31,8 @@ data class ThoughtSoilSnapshot(
     val organizer: String,
     val updatedAt: String,
     val history: List<SoilHistoricSnapshot> = emptyList(),
-    val isHistorical: Boolean = false
+    val isHistorical: Boolean = false,
+    val historyTruncated: Boolean = false
 )
 
 data class SoilHistoricSnapshot(
