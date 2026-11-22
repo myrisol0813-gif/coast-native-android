@@ -822,6 +822,36 @@ class CoastShellViewModel(
         }
     }
 
+    fun saveThoughtSoilManual(current: String, afterthoughts: List<String>) {
+        val id = _state.value.activeConversationId
+        if (id.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val soil = backend.thoughtSoil.saveManual(id, current, afterthoughts)
+                if (_state.value.activeConversationId == id) _state.update {
+                    it.copy(thoughtSoil = soil, snackbarMessage = "思维壤已保存并手动锁定；解除锁定后才会恢复自动整理。")
+                }
+            } catch (error: Exception) {
+                handleBackendError(error, "思维壤手动保存失败", keepAuthenticatedOnNetworkError = true)
+            }
+        }
+    }
+
+    fun resumeThoughtSoilAutomatic() {
+        val id = _state.value.activeConversationId
+        if (id.isBlank()) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val soil = backend.thoughtSoil.resumeAutomatic(id)
+                if (_state.value.activeConversationId == id) _state.update {
+                    it.copy(thoughtSoil = soil, snackbarMessage = "已解除手动锁定，恢复自动整理。")
+                }
+            } catch (error: Exception) {
+                handleBackendError(error, "解除思维壤锁定失败", keepAuthenticatedOnNetworkError = true)
+            }
+        }
+    }
+
     fun setThoughtSoilEnabled(enabled: Boolean) {
         val conversationId = _state.value.activeConversationId
         if (conversationId.isBlank()) return
