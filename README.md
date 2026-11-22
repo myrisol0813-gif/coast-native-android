@@ -148,3 +148,13 @@ GitHub Actions additionally enforces structural/single-source guards, verifies t
 ## Attribution
 
 Selected earlier PoC interaction patterns from MiniiChat remain attributed under MIT in `THIRD_PARTY_NOTICES.md` and `third_party/MiniiChat-LICENSE.txt`. No third-party GPL/AGPL implementation is included.
+
+## Native 109 · Vault paper-gallery UI (Draft)
+
+This checkpoint changes only the Android **Coast Vault display**; canonical backend data, chat history, original media, memories and existing heart flags are unchanged.
+
+- The compact upper text tabs are exactly `基本文件库` and `拾潮`; both reuse the existing Snow Letter surfaces instead of introducing large generic Material cards.
+- Search reuses the paper-field visual language, with one-line text filters and the original server cursor. All-results pages are grouped by category; images are displayed two across with a tap-to-enlarge viewer and a text-only actions menu.
+- Existing audio plays from saved clips using a factual playback-progress indicator; no generated/random fake waveform and no paid regeneration. Long audio text is no longer dumped into the list. Files are displayed as compact packages; full text and note editors appear only on request.
+- Canceling a favorite removes only its independent treasure record, never the original media. Historical assistant favorite migration is still explicit-only.
+- Target version: `versionCode=109`, `versionName=0.1.107-vault-paper`. The PR is not a production delivery until the latest CI, signed mainline GitHub Release and real-device overwrite acceptance have succeeded.
