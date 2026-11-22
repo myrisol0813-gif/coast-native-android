@@ -16,6 +16,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -38,6 +39,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.coroutines.CancellationException
 import com.elementeracoast.app.feature.dogtalk.CrossWindowRepository
 import com.elementeracoast.app.feature.dogtalk.CrossWindowUiState
 import com.elementeracoast.app.feature.dogtalk.DogtalkCard
@@ -73,6 +79,7 @@ fun ChatWindow(
     var editingMessage by remember { mutableStateOf<ChatMessage?>(null) }
     var soilOpen by rememberSaveable { mutableStateOf(false) }
     var selectedSoil by remember(state.activeConversationId) { mutableStateOf<com.elementeracoast.app.core.model.ThoughtSoilSnapshot?>(null) }
+    var soilTreasureTarget by remember(state.activeConversationId) { mutableStateOf<com.elementeracoast.app.core.model.ThoughtSoilSnapshot?>(null) }
     var deskOpen by rememberSaveable { mutableStateOf(false) }
     var dogtalkDrawerOpen by rememberSaveable(state.activeConversationId) { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -84,6 +91,43 @@ fun ChatWindow(
     var voiceClips by remember(state.activeConversationId) { mutableStateOf<List<VoiceClip>>(emptyList()) }
     var voiceTarget by remember(state.activeConversationId) { mutableStateOf<ChatMessage?>(null) }
     var voiceWorking by remember(state.activeConversationId) { mutableStateOf(false) }
+    var treasureTarget by remember(state.activeConversationId) { mutableStateOf<ChatMessage?>(null) }
+    var treasureRevision by remember(state.activeConversationId) { mutableIntStateOf(0) }
+    var treasureRows by remember(state.activeConversationId) { mutableStateOf<List<JsonObject>>(emptyList()) }
+    var treasureLoaded by remember(state.activeConversationId) { mutableStateOf(false) }
+    LaunchedEffect(state.activeConversationId, treasureRevision) {
+        val conversationId = state.activeConversationId
+        if (conversationId.isBlank()) return@LaunchedEffect
+        treasureLoaded = false
+        try {
+            val all = mutableListOf<JsonObject>()
+            var cursor = ""
+            for (page in 0 until 250) {
+                val response = sideRooms.vaultTreasures(conversationId = conversationId, cursor = cursor)
+                all.addAll((response["items"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject })
+                cursor = response["next_cursor"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                if (cursor.isBlank()) break
+            }
+            if (cursor.isNotBlank()) throw IllegalStateException("收藏数量超出当前查看上限。")
+            treasureRows = all
+            treasureLoaded = true
+        } catch (cancel: CancellationException) { throw cancel }
+        catch (_: Exception) { treasureLoaded = false }
+    }
+    fun treasureField(item: JsonObject, key: String): String =
+        item[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+    val favoritedIds = treasureRows.mapNotNull { row ->
+        treasureField(row, "message_id").takeIf { it.isNotBlank() }
+    }.toSet()
+    val userMediaTurns = treasureRows.filter {
+        treasureField(it, "kind") in setOf("image", "file")
+    }.map { treasureField(it, "turn_id") }.toSet()
+    val visibleMessages = state.messages.map { message ->
+        if (!treasureLoaded) message else message.copy(favorite =
+            message.remoteVariantId.orEmpty() in favoritedIds ||
+            (message.role == MessageRole.User && message.turnId.orEmpty() in userMediaTurns))
+    }
+
     DisposableEffect(voicePlayer) { onDispose { voicePlayer.close() } }
     // Read from Coast again whenever the assistant reply is saved. The model's
     // voice_create can finish after the initial window load; cache-only playback
@@ -130,7 +174,8 @@ fun ChatWindow(
         Column(modifier = Modifier.fillMaxSize()) {
             ChatTimeline(
                 conversationId = state.activeConversationId,
-                messages = state.messages,
+                messages = visibleMessages,
+                searchFocus = state.searchFocus,
                 thoughtSoil = state.thoughtSoil,
                 isStreaming = state.isStreaming,
                 streamingMessageId = state.streamingMessageId,
@@ -155,7 +200,11 @@ fun ChatWindow(
                         }
                     }
                 },
-                onAction = onMessageAction,
+                onAction = { action ->
+                    if (action is MessageAction.ToggleFavorite) {
+                        treasureTarget = state.messages.firstOrNull { it.id == action.messageId }
+                    } else onMessageAction(action)
+                },
                 onFootprint = { message ->
                     val model = message.modelId ?: "未知模型"
                     val source = message.generationSource ?: "unknown"
@@ -205,6 +254,25 @@ fun ChatWindow(
         }
     }
 
+    treasureTarget?.let { message ->
+        ChatTreasureDialog(
+            conversationId = state.activeConversationId,
+            message = message,
+            voiceClips = voiceClips.filter {
+                it.messageId == message.remoteVariantId ||
+                    (it.messageId.isBlank() && it.turnId == message.turnId &&
+                        message.role == MessageRole.Assistant)
+            },
+            repository = sideRooms,
+            onDismiss = { treasureTarget = null },
+            onSaved = {
+                treasureTarget = null
+                treasureRevision += 1
+                onPlaceholder("拾潮收藏已保存；取消收藏不会删除原媒体。")
+            }
+        )
+    }
+
     voiceTarget?.let { message ->
         VoiceSelectionDialog(
             message = message, working = voiceWorking,
@@ -244,7 +312,25 @@ fun ChatWindow(
             onSave = onSaveThoughtSoil,
             onResumeAutomatic = onResumeThoughtSoil,
             onOpenPendingBag = onOpenPendingMemory,
+            onTreasure = { historical ->
+                soilOpen = false
+                selectedSoil = null
+                soilTreasureTarget = historical
+            },
             onDismiss = { soilOpen = false; selectedSoil = null }
+        )
+    }
+
+    soilTreasureTarget?.let { historical ->
+        SoilTreasureDialog(
+            soil = historical,
+            repository = sideRooms,
+            onDismiss = { soilTreasureTarget = null },
+            onSaved = {
+                soilTreasureTarget = null
+                treasureRevision += 1
+                onPlaceholder("旧思维壤的珍藏已更新，原来的土层仍在。")
+            }
         )
     }
 

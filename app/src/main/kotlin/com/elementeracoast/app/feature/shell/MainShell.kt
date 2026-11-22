@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.CoastShellState
+import com.elementeracoast.app.core.model.ChatSearchHit
 import com.elementeracoast.app.core.model.ConversationContextSettings
 import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
 import com.elementeracoast.app.core.model.FeatureDestination
@@ -56,6 +57,7 @@ fun MainShell(
     onCrossWindowChange: (CrossWindowUiState) -> Unit,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
+    onSelectSearchHit: (ChatSearchHit) -> Unit,
     onNewConversation: () -> Unit,
     onRenameConversation: (String, String) -> Unit,
     onDeleteConversation: (String) -> Unit,
@@ -131,6 +133,7 @@ fun MainShell(
                     onClose = { coroutineScope.launch { drawerState.close() } },
                     onOpenRoomType = { roomType -> closeDrawerThen { onOpenRoomType(roomType) } },
                     onSelectConversation = { id -> closeDrawerThen { onSelectConversation(id) } },
+                    onSelectSearchHit = { hit -> closeDrawerThen { onSelectSearchHit(hit) } },
                     onRenameConversation = onRenameConversation,
                     onDeleteConversation = onDeleteConversation,
                     onOpenFeature = { destination -> closeDrawerThen { onOpenFeature(destination) } },
@@ -197,6 +200,7 @@ fun MainShell(
                             onMemoryPendingConsumed = { openPendingMemoryOnLanding = false },
                             messages = state.messages,
                             onBackToChat = onBackToChat,
+                            onOpenSearchHit = onSelectSearchHit,
                             onRefresh = onRefresh,
                             onUpdateMyriAvatar = onUpdateMyriAvatar,
                             onSelectModel = onSelectModel,

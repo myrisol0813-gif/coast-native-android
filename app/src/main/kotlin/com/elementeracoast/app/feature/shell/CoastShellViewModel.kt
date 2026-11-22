@@ -9,6 +9,9 @@ import com.elementeracoast.app.core.local.LocalPersistence
 import com.elementeracoast.app.core.local.SharedPreferencesLocalPersistence
 import com.elementeracoast.app.core.model.ChatAttachment
 import com.elementeracoast.app.core.model.ChatMessage
+import com.elementeracoast.app.core.model.ChatSearchFocus
+import com.elementeracoast.app.core.model.ChatSearchHit
+import com.elementeracoast.app.core.model.previewSearchVariant
 import com.elementeracoast.app.core.model.CoastShellState
 import com.elementeracoast.app.core.model.ConversationSummary
 import com.elementeracoast.app.core.model.ConversationContextSettings
@@ -79,6 +82,8 @@ class CoastShellViewModel(
     val archive: GlobalArchiveRepository get() = backend.archive
     private var generationJob: Job? = null
     private var historyJob: Job? = null
+    private var pendingSearchHit: ChatSearchHit? = null
+    private var searchNavigationId = 0L
     private var attachmentUploadsInFlight = 0
 
     init {
@@ -165,10 +170,27 @@ class CoastShellViewModel(
         if (target == null) openRoomLanding(RoomType.Main) else selectConversation(target.id)
     }
 
-    fun selectConversation(id: String) {
+    fun selectConversation(id: String) = selectConversationInternal(id, null)
+
+    fun openSearchHit(hit: ChatSearchHit) {
+        if (hit.kind == "conversation") {
+            selectConversation(hit.conversationId)
+            return
+        }
+        if (hit.kind != "message" || hit.messageId.isBlank() || hit.turnId.isBlank()) return
+        selectConversationInternal(hit.conversationId, hit)
+    }
+
+    private fun selectConversationInternal(id: String, hit: ChatSearchHit?) {
+        val conversation = _state.value.conversations.firstOrNull { it.id == id }
+        if (conversation == null) {
+            showPlaceholder("搜索结果的原窗口已不存在。")
+            return
+        }
         stopGeneration()
         if (id != _state.value.activeConversationId) discardPendingAttachments()
-        val conversation = _state.value.conversations.firstOrNull { it.id == id } ?: return
+        pendingSearchHit = hit
+        searchNavigationId += 1
         activateCachedConversation(conversation)
         loadConversation(conversation)
     }
@@ -480,6 +502,8 @@ class CoastShellViewModel(
             showPlaceholder("当前模型还没有从海岸载入，暂时不能发送。")
             return
         }
+        pendingSearchHit = null
+        _state.update { it.copy(searchFocus = null) }
         generationJob = viewModelScope.launch(workDispatcher) {
             try {
                 val conversation = ensureRemoteConversation()
@@ -796,6 +820,14 @@ class CoastShellViewModel(
             _state.update { it.copy(historyLoading = true) }
             try {
                 val history = backend.chat.loadHistory(conversation.id)
+                val focus = pendingSearchHit?.takeIf { it.conversationId == conversation.id }
+                if (focus != null && previewSearchVariant(history, focus) == null) {
+                    pendingSearchHit = null
+                    _state.update { it.copy(
+                        searchFocus = null,
+                        snackbarMessage = "找不到这条消息的原版本；未跳转到其他版本。"
+                    ) }
+                }
                 showHistory(conversation.id, history)
                 _state.update { it.copy(historyLoading = false, backendOffline = false) }
             } catch (error: CoastApiException) {
@@ -1207,6 +1239,8 @@ class CoastShellViewModel(
         }
         val conversationId = _state.value.activeConversationId
         if (conversationId.isBlank()) return
+        pendingSearchHit = null
+        _state.update { it.copy(searchFocus = null) }
         val previous = backend.chat.cachedHistory(conversationId) ?: run {
             showPlaceholder("聊天记录尚未载入完成，请重新打开窗口后再修改。")
             return
@@ -1242,10 +1276,14 @@ class CoastShellViewModel(
 
     private fun showHistory(conversationId: String, history: RemoteHistory) {
         if (_state.value.activeConversationId != conversationId) return
+        val hit = pendingSearchHit?.takeIf { it.conversationId == conversationId }
+        // Search previews are presentation-only. Never replace the cached canonical
+        // history: a later send/regenerate/mutation must use the persisted active branch.
+        val displayed = hit?.let { previewSearchVariant(history, it) } ?: history
         _state.update {
             it.copy(
-                messages = ChatSyncMapper.toUi(history),
-                contextSettings = history.contextSettings.normalized()
+                messages = ChatSyncMapper.toUi(displayed),
+                contextSettings = displayed.contextSettings.normalized()
             )
         }
     }
@@ -1254,14 +1292,18 @@ class CoastShellViewModel(
         resetCrossWindow()
         persistence.put(KEY_CURRENT_CONVERSATION, conversation.id)
         val history = backend.chat.cachedHistory(conversation.id)
+        val hit = pendingSearchHit?.takeIf { it.conversationId == conversation.id }
+        val displayed = if (hit != null && history != null) previewSearchVariant(history, hit) ?: history
+            else history
         _state.update {
             it.copy(
                 activeRoomType = conversation.roomType,
                 activeFeature = null,
                 actionLogFocusIds = emptySet(),
                 activeConversationId = conversation.id,
-                contextSettings = history?.contextSettings?.normalized() ?: ConversationContextSettings(),
-                messages = history?.let(ChatSyncMapper::toUi).orEmpty(),
+                searchFocus = hit?.let { ChatSearchFocus(conversation.id, it.messageId, searchNavigationId) },
+                contextSettings = displayed?.contextSettings?.normalized() ?: ConversationContextSettings(),
+                messages = displayed?.let(ChatSyncMapper::toUi).orEmpty(),
                 thoughtSoil = null,
                 turnDeskReceipt = null,
                 showModelPicker = false,
@@ -1275,6 +1317,7 @@ class CoastShellViewModel(
     private fun openRoomLanding(roomType: RoomType) {
         require(roomType in RoomType.entries)
         resetCrossWindow()
+        pendingSearchHit = null
         persistence.remove(KEY_CURRENT_CONVERSATION)
         _state.update {
             it.copy(
@@ -1282,6 +1325,7 @@ class CoastShellViewModel(
                 activeFeature = null,
                 actionLogFocusIds = emptySet(),
                 activeConversationId = "",
+                searchFocus = null,
                 contextSettings = ConversationContextSettings(),
                 messages = emptyList(),
                 thoughtSoil = null,
