@@ -831,8 +831,10 @@ class CoastShellViewModel(
                 if (_state.value.activeConversationId == id) _state.update {
                     it.copy(thoughtSoil = soil, snackbarMessage = "思维壤已保存并手动锁定；解除锁定后才会恢复自动整理。")
                 }
-            } catch (error: Exception) {
+            } catch (error: CoastApiException) {
                 handleBackendError(error, "思维壤手动保存失败", keepAuthenticatedOnNetworkError = true)
+            } catch (_: Exception) {
+                _state.update { it.copy(snackbarMessage = "思维壤手动保存失败。") }
             }
         }
     }
@@ -846,8 +848,10 @@ class CoastShellViewModel(
                 if (_state.value.activeConversationId == id) _state.update {
                     it.copy(thoughtSoil = soil, snackbarMessage = "已解除手动锁定，恢复自动整理。")
                 }
-            } catch (error: Exception) {
+            } catch (error: CoastApiException) {
                 handleBackendError(error, "解除思维壤锁定失败", keepAuthenticatedOnNetworkError = true)
+            } catch (_: Exception) {
+                _state.update { it.copy(snackbarMessage = "解除思维壤锁定失败。") }
             }
         }
     }
