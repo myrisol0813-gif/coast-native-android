@@ -131,6 +131,7 @@ fun ChatWindow(
             ChatTimeline(
                 conversationId = state.activeConversationId,
                 messages = state.messages,
+                searchFocus = state.searchFocus,
                 thoughtSoil = state.thoughtSoil,
                 isStreaming = state.isStreaming,
                 streamingMessageId = state.streamingMessageId,
