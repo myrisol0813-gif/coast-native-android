@@ -33,7 +33,8 @@ class DefaultThoughtSoilRepository(
                 SoilHistoricSnapshot(item.turnId, item.assistantMessageId,
                     item.currentText, item.afterthoughts, item.revision,
                     item.displayAuthor.ifBlank { item.modelLabel }, item.createdAt)
-            }
+            },
+            historyTruncated = response.historyTruncated
         )
     }
 
