@@ -42,7 +42,7 @@ internal fun SoilBottomSheet(
 ) {
     var editing by remember(soil.conversationId, soil.isHistorical) { mutableStateOf(false) }
     var currentDraft by remember(soil.revision, editing) { mutableStateOf(soil.currentText) }
-    var afterthoughtDraft by remember(soil.revision, editing) { mutableStateOf(soil.afterthoughts.joinToString("\\n")) }
+    var afterthoughtDraft by remember(soil.revision, editing) { mutableStateOf(soil.afterthoughts.joinToString("\n")) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
