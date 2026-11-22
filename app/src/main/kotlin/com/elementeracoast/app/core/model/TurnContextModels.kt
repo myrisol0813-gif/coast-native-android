@@ -29,6 +29,18 @@ data class ThoughtSoilSnapshot(
     val autoRefreshEnabled: Boolean = true,
     val revision: Int,
     val organizer: String,
+    val updatedAt: String,
+    val history: List<SoilHistoricSnapshot> = emptyList(),
+    val isHistorical: Boolean = false
+)
+
+data class SoilHistoricSnapshot(
+    val turnId: String,
+    val assistantMessageId: String,
+    val currentText: String,
+    val afterthoughts: List<String>,
+    val revision: Int,
+    val organizer: String,
     val updatedAt: String
 )
 
