@@ -200,6 +200,7 @@ fun MainShell(
                             onMemoryPendingConsumed = { openPendingMemoryOnLanding = false },
                             messages = state.messages,
                             onBackToChat = onBackToChat,
+                            onOpenSearchHit = onSelectSearchHit,
                             onRefresh = onRefresh,
                             onUpdateMyriAvatar = onUpdateMyriAvatar,
                             onSelectModel = onSelectModel,
