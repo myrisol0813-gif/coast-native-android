@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 109
-        versionName = "0.1.107-vault-paper"
+        versionCode = 110
+        versionName = "0.1.108-vault-voice"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
