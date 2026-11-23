@@ -355,7 +355,6 @@ private fun CoastVaultCard(
     var showActions by remember(id) { mutableStateOf(false) }
     var showCancel by remember(id) { mutableStateOf(false) }
     var showInfo by remember(id) { mutableStateOf(false) }
-    var showNote by remember(id) { mutableStateOf(false) }
     var showText by remember(id) { mutableStateOf(false) }
     var audioExpanded by remember(id) { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
@@ -548,7 +547,7 @@ private fun CoastVaultCard(
                                 treasure = treasure, alreadySaved = item.vaultFlag("favorited"),
                                 busy = busy, onFavorite = ::favorite, onSave = ::download,
                                 onSource = ::openSource, onInfo = { showInfo = true },
-                                onNote = { showNote = true }, onRead = { showText = true },
+                                onNote = { noteEditing = true; if (kind == "image") imageOpen = null; if (kind == "audio") audioExpanded = true }, onRead = { showText = true },
                                 hasMedia = true, hasText = false)
                         }
                     }
@@ -567,7 +566,7 @@ private fun CoastVaultCard(
                                 treasure = treasure, alreadySaved = item.vaultFlag("favorited"),
                                 busy = busy, onFavorite = ::favorite, onSave = ::download,
                                 onSource = ::openSource, onInfo = { showInfo = true },
-                                onNote = { showNote = true }, onRead = { showText = true },
+                                onNote = { noteEditing = true; if (kind == "image") imageOpen = null; if (kind == "audio") audioExpanded = true }, onRead = { showText = true },
                                 hasMedia = false, hasText = sourceText.isNotBlank())
                         }
                     }
@@ -604,12 +603,12 @@ private fun CoastVaultCard(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = { noteEditing = true }) {
+                    TextButton(onClick = { noteEditing = true; if (kind == "audio") audioExpanded = true }) {
                         Text("修改", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             } else if (kind != "audio" || audioExpanded) {
-                TextButton(onClick = { noteEditing = true }) {
+                TextButton(onClick = { noteEditing = true; if (kind == "audio") audioExpanded = true }) {
                     Text("添加备注…", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -629,15 +628,37 @@ private fun CoastVaultCard(
                         treasure = treasure, alreadySaved = item.vaultFlag("favorited"),
                         busy = busy, onFavorite = ::favorite, onSave = ::download,
                         onSource = ::openSource, onInfo = { showInfo = true },
-                        onNote = { showNote = true }, onRead = { showText = true },
-                        hasMedia = true, hasText = false)
+                        onNote = { noteEditing = true; if (kind == "image") imageOpen = null; if (kind == "audio") audioExpanded = true }, onRead = { showText = true },
+                        hasMedia = true, hasText = false, onRename = { showRename = true })
                 }
             }
             Image(imageOpen!!.asImageBitmap(), contentDescription = "海岸影像原图",
                 modifier = Modifier.fillMaxWidth().heightIn(max = 540.dp),
                 contentScale = ContentScale.Fit)
+            Text(heading, style = MaterialTheme.typography.bodyMedium)
+            Text("原文件名：" + originalName, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    if (showRename) AlertDialog(
+        onDismissRequest = { if (!busy) showRename = false },
+        title = { Text("修改图片展示名称") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("原始文件不会改变。留空会恢复原文件名。",
+                    style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = renameText, onValueChange = { renameText = it.take(80) },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    placeholder = { Text("图片展示名称") }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy, onClick = ::renameImage) { Text("保存名称") }
+        },
+        dismissButton = { TextButton(onClick = { showRename = false }) { Text("取消") } }
+    )
     if (showInfo) AlertDialog(
         onDismissRequest = { showInfo = false },
         title = { Text("文件信息") },
@@ -670,35 +691,6 @@ private fun CoastVaultCard(
             }) { Text("复制全文") }
         },
         dismissButton = { TextButton(onClick = { showText = false }) { Text("收起") } }
-    )
-    if (showNote) AlertDialog(
-        onDismissRequest = { if (!busy) showNote = false },
-        title = { Text("珍藏备注") },
-        text = {
-            OutlinedTextField(value = note, onValueChange = { note = it.take(1200) },
-                modifier = Modifier.fillMaxWidth(), maxLines = 5,
-                placeholder = { Text("写一点想留下的话…") })
-        },
-        confirmButton = {
-            TextButton(enabled = !busy, onClick = {
-                if (treasure) {
-                    scope.launch {
-                        busy = true
-                        try {
-                            repository.vaultChangeNote(id, note)
-                            onChanged()
-                            showNote = false
-                            onSnackbar("备注已保存。")
-                        } catch (error: Exception) { onSnackbar("保存失败：" + error.message) }
-                        finally { busy = false }
-                    }
-                } else {
-                    showNote = false
-                    onSnackbar("备注已填写，可从操作菜单拾入潮间时一起保存。")
-                }
-            }) { Text("保存") }
-        },
-        dismissButton = { TextButton(onClick = { showNote = false }) { Text("返回") } }
     )
     if (showCancel) AlertDialog(
         onDismissRequest = { showCancel = false },
@@ -736,9 +728,15 @@ private fun VaultActions(
     onNote: () -> Unit,
     onRead: () -> Unit,
     hasMedia: Boolean,
-    hasText: Boolean
+    hasText: Boolean,
+    onRename: (() -> Unit)? = null
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        if (onRename != null) DropdownMenuItem(
+            text = { Text("修改名称") },
+            enabled = !busy,
+            onClick = { onDismiss(); onRename() }
+        )
         DropdownMenuItem(
             text = { Text(if (treasure || alreadySaved) "取消珍藏" else "拾入潮间") },
             enabled = !busy,
