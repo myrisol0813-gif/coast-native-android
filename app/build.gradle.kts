@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 111
-        versionName = "0.1.109-vault-voice-note"
+        versionCode = 112
+        versionName = "0.1.110-vault-gallery"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
