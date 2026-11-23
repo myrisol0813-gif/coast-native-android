@@ -91,9 +91,9 @@ trademark rights to the Elementera Coast / CoastGPT names or marks.
 Repository secrets, signing material, session credentials, private user data,
 conversations and memories are not part of this repository.
 
-## Coast Vault / 拾潮 / 原文搜索（Native 108 草稿）
+## Coast Vault / 拾潮 / 原文搜索（Native 112）
 
-当前 Native 分支的 `versionCode=108`、`versionName=0.1.106-coast-vault`，
+当前 Native 分支的 `versionCode=112`、`versionName=0.1.110-vault-gallery`，
 必须和对应的私人后端 Coast Vault API 一同验收；安装本地 APK 并不能单独上线云端接口。
 
 - 「基本文件库」列出后端已经持久化的聊天图片、文件和已生成的语音；
@@ -149,12 +149,14 @@ GitHub Actions additionally enforces structural/single-source guards, verifies t
 
 Selected earlier PoC interaction patterns from MiniiChat remain attributed under MIT in `THIRD_PARTY_NOTICES.md` and `third_party/MiniiChat-LICENSE.txt`. No third-party GPL/AGPL implementation is included.
 
-## Native 109 · Vault paper-gallery UI (Draft)
+## Native 109–112 · Vault paper-gallery and annotations
 
-This checkpoint changes only the Android **Coast Vault display**; canonical backend data, chat history, original media, memories and existing heart flags are unchanged.
+The paper gallery is built on the canonical Coast Vault API; original media binaries, chat history, memories and existing heart flags are not rewritten. Image display-name edits require the separately deployed owner-authorized media-label API.
 
 - The compact upper text tabs are exactly `基本文件库` and `拾潮`; both reuse the existing Snow Letter surfaces instead of introducing large generic Material cards.
 - Search reuses the paper-field visual language, with one-line text filters and the original server cursor. All-results pages are grouped by category; images are displayed two across with a tap-to-enlarge viewer and a text-only actions menu.
-- Existing audio plays from saved clips using a factual playback-progress indicator; no generated/random fake waveform and no paid regeneration. Long audio text is no longer dumped into the list. Files are displayed as compact packages; full text and note editors appear only on request.
+- Existing audio uses seekable playback and a right-edge control for inline full selectable transcript; expanding and collapsing does not intentionally restart playback, and no paid regeneration is triggered.
+- Native 112 clips scroll content to the vault viewport, increases the paper-search footer space, and allows image display names to be changed from the full-screen image menu. Original attachment names and downloaded binaries are preserved.
+- Notes from saved treasures appear below cards, clamped to two lines by default; expand, edit and save are in place. Adding notes to an uncollected media entry requires an explicit ‘拾入潮间并保存’ action.
 - Canceling a favorite removes only its independent treasure record, never the original media. Historical assistant favorite migration is still explicit-only.
-- Target version: `versionCode=109`, `versionName=0.1.107-vault-paper`. The PR is not a production delivery until the latest CI, signed mainline GitHub Release and real-device overwrite acceptance have succeeded.
+- Target version: `versionCode=112`, `versionName=0.1.110-vault-gallery`. PR validation, signed mainline Release, real-device overwrite, and deployed backend acceptance are separate checkpoints.
