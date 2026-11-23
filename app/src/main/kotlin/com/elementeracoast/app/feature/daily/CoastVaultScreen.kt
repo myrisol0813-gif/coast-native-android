@@ -345,6 +345,7 @@ private fun CoastVaultCard(
     }
     var note by remember(id) { mutableStateOf(item.vaultText("notes")) }
     var noteExpanded by remember(id) { mutableStateOf(false) }
+    var noteHasMore by remember(id) { mutableStateOf(false) }
     var noteEditing by remember(id) { mutableStateOf(false) }
     var showRename by remember(id) { mutableStateOf(false) }
     var renameText by remember(id) { mutableStateOf(displayName) }
@@ -505,28 +506,6 @@ private fun CoastVaultCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            OutlinedTextField(
-                                value = note, onValueChange = { note = it.take(1200) },
-                                modifier = Modifier.weight(1f), singleLine = true,
-                                enabled = treasure || !item.vaultFlag("favorited"),
-                                textStyle = MaterialTheme.typography.bodySmall,
-                                placeholder = {
-                                    Text(if (!treasure && item.vaultFlag("favorited"))
-                                        "请到拾潮修改备注" else "备注，可留空",
-                                        style = MaterialTheme.typography.bodySmall)
-                                }
-                            )
-                            TextButton(enabled = !busy && (treasure || !item.vaultFlag("favorited")), onClick = {
-                                if (treasure) saveInlineNote() else favorite()
-                            }, modifier = Modifier.background(MaterialTheme.colorScheme.surface,
-                                RoundedCornerShape(12.dp))) {
-                                Text(if (treasure) "保存备注" else if (item.vaultFlag("favorited"))
-                                    "已在拾潮" else "拾入潮间",
-                                    style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                             val actions = listOf("下载语音", "回到来源", "复制全文") +
                                 (if (treasure || item.vaultFlag("favorited")) listOf("取消珍藏") else emptyList())
@@ -592,6 +571,47 @@ private fun CoastVaultCard(
                                 hasMedia = false, hasText = sourceText.isNotBlank())
                         }
                     }
+                }
+            }
+            if (noteEditing && (kind != "audio" || audioExpanded)) {
+                OutlinedTextField(
+                    value = note, onValueChange = { note = it.take(1200) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2, maxLines = 4,
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    placeholder = { Text("写一点想留下的话…") }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(enabled = !busy, onClick = ::saveInlineNote) {
+                        Text(if (treasure || item.vaultFlag("favorited")) "保存备注"
+                            else "拾入潮间并保存", style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick = {
+                        note = item.vaultText("notes")
+                        noteEditing = false
+                    }) { Text("取消", style = MaterialTheme.typography.labelSmall) }
+                }
+            } else if (note.isNotBlank()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Column(Modifier.weight(1f).clickable { if (noteHasMore) noteExpanded = !noteExpanded }) {
+                        Text(note, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = if (noteExpanded) Int.MAX_VALUE else 2,
+                            overflow = TextOverflow.Ellipsis,
+                            onTextLayout = { if (!noteExpanded) noteHasMore = it.hasVisualOverflow })
+                        if (noteHasMore) Text(if (noteExpanded) "收起⌃" else "展开⌄",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { noteEditing = true }) {
+                        Text("修改", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            } else if (kind != "audio" || audioExpanded) {
+                TextButton(onClick = { noteEditing = true }) {
+                    Text("添加备注…", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
