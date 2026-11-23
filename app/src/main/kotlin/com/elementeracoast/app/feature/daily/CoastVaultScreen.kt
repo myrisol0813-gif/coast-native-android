@@ -428,7 +428,7 @@ private fun CoastVaultCard(
     }
 
     fun favorite() {
-        if (treasure) { showCancel = true; return }
+        if (treasure || item.vaultFlag("favorited")) { showCancel = true; return }
         val savedId = item.vaultText("treasure_id")
         scope.launch {
             busy = true
