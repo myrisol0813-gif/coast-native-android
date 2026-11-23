@@ -333,14 +333,23 @@ private fun CoastVaultCard(
     val sourceId = if (treasure) item.vaultText("source_id") else id
     val conversation = item.vaultText("conversation_id")
     val sourceText = if (treasure) item.vaultText("excerpt") else item.vaultText("source_text")
-    val originalName = item.vaultText("name")
+    val originalName = if (treasure && kind == "image") item.vaultText("excerpt")
+        else item.vaultText("name")
+    val displayName = item.vaultText("display_name")
     val heading = when (kind) {
         "audio" -> "已保存语音"
         "soil" -> "原位思维壤"
         "text" -> "文字摘抄"
-        else -> originalName.ifBlank { if (kind == "image") "海岸影像" else "海岸附件" }
+        else -> (if (kind == "image") displayName.ifBlank { originalName } else originalName)
+            .ifBlank { if (kind == "image") "海岸影像" else "海岸附件" }
     }
     var note by remember(id) { mutableStateOf(item.vaultText("notes")) }
+    var noteExpanded by remember(id) { mutableStateOf(false) }
+    var noteEditing by remember(id) { mutableStateOf(false) }
+    var showRename by remember(id) { mutableStateOf(false) }
+    var renameText by remember(id) { mutableStateOf(displayName) }
+    LaunchedEffect(item.vaultText("notes")) { if (!noteEditing) note = item.vaultText("notes") }
+    LaunchedEffect(displayName) { renameText = displayName }
     var busy by remember(id) { mutableStateOf(false) }
     var showActions by remember(id) { mutableStateOf(false) }
     var showCancel by remember(id) { mutableStateOf(false) }
@@ -383,16 +392,37 @@ private fun CoastVaultCard(
     }
 
     fun saveInlineNote() {
-        if (!treasure) return
         scope.launch {
             busy = true
             try {
-                repository.vaultChangeNote(id, note)
+                val favoriteId = if (treasure) id else item.vaultText("treasure_id")
+                if (favoriteId.isNotBlank()) {
+                    repository.vaultChangeNote(favoriteId, note)
+                    onSnackbar("备注已保存。")
+                } else {
+                    repository.vaultSave(kind, conversation, sourceId, note)
+                    onSnackbar("备注已保存，并已拾入潮间。")
+                }
+                noteEditing = false
                 onChanged()
-                onSnackbar("备注已保存。")
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (error: Exception) { onSnackbar("备注保存失败：" + error.message) }
+            finally { busy = false }
+        }
+    }
+
+    fun renameImage() {
+        scope.launch {
+            busy = true
+            try {
+                repository.vaultRenameImage(conversation, sourceId, renameText)
+                showRename = false
+                onChanged()
+                onSnackbar("展示名称已保存，原始文件未修改。")
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (error: Exception) { onSnackbar("重命名失败：" + error.message) }
             finally { busy = false }
         }
     }
