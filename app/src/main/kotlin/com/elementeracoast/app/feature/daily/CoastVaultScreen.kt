@@ -7,8 +7,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -161,7 +164,8 @@ fun CoastVaultScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Un
 
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp)
+        contentPadding = PaddingValues(top = 22.dp, bottom = 24.dp),
+        modifier = Modifier.fillMaxSize().clipToBounds().padding(horizontal = 18.dp)
     ) {
         item(key = "controls") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -196,7 +200,7 @@ fun CoastVaultScreen(repository: SideRoomsRepository, onSnackbar: (String) -> Un
                     fallbackShape = RoundedCornerShape(20.dp),
                     fallbackElevation = 1.dp
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 18.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("检索", fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.titleSmall)
