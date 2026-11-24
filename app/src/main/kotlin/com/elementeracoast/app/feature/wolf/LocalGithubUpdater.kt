@@ -63,7 +63,7 @@ internal class LocalGithubUpdater {
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     private fun asset(a: GithubReleaseAssets, name: String) = "https://github.com/$RELEASE_REPO/releases/download/${a.tag}/$name"
     private fun get(url: String, max: Long): ByteArray {
-        client.newCall(Request.Builder().url(url).header("Accept", "application/octet-stream").build()).execute().use { response ->
+        client.newCall(Request.Builder().url(url).header("Accept", if (url.startsWith("https://api.github.com/")) "application/vnd.github+json" else "application/octet-stream").build()).execute().use { response ->
             if (!response.isSuccessful) throw IOException("GitHub 请求失败（HTTP ${response.code}）。")
             val body = response.body ?: throw IOException("GitHub 未返回文件。")
             if (body.contentLength() > max) throw IOException("发行文件超过大小上限。")
