@@ -153,6 +153,7 @@ private fun AccountScreen(
 ) {
     var confirming by remember { mutableStateOf(false) }
     val persistence = when (shellState.sessionPersistence) {
+        "local" -> "本机保存，无需账号"
         "until_logout" -> "持续保持，直到主动退出"
         "legacy_expiring" -> if (shellState.sessionExpiresAtEpochSeconds > 0L) {
             "旧会话 · 会在原到期时间失效"
@@ -174,8 +175,8 @@ private fun AccountScreen(
                 Column(Modifier.fillMaxWidth().padding(18.dp)) {
                     Text("当前账户", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
-                    WolfUpdateFact("登录状态", if (shellState.authenticated) "已登录" else "未登录")
-                    WolfUpdateFact("账号", "海岸屋主")
+                    WolfUpdateFact("登录状态", if (shellState.localMode) "本机模式 · 无需登录" else if (shellState.authenticated) "已登录" else "未登录")
+                    WolfUpdateFact("账号", if (shellState.localMode) "本机独立空间" else "海岸屋主")
                     WolfUpdateFact("登录保持", persistence)
                     if (shellState.sessionPersistence == "legacy_expiring") {
                         Text(
@@ -190,20 +191,20 @@ private fun AccountScreen(
         }
         item {
             Button(onClick = { confirming = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("退出账号")
+                Text(if (shellState.localMode) "返回开屏" else "退出账号")
             }
         }
     }
     if (confirming) {
         AlertDialog(
             onDismissRequest = { confirming = false },
-            title = { Text("退出海岸账号？") },
-            text = { Text("只会清除当前登录态；聊天、记忆与海岸数据不会被删除。") },
+            title = { Text(if (shellState.localMode) "返回开屏？" else "退出海岸账号？") },
+            text = { Text(if (shellState.localMode) "本机资料会完整保留，下次仍可从本机模式进入。" else "只会清除当前登录态；聊天、记忆与海岸数据不会被删除。") },
             confirmButton = {
                 TextButton(onClick = {
                     confirming = false
                     onLogout()
-                }) { Text("退出账号") }
+                }) { Text(if (shellState.localMode) "返回开屏" else "退出账号") }
             },
             dismissButton = {
                 TextButton(onClick = { confirming = false }) { Text("取消") }

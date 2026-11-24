@@ -3,6 +3,7 @@ package com.elementeracoast.app
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
+import com.elementeracoast.app.core.local.NativeWorkspace
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +24,7 @@ import com.elementeracoast.app.ui.theme.CoastTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NativeWorkspace.initialize(applicationContext)
         setContent {
             val vm: CoastShellViewModel = viewModel(factory = CoastShellViewModel.factory(applicationContext))
             val devHands = remember(applicationContext) { DevHandsProvider.production(applicationContext) }
@@ -55,7 +57,8 @@ class MainActivity : ComponentActivity() {
                         authMessage = state.authMessage,
                         onPasswordChange = vm::setPassword,
                         onEnter = vm::enterCoast,
-                        onOpenMailbox = { mailboxOpen = true }
+                        onOpenMailbox = { mailboxOpen = true },
+                        onEnterLocal = { switchWorkspace(true) }
                     )
                 } else {
                     MainShell(
@@ -108,12 +111,22 @@ class MainActivity : ComponentActivity() {
                         onChatGptDisconnect = vm::disconnectChatGpt,
                         onChatGptRefresh = vm::refreshChatGptModels,
                         onChatGptProbe = vm::probeChatGpt,
-                        onLogout = vm::logout,
+                        onLogout = { if (state.localMode) switchWorkspace(false) else vm.logout() },
                         onPlaceholder = vm::showPlaceholder,
                         onSnackbarShown = vm::clearSnackbar
                     )
                 }
             }
         }
+    }
+
+    private fun switchWorkspace(local: Boolean) {
+        if (!NativeWorkspace.select(applicationContext, local)) {
+            android.widget.Toast.makeText(this, "无法保存模式选择，请重试", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        // Destroy old workspace UI and ViewModel rather than reusing their state.
+        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        finish()
     }
 }
