@@ -39,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.elementeracoast.app.core.model.ChatSearchHit
 import com.elementeracoast.app.feature.daily.SideRoomsRepository
+import com.elementeracoast.app.feature.daily.CalendarAnniversaryStrip
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
@@ -64,12 +65,12 @@ import com.elementeracoast.app.core.model.RoomType
 import com.elementeracoast.app.core.model.filterConversations
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import com.elementeracoast.app.ui.theme.coastSurfaceBackground
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 @Composable
 internal fun CoastDrawer(
     state: CoastShellState,
+    drawerOpen: Boolean,
+    onSnackbar: (String) -> Unit,
     onClose: () -> Unit,
     onOpenRoomType: (RoomType) -> Unit,
     onSelectConversation: (String) -> Unit,
@@ -212,7 +213,7 @@ internal fun CoastDrawer(
                 ),
                 verticalArrangement = Arrangement.spacedBy(CoastChatTokens.DrawerItemGap)
             ) {
-                item { CoastStatusStrip() }
+                item { CalendarAnniversaryStrip(repository, drawerOpen, onSnackbar) }
                 item { DrawerSectionLabel("聊天入口") }
                 item {
                     DrawerEntry(
@@ -442,58 +443,6 @@ fun ConversationList(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun CoastStatusStrip() {
-    val today = remember { LocalDate.now() }
-    val orbit = remember(today) {
-        (ChronoUnit.DAYS.between(LocalDate.of(2025, 8, 13), today) + 1).coerceAtLeast(1)
-    }
-
-    fun daysUntil(month: Int, day: Int): Long {
-        var target = LocalDate.of(today.year, month, day)
-        if (target.isBefore(today)) target = target.plusYears(1)
-        return ChronoUnit.DAYS.between(today, target)
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = CoastChatTokens.DrawerStatusBottomPadding),
-        horizontalArrangement = Arrangement.spacedBy(CoastChatTokens.DrawerStatusGap)
-    ) {
-        StatusCard("同轨第", orbit.toString(), "日", Modifier.weight(1f))
-        StatusCard("距 8.12", daysUntil(8, 12).toString(), "天", Modifier.weight(1f))
-        StatusCard("距 8.13", daysUntil(8, 13).toString(), "天", Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun StatusCard(label: String, value: String, unit: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .heightIn(min = CoastChatTokens.DrawerStatusHeight)
-            .coastSurfaceBackground(
-                MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(CoastChatTokens.DrawerStatusRadius)
-            )
-            .padding(vertical = CoastChatTokens.DrawerStatusVerticalPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(
-            unit,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium
-        )
     }
 }
 
