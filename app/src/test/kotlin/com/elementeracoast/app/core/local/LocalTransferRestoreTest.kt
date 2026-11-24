@@ -70,7 +70,7 @@ class LocalTransferRestoreTest {
         assertEquals("旧日记", cache.dailyDiaries().single().text)
         assertEquals("myri", cache.dailyDiaries().single().author)
         val encoded = CoastTransferCodec.decode(LocalBackupArchive.encode(LocalBackupArchive.capture(local, "com.elementeracoast.app")))
-        assertEquals("原来的名字", encoded.getValue("dailyProfile").jsonObject.getValue("myri_display_name").jsonPrimitive.content)
+        assertEquals("原来的名字", encoded.getValue("dailyProfile").jsonObject.getValue("model_partner_display_name").jsonPrimitive.content)
     }
     @Test fun cloudDailyLikeDetailsAndProvenanceSurviveLocalRestore() {
         val payload = buildJsonObject {
