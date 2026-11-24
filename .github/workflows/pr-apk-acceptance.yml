@@ -24,6 +24,9 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Test local workspace isolation
+        run: gradle :app:testDebugUnitTest --tests '*LocalCoastTransportTest' --no-daemon --stacktrace
+
       - name: Read app version
         id: app_version
         shell: bash

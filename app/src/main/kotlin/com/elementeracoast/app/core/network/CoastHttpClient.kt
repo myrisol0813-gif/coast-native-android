@@ -15,7 +15,10 @@ class CoastHttpClient(
         .followRedirects(false)
         .build()
 ) {
-    val client: OkHttpClient = baseClient.newBuilder()
+    val client: OkHttpClient = if (config.localTransport != null) {
+        // A terminal interceptor: no DNS, cookies, server or external fallback.
+        OkHttpClient.Builder().addInterceptor(config.localTransport).build()
+    } else baseClient.newBuilder()
         .addInterceptor(Interceptor { chain ->
             val original = chain.request()
             val builder = original.newBuilder()
