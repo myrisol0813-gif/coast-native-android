@@ -62,10 +62,10 @@ internal object LocalBackupArchive {
     fun encode(payload: LocalBackupPayload): ByteArray {
         validate(payload)
         val value = json.encodeToJsonElement(LocalBackupPayload.serializer(), payload).jsonObject
-        return CoastTransferCodec.encode(JsonObject(value + mapOf(
+        return CoastTransferCodec.encode(LocalTransferRestore.adaptDaily(JsonObject(value + mapOf(
             "workspace" to JsonPrimitive("local"),
             "includedModules" to JsonArray(listOf("chat", "calendar", "daily", "model_profile").map(::JsonPrimitive))
-        )))
+        )), toPortable = true))
     }
 
     // Full local modules are typed by edition. The generic wire reader is unrestricted.
@@ -76,7 +76,7 @@ internal object LocalBackupArchive {
             "完整本机模块恢复暂需同应用；通用聊天与日历迁移另走模块选择。"
         }
         require(payload.getValue("includedModules").jsonArray.map { it.jsonPrimitive.content }.toSet() == CoastTransferCodec.supportedModules)
-        val value = JsonObject(payload.filterKeys { it !in setOf("workspace", "includedModules") })
+        val value = JsonObject(LocalTransferRestore.adaptDaily(payload, toPortable = false).filterKeys { it !in setOf("workspace", "includedModules") })
         return json.decodeFromJsonElement(LocalBackupPayload.serializer(), value).also(::validate)
     }
 
