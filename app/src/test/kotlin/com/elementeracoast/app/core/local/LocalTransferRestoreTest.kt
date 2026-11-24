@@ -72,6 +72,27 @@ class LocalTransferRestoreTest {
         val encoded = CoastTransferCodec.decode(LocalBackupArchive.encode(LocalBackupArchive.capture(local, "com.elementeracoast.app")))
         assertEquals("原来的名字", encoded.getValue("dailyProfile").jsonObject.getValue("myri_display_name").jsonPrimitive.content)
     }
+    @Test fun cloudDailyLikeDetailsAndProvenanceSurviveLocalRestore() {
+        val payload = buildJsonObject {
+            put("applicationId", "com.elementeracoast.source"); put("workspace", "backend"); put("exportedAt", time)
+            putJsonArray("includedModules") { add("daily") }
+            put("conversations", JsonArray(emptyList())); put("calendar", JsonArray(emptyList()))
+            put("profile", JsonNull); put("dailyProfile", JsonNull); put("diaries", JsonArray(emptyList()))
+            put("moments", Json.parseToJsonElement("""[{"id":"m-cloud","author":"model_partner","actor":"model_partner","text":"旧云端动态","reason":"保留","tool_call_id":"call1","published_at":"2026-11-24T12:00:00Z","liked":true,"like_count":2,"likes":[{"actor":"owner","created_at":"2026-11-24T12:00:00Z"},{"actor":"model_partner","created_at":"2026-11-24T12:00:01Z"}]}]"""))
+        }
+        val local = MemoryLocalPersistence()
+        val bundle = CoastTransferCodec.encode(payload)
+        LocalTransferRestore.restore(bundle, "com.elementeracoast.app", setOf("daily"), local)
+        val m = RemoteCacheStore(local).dailyMoments().single()
+        assertEquals("myri", m.actor)
+        assertEquals("call1", m.toolCallId)
+        assertEquals("保留", m.reason)
+        assertEquals(time, m.publishedAt)
+        assertEquals(setOf("xiaohan", "myri"), m.likes!!.map { it.actor }.toSet())
+        assertEquals("2026-11-24T12:00:01Z", m.likes!!.first { it.actor == "myri" }.createdAt)
+        assertTrue(m.liked)
+        assertEquals(2, m.likeCount)
+    }
     @Test fun failedTransactionDoesNotExposePartialRecords() {
         val local = MemoryLocalPersistence()
         local.put("original","keep")
