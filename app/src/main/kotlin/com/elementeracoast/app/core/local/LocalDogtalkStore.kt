@@ -54,7 +54,7 @@ internal class LocalDogtalkStore(private val store:LocalPersistence){
             for(k in listOf("self_note","model_partner_hint","not_to_misunderstand"))put(k,"")
             put("readable_by_model_partner",1);put("auto_recall",0);put("memory_weight","low")
             for(k in flags)put(k,1)
-            put("type","owner_mystic_dogtalk");put("source","owner_native");put("created_at",now);put("last_read_at",JsonNull)
+            put("type","xiaohan_mystic_dogtalk");put("source","owner_native");put("created_at",now);put("last_read_at",JsonNull)
         }
         val next=Row("dogtalk_records",JsonObject(previous+buildJsonObject{
             put("body",body);put("true_core",core);put("weather",weather);put("read_mode",mode);put("status","saved");put("updated_at",now);put("archived_at",JsonNull)
