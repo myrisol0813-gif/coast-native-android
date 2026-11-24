@@ -90,6 +90,7 @@ fun WolfScreen(
                     profile = state.profile,
                     messages = messages,
                     archive = archive,
+                    localMode = shellState.localMode,
                     onImportMessages = onImportMessages,
                     onActionLogged = onActionLogged,
                     onSnackbar = onSnackbar
@@ -134,7 +135,7 @@ private fun WolfHome(
                 WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
                 WolfDestination.Appearance -> "${state.appearance.theme.label} · 字体 · 纸页 · 重点色"
                 WolfDestination.Account -> if (localMode) "本机模式 · 无需登录" else if (state.profile.nickname.isNotBlank()) "已登录 · 海岸屋主" else destination.subtitle
-                WolfDestination.ModelBox -> if (localMode) "本机 API 待接入" else "当前：${model.substringAfterLast('/').take(32)}"
+                WolfDestination.ModelBox -> if (localMode) "本机供应商与账户" else "当前：${model.substringAfterLast('/').take(32)}"
                 WolfDestination.Update -> destination.subtitle
                 else -> destination.subtitle
             }
