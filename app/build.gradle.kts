@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 121
-        versionName = "0.1.119-calendar-anniversaries"
+        versionCode = 122
+        versionName = "0.1.120-unified-transfer"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
