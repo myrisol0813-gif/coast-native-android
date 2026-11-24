@@ -12,7 +12,10 @@ class LocalCoastTransportTest {
     private val mime = "application/json".toMediaType()
     private val json = Json
     private fun client(store: LocalPersistence) = OkHttpClient.Builder()
-        .dns { throw AssertionError("Local mode attempted DNS") }
+        .dns(object : okhttp3.Dns {
+            override fun lookup(hostname: String): List<java.net.InetAddress> =
+                throw AssertionError("Local mode attempted DNS")
+        })
         .addInterceptor(LocalCoastTransport(store)).build()
     private fun call(client: OkHttpClient, path: String, method: String = "GET", body: String = "{}"): Pair<Int, JsonObject> {
         val builder = Request.Builder().url("https://" + LocalCoastTransport.HOST + path)
