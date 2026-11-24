@@ -73,6 +73,7 @@ fun WolfScreen(
         WolfHome(
             state = state,
             model = shellState.currentModel,
+            localMode = shellState.localMode,
             onOpen = { page = it }
         )
         return
@@ -102,7 +103,8 @@ fun WolfScreen(
                     onChatGptConnect = onChatGptConnect,
                     onChatGptDisconnect = onChatGptDisconnect,
                     onChatGptRefresh = onChatGptRefresh,
-                    onChatGptProbe = onChatGptProbe
+                    onChatGptProbe = onChatGptProbe,
+                    localMode = shellState.localMode
                 )
                 WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store, onSnackbar)
                 WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
@@ -116,6 +118,7 @@ fun WolfScreen(
 private fun WolfHome(
     state: WolfState,
     model: String,
+    localMode: Boolean,
     onOpen: (WolfDestination) -> Unit
 ) {
     LazyColumn(
@@ -130,8 +133,8 @@ private fun WolfHome(
             val subtitle = when (destination) {
                 WolfDestination.Profile -> "${state.profile.nickname} · ${state.profile.signature}"
                 WolfDestination.Appearance -> "${state.appearance.theme.label} · 字体 · 纸页 · 重点色"
-                WolfDestination.Account -> if (state.profile.nickname.isNotBlank()) "已登录 · 海岸屋主" else destination.subtitle
-                WolfDestination.ModelBox -> "当前：${model.substringAfterLast('/').take(32)}"
+                WolfDestination.Account -> if (localMode) "本机模式 · 无需登录" else if (state.profile.nickname.isNotBlank()) "已登录 · 海岸屋主" else destination.subtitle
+                WolfDestination.ModelBox -> if (localMode) "本机 API 待接入" else "当前：${model.substringAfterLast('/').take(32)}"
                 WolfDestination.Update -> destination.subtitle
                 else -> destination.subtitle
             }

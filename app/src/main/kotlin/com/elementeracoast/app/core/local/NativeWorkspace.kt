@@ -22,10 +22,11 @@ object NativeWorkspace {
     fun persistence(context: Context): LocalPersistence =
         localStore ?: SharedPreferencesLocalPersistence(context)
 
-    fun initialize(context: Context) {
+    @Synchronized fun initialize(context: Context) {
         val local = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY, false)
         if (local) {
+            if (current != null) return // configuration change: retain the same store and transport
             val store = FileLocalPersistence(File(context.noBackupFilesDir, "coast-local-v1"))
             localStore = store
             current = LocalCoastTransport(store)
