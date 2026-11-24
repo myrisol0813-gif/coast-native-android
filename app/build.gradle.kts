@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 120
-        versionName = "0.1.118-quick-model-picker"
+        versionCode = 121
+        versionName = "0.1.119-calendar-anniversaries"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 

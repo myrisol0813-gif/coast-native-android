@@ -131,6 +131,8 @@ fun MainShell(
             drawerContent = {
                 CoastDrawer(
                     state = state,
+                    drawerOpen = drawerState.isOpen,
+                    onSnackbar = onPlaceholder,
                     onClose = { coroutineScope.launch { drawerState.close() } },
                     onOpenRoomType = { roomType -> closeDrawerThen { onOpenRoomType(roomType) } },
                     onSelectConversation = { id -> closeDrawerThen { onSelectConversation(id) } },
