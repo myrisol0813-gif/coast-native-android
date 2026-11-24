@@ -2,8 +2,26 @@ package com.elementeracoast.app.core.remote
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KeepGeneratedSerializer
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Transient
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonUnquotedLiteral
 
-@Serializable
+@OptIn(ExperimentalSerializationApi::class)
+@KeepGeneratedSerializer
+@Serializable(with = RemoteDeskSlipWireSerializer::class)
 data class RemoteDeskSlip(
     val summary: String = "",
     val comfort: String = "",
@@ -23,8 +41,43 @@ data class RemoteDeskSlip(
     val attachments: RemoteDeskAttachments? = null,
     @SerialName("web_search") val webSearch: RemoteDeskWebSearch? = null,
     @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide(),
-    @SerialName("context_budget") val contextBudget: RemoteDeskContextBudget = RemoteDeskContextBudget()
+    @SerialName("context_budget") val contextBudget: RemoteDeskContextBudget = RemoteDeskContextBudget(),
+    @Transient val archivedJson: JsonObject? = null
 )
+
+/**
+ * Receipts are immutable historical evidence, not editable settings.
+ * Preserve the original JSON object in the same wire field; the typed model
+ * is only the rendering projection. No secondary persistence or extra wire key.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+object RemoteDeskSlipWireSerializer : KSerializer<RemoteDeskSlip> {
+    private val typed = RemoteDeskSlip.generatedSerializer()
+    private val projection = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = false }
+    override val descriptor get() = JsonObject.serializer().descriptor
+
+    override fun deserialize(decoder: Decoder): RemoteDeskSlip {
+        val input = decoder as? JsonDecoder ?: throw SerializationException("Desk receipt requires JSON")
+        val raw = input.decodeJsonElement() as? JsonObject ?: throw SerializationException("Desk receipt must be an object")
+        val view = projection.decodeFromJsonElement(typed, raw)
+        return view.copy(archivedJson = raw)
+    }
+
+    // JsonPrimitive's default serializer can parse numbers as Double/Long and
+    // change their spelling or precision. Preserve validated JSON number tokens.
+    private fun exactNumbers(element: JsonElement): JsonElement = when (element) {
+        is JsonObject -> JsonObject(element.mapValues { exactNumbers(it.value) })
+        is JsonArray -> JsonArray(element.map(::exactNumbers))
+        is JsonPrimitive -> if (element != JsonNull && !element.isString && element.content != "true" && element.content != "false") {
+            JsonUnquotedLiteral(element.content)
+        } else element
+    }
+
+    override fun serialize(encoder: Encoder, value: RemoteDeskSlip) {
+        val output = encoder as? JsonEncoder ?: throw SerializationException("Desk receipt requires JSON")
+        output.encodeJsonElement(exactNumbers(value.archivedJson ?: projection.encodeToJsonElement(typed, value)))
+    }
+}
 
 @Serializable
 data class RemoteDeskCurrentMessage(
