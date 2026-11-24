@@ -401,7 +401,8 @@ jobs:
           set -euo pipefail
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
           test -f "$apk"
-          sha256sum "$apk" > artifact/SHA256SUMS.txt
+          (cd artifact && sha256sum "$(basename "$apk")" > SHA256SUMS.txt)
+          (cd artifact && sha256sum --check SHA256SUMS.txt)
           printf 'stable_signing=true\nsignature_verified=true\nv1_signature_file=true\n' > artifact/BUILD_INFO.txt
           printf 'versionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" >> artifact/BUILD_INFO.txt
 
@@ -417,7 +418,26 @@ jobs:
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
           notes="V1 closeout signed debug APK. Signature verified with v1/v2/v3. versionCode=${COAST_VERSION_CODE}."
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt --clobber
+            # Keep already published version bytes immutable. Repair legacy receipts
+            # only after checking the original APK digest and build identity.
+            receipt_dir=$(mktemp -d)
+            trap 'rm -rf "$receipt_dir"' EXIT
+            name=$(basename "$apk")
+            gh release download "$tag" --pattern "$name" --pattern SHA256SUMS.txt --pattern BUILD_INFO.txt --dir "$receipt_dir"
+            cmp artifact/BUILD_INFO.txt "$receipt_dir/BUILD_INFO.txt"
+            published_sha=$(sha256sum "$receipt_dir/$name" | cut -d' ' -f1)
+            api_sha=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq ".assets[] | select(.name == \"$name\") | .digest")
+            [[ "$api_sha" == "sha256:$published_sha" ]]
+            old_receipt=$(cat "$receipt_dir/SHA256SUMS.txt")
+            [[ "$old_receipt" == "$published_sha  artifact/$name" || "$old_receipt" == "$published_sha  $name" ]]
+            verify_output=$("$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose --print-certs --min-sdk-version 23 "$receipt_dir/$name")
+            grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' <<<"$verify_output"
+            grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' <<<"$verify_output"
+            (cd "$receipt_dir" && sha256sum "$name" > SHA256SUMS.txt && sha256sum --check SHA256SUMS.txt)
+            if [[ "$old_receipt" != "$published_sha  $name" ]]; then
+              gh release upload "$tag" "$receipt_dir/SHA256SUMS.txt" --clobber
+            fi
+            echo "Existing APK left unchanged; canonical checksum verified."
           else
             gh release create "$tag" "$apk" artifact/SHA256SUMS.txt artifact/BUILD_INFO.txt \
               --target "$GITHUB_SHA" \
