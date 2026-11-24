@@ -54,6 +54,11 @@ class DefaultThoughtSoilRepository(
     }
 
     override suspend fun organizeAfterReply(conversationId: String, modelId: String): ThoughtSoilSnapshot {
+        if (com.elementeracoast.app.core.local.NativeWorkspace.isLocal) {
+            val saved=load(conversationId)
+            require(!saved.autoRefreshEnabled||saved.manualLocked){"本机自动整理尚未接入，原思维壤已保留。"}
+            return saved
+        }
         if (modelId.startsWith("chatgpt-plan:")) {
             val account = requireNotNull(plan) { "请先连接 ChatGPT 套餐再整理思维壤。" }
             val prepared = api.preparePlanSoil(conversationId, modelId)
