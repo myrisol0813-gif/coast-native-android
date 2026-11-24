@@ -39,8 +39,8 @@ android {
         applicationId = "com.elementeracoast.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 119
-        versionName = "0.1.117-model-channels"
+        versionCode = 120
+        versionName = "0.1.118-quick-model-picker"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
