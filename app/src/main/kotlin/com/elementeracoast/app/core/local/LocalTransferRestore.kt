@@ -45,14 +45,11 @@ internal object LocalTransferRestore {
         }
     }
 
-    private fun adaptDaily(payload: JsonObject, applicationId: String): JsonObject {
-        val origin = payload.getValue("applicationId").jsonPrimitive.content
-        if (origin == applicationId) return payload
-        val toPublic = applicationId == "com.elementeracoast.source"
+    internal fun adaptDaily(payload: JsonObject, toPortable: Boolean): JsonObject {
         val privateFields = listOf("xiaohan_avatar_dataurl", "myri_avatar_dataurl", "myri_display_name")
         val publicFields = listOf("owner_avatar_dataurl", "model_partner_avatar_dataurl", "model_partner_display_name")
-        val fields = if (toPublic) privateFields.zip(publicFields).toMap() else publicFields.zip(privateFields).toMap()
-        val authors = if (toPublic) mapOf("xiaohan" to "owner", "myri" to "model_partner")
+        val fields = if (toPortable) privateFields.zip(publicFields).toMap() else publicFields.zip(privateFields).toMap()
+        val authors = if (toPortable) mapOf("xiaohan" to "owner", "myri" to "model_partner")
             else mapOf("owner" to "xiaohan", "model_partner" to "myri")
         fun author(value: JsonElement): JsonElement {
             val item = value.jsonObject
@@ -85,7 +82,7 @@ internal object LocalTransferRestore {
         require(modules.isNotEmpty() && availableModules(payload, applicationId).containsAll(modules)) {
             "请选择目标已支持且数据包中包含的模块。"
         }
-        val daily = if ("daily" in modules) adaptDaily(payload, applicationId) else payload
+        val daily = if ("daily" in modules) adaptDaily(payload, toPortable = false) else payload
         val raw = buildJsonObject {
             put("applicationId", applicationId); put("exportedAt", payload.getValue("exportedAt"))
             put("conversations", if ("chat" in modules) payload.getValue("conversations") else JsonArray(emptyList()))
