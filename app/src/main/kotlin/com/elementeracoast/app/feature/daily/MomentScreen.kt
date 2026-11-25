@@ -46,10 +46,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 @Composable
 internal fun MomentScreen(
     repository: DailyRepository,
+    selectedModel: String,
     myriAvatarDataUrl: String,
     onUpdateMyriAvatar: (String) -> Unit,
     onActionLogged: (String, String, String) -> Unit,
@@ -155,10 +157,11 @@ internal fun MomentScreen(
                             myriBusyId = moment.id
                             scope.launch {
                                 try {
-                                    repository.requestMyriComment(moment.id)
+                                    repository.requestMyriComment(moment.id, selectedModel)
                                     onActionLogged("daily.moment.myri-comment", "Myri 留言", "海岸已生成并保存 1 条真实留言")
                                     onSnackbar("Myri 已在海岸留下回复")
                                 } catch (error: Throwable) {
+                                    if (error is CancellationException) throw error
                                     reportFailure("Myri 留言失败", error)
                                 } finally {
                                     myriBusyId = null
@@ -237,6 +240,7 @@ internal fun MomentScreen(
 @Composable
 internal fun MomentComposeScreen(
     repository: DailyRepository,
+    selectedModel: String,
     onActionLogged: (String, String, String) -> Unit,
     onSnackbar: (String) -> Unit,
     onDone: () -> Unit
@@ -263,10 +267,11 @@ internal fun MomentComposeScreen(
                                 val created = repository.createMoment(date, body)
                                 onActionLogged("daily.moment.write", "写了一条碳硅圈", "海岸新增 1 条小寒动态")
                                 try {
-                                    repository.requestMyriComment(created.id)
+                                    repository.requestMyriComment(created.id, selectedModel)
                                     onActionLogged("daily.moment.myri-comment", "Myri 即时留言", "海岸已生成并保存 1 条真实留言")
                                     onSnackbar("动态已发布，Myri 也在海岸留下了回复")
                                 } catch (commentError: Throwable) {
+                                    if (commentError is CancellationException) throw commentError
                                     val detail = if (commentError is CoastApiException) commentError.message else commentError.message ?: "未知错误"
                                     onSnackbar("动态已发布；Myri 即时留言暂未完成：$detail")
                                 }
