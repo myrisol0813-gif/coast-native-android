@@ -1058,7 +1058,7 @@ class CoastShellViewModel(
                         }
                         // Both paths keep the same owner-saved soil, but GPT inference
                         // is local to the user's ChatGPT plan. Never cross providers.
-                        if (!localMode) organizeThoughtSoilAfterReply(conversationId, progress.modelId)
+                        organizeThoughtSoilAfterReply(conversationId, progress.modelId)
                     }
                 }
             }
@@ -1347,6 +1347,9 @@ class CoastShellViewModel(
     private fun consumeCrossWindowRequest(): CrossWindowRequest {
         val request = _crossWindow.value.request()
         _crossWindow.value = CrossWindowUiState()
+        if(localMode && request.messages.isEmpty() &&
+            _state.value.contextSettings.crossWindowAuto)
+            return CrossWindowRequest(mode=com.elementeracoast.app.core.model.CrossWindowMode.ModelDecides)
         return request
     }
 
