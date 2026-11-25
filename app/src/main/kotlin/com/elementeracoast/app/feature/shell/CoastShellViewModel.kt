@@ -1347,7 +1347,7 @@ class CoastShellViewModel(
     private fun consumeCrossWindowRequest(): CrossWindowRequest {
         val request = _crossWindow.value.request()
         _crossWindow.value = CrossWindowUiState()
-        if(localMode && request.mode != com.elementeracoast.app.core.model.CrossWindowMode.Manual &&
+        if(localMode && request.messages.isEmpty() &&
             _state.value.contextSettings.crossWindowAuto)
             return CrossWindowRequest(mode=com.elementeracoast.app.core.model.CrossWindowMode.ModelDecides)
         return request

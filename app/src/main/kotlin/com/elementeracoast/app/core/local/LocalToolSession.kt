@@ -48,6 +48,7 @@ internal class LocalToolSession private constructor(
     private val read=linkedSetOf<RemoteCrossWindowMessageSelection>()
     private val seenCalls=mutableSetOf<String>()
     private var calls=0
+    private var applyResult:()->Unit = {}
     private var estimated=base.contextBudget.estimatedTokens+estimate(tools.toString())
     private var cross=base.crossWindow
     private val reports=mutableListOf<RemoteDeskToolResult>()
@@ -77,7 +78,7 @@ internal class LocalToolSession private constructor(
         try {
             require(arguments.length<=6000){"工具参数超限。"}
             val input=Json.parseToJsonElement(arguments).jsonObject
-            require(input.keys.all{it in spec.parameters.getValue("properties").jsonObject.keys})
+            require(input.keys.all{it in spec.parameters.getValue("properties").jsonObject.keys}&&spec.parameters.getValue("required").jsonArray.all{it.jsonPrimitive.content in input})
             val candidate=store.readConsistent{s->
                 require(allowedNow(s)){"窗口权限已变化。"}
                 run(s,spec,input)
@@ -85,12 +86,13 @@ internal class LocalToolSession private constructor(
             val nextEstimate=estimated+estimate(arguments)+estimate(candidate.first.toString())+32
             require(candidate.first.toString().length<=12000&&nextEstimate<=original.contextBudget.comfortCeiling){"工具返回超出本轮预算；请选择更少资料。"}
             output=candidate.first
-            candidate.second.invoke()
+            applyResult=candidate.second
             success=true
         }catch(_:Exception){
             output=buildJsonObject{put("ok",false);put("message","工具未完成：参数、授权、资料或本轮预算不满足。")}
         }
         estimated+=estimate(arguments.take(6000))+estimate(output.toString())+32
+        if(estimated>original.contextBudget.comfortCeiling)throw IllegalArgumentException("工具续请求超出预算。")
         val auditId=UUID.randomUUID().toString()
         try{
             store.readConsistent{s->
@@ -103,6 +105,8 @@ internal class LocalToolSession private constructor(
                 })
             }
         }catch(_:Exception){return errorResult("工具审计未能保存；不返回本次资料。")}
+        if(success)applyResult.invoke()
+        applyResult={}
         reports.add(RemoteDeskToolResult(name=name,delivered=true,content=if(success)"成功返回 "+output.toString().length+" 字符"else "未完成"))
         val run=RemoteFurnitureRun(id=auditId,toolKey=spec.key,label=spec.title,status=if(success)"success"else "error")
         return RemoteNativeToolResult(ok=success,output=output.toString(),furnitureRuns=listOf(run),deskSlip=receipt)
