@@ -1058,7 +1058,7 @@ class CoastShellViewModel(
                         }
                         // Both paths keep the same owner-saved soil, but GPT inference
                         // is local to the user's ChatGPT plan. Never cross providers.
-                        if (!localMode) organizeThoughtSoilAfterReply(conversationId, progress.modelId)
+                        organizeThoughtSoilAfterReply(conversationId, progress.modelId)
                     }
                 }
             }
