@@ -401,6 +401,9 @@ jobs:
           set -euo pipefail
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
           test -f "$apk"
+          limit_mib=$(sed -nE 's/^internal const val MAX_APK = ([0-9]+)L \* 1024 \* 1024$/\1/p' app/src/main/kotlin/com/elementeracoast/app/feature/wolf/LocalGithubUpdater.kt)
+          [[ "$limit_mib" =~ ^[1-9][0-9]*$ ]]
+          [[ $(stat -c %s "$apk") -le $((limit_mib * 1024 * 1024)) ]] || { echo "Signed APK exceeds updater limit" >&2; exit 1; }
           (cd artifact && sha256sum "$(basename "$apk")" > SHA256SUMS.txt)
           (cd artifact && sha256sum --check SHA256SUMS.txt)
           printf 'stable_signing=true\nsignature_verified=true\nv1_signature_file=true\n' > artifact/BUILD_INFO.txt
