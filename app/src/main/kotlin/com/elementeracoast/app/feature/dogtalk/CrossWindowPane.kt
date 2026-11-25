@@ -66,6 +66,10 @@ fun CrossWindowPane(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        if (keywordOnly && com.elementeracoast.app.core.local.NativeWorkspace.isLocal) {
+            CrossWindowNote("本机目前支持手动跨窗口选取；模型自主关键词检索尚未接入。")
+            return@Column
+        }
         if (keywordOnly) {
             Text("本地旧信关键词", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
@@ -89,7 +93,7 @@ fun CrossWindowPane(
         Text(CrossWindowDescription, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(CrossWindowMode.Off, CrossWindowMode.Manual, CrossWindowMode.ModelDecides).forEach { mode ->
+            (if (com.elementeracoast.app.core.local.NativeWorkspace.isLocal) listOf(CrossWindowMode.Off, CrossWindowMode.Manual) else listOf(CrossWindowMode.Off, CrossWindowMode.Manual, CrossWindowMode.ModelDecides)).forEach { mode ->
                 ModeChip(mode, state.mode == mode, { onChange(state.copy(mode = mode)) }, Modifier.weight(1f))
             }
         }
