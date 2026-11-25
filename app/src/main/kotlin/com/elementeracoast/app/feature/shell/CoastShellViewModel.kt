@@ -958,7 +958,9 @@ class CoastShellViewModel(
                 handleBackendError(error, "思维壤整理失败", keepAuthenticatedOnNetworkError = true)
             } else {
                 _state.update { it.copy(snackbarMessage =
-                    if (isChatGptPlanModel(modelId))
+                    if (localMode && error is com.elementeracoast.app.core.local.LocalSoilFailure)
+                        "思维壤整理失败：${error.detail}；原纸条保留。"
+                    else if (isChatGptPlanModel(modelId))
                         "GPT 套餐思维壤整理失败；原思维壤保留，不会调用 OpenRouter。"
                     else "思维壤整理失败；本轮回复已保存，可以继续聊天。"
                 ) }
