@@ -50,6 +50,7 @@ internal enum class DailyPage { Home, Moments, MomentCompose, Diary, DiaryCompos
 @Composable
 fun DailyLanding(
     repository: DailyRepository,
+    selectedModel: String = "",
     myriAvatarDataUrl: String,
     onUpdateMyriAvatar: (String) -> Unit,
     onRefreshCoast: () -> Unit,
@@ -150,13 +151,14 @@ fun DailyLanding(
                 })
                 DailyPage.Moments -> MomentScreen(
                     repository = repository,
+                    selectedModel = selectedModel,
                     myriAvatarDataUrl = myriAvatarDataUrl,
                     onUpdateMyriAvatar = onUpdateMyriAvatar,
                     onActionLogged = onActionLogged,
                     onSnackbar = onSnackbar,
                     onCompose = { page = DailyPage.MomentCompose }
                 )
-                DailyPage.MomentCompose -> MomentComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Moments }
+                DailyPage.MomentCompose -> MomentComposeScreen(repository, selectedModel, onActionLogged, onSnackbar) { page = DailyPage.Moments }
                 DailyPage.Diary -> DiaryScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.DiaryCompose }
                 DailyPage.DiaryCompose -> DiaryComposeScreen(repository, onActionLogged, onSnackbar) { page = DailyPage.Diary }
                 DailyPage.Calendar -> CalendarScreen(sideRooms, onSnackbar)
