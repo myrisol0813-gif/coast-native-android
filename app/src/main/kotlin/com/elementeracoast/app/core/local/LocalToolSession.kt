@@ -107,6 +107,16 @@ internal class LocalToolSession private constructor(
         val run=RemoteFurnitureRun(id=auditId,toolKey=spec.key,label=spec.title,status=if(success)"success"else "error")
         return RemoteNativeToolResult(ok=success,output=output.toString(),furnitureRuns=listOf(run),deskSlip=receipt)
     }
+    fun requireContinuationBudget(history:List<JsonElement>) {
+        // Image bytes were already charged at the fixed estimate in the prepared receipt.
+        val visible=history.map{m->
+            val o=m.jsonObject
+            val c=o["content"]
+            if(c is JsonArray)JsonObject(o+("content" to JsonArray(c.filterNot{it is JsonObject&&it["type"]?.jsonPrimitive?.contentOrNull=="image_url"})))else o
+        }
+        val wire=estimate(JsonArray(visible).toString())+estimate(tools.toString())
+        require(estimated<=original.contextBudget.comfortCeiling&&wire<=original.contextBudget.comfortCeiling){"工具续请求超出预算。"}
+    }
     private fun errorResult(message:String)=RemoteNativeToolResult(ok=false,
         output=buildJsonObject{put("ok",false);put("message",message)}.toString(),deskSlip=receipt)
     private fun run(s:LocalPersistence,spec:Spec,input:JsonObject):Pair<JsonObject,()->Unit>{
