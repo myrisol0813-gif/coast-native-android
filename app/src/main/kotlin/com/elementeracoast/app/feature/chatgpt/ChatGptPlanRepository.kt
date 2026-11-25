@@ -173,9 +173,11 @@ class ChatGptPlanRepository(
         model: String,
         prompt: String,
         reasoningEffort: String? = null,
-        maxOutputTokens: Int? = null
+        maxOutputTokens: Int? = null,
+        maxResultChars: Int = 10000
     ): ChatGptProbeResult = mutex.withLock {
         require(model.isNotBlank() && prompt.isNotBlank())
+        require(maxResultChars in 1..16000)
         val access = withContext(Dispatchers.IO) { activeCredentials().accessToken }
         withContext(Dispatchers.IO) {
             val payload = buildJsonObject {
@@ -216,8 +218,11 @@ class ChatGptPlanRepository(
                         val event = runCatching { json.parseToJsonElement(data).jsonObject }
                             .getOrNull() ?: continue
                         when (event["type"]?.jsonPrimitive?.contentOrNull) {
-                            "response.output_text.delta" ->
-                                output.append(event["delta"]?.jsonPrimitive?.contentOrNull.orEmpty())
+                            "response.output_text.delta" -> {
+                                val part=event["delta"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                                require(output.length+part.length<=maxResultChars) { "GPT 整理正文超过保存上限。" }
+                                output.append(part)
+                            }
                             "response.completed" -> completed = event["response"] as? JsonObject
                             "response.failed" -> error("GPT 返回失败；请查看套餐用量或重新授权。")
                             "response.incomplete" -> error("GPT 回复没有完整完成。")
@@ -226,7 +231,7 @@ class ChatGptPlanRepository(
                 }
                 val final = completed ?: error("GPT 回复流缺少 response.completed。")
                 require(output.isNotBlank()) { "GPT 没有返回思维壤正文。" }
-                require(output.length <= 10000) { "GPT 思维壤整理结果超过后端允许的 10000 字符。" }
+                require(output.length <= maxResultChars) { "GPT 整理正文超过保存上限。" }
                 val usage = final["usage"] as? JsonObject
                 val inputDetails = usage?.get("input_tokens_details") as? JsonObject
                 ChatGptProbeResult(
