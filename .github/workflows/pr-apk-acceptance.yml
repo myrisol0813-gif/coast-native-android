@@ -3,6 +3,7 @@ name: PR APK acceptance
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: write
@@ -102,6 +103,7 @@ jobs:
           printf 'stable_signing=true\nsignature_verified=true\nv1_signature_file=true\nversionName=%s\nversionCode=%s\napplicationId=com.elementeracoast.app\n' "$COAST_VERSION_NAME" "$COAST_VERSION_CODE" > artifact/BUILD_INFO.txt
 
       - name: Publish acceptance APK as prerelease
+        if: github.event.pull_request.draft == false
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
