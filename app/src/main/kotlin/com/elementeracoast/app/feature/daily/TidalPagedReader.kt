@@ -74,10 +74,11 @@ internal fun TidalPagedReader(
     paragraphs: List<JsonObject>,
     notes: List<JsonObject>,
     initialParagraph: Int,
+    initialOffset: Int,
     onChapter: (Int, Boolean) -> Unit,
     onHighlight: (paragraphIndex: Int, start: Int, end: Int) -> Unit,
     onNote: (JsonObject) -> Unit,
-    onProgress: (Int) -> Unit,
+    onProgress: (Int, Int) -> Unit,
     onShowNotes: () -> Unit,
     onExit: () -> Unit,
     onReadingChromeChanged: (Boolean) -> Unit = {},
@@ -128,8 +129,8 @@ internal fun TidalPagedReader(
         val visibleLines=(maxHeight.value/(fontSize*1.77f)).toInt().coerceIn(10,65)
         val budget=(charPerLine*(visibleLines-2)).coerceIn(180,1200)
         val pages=remember(raw,fontSize,budget) { paginateTidalChapter(raw,budget) }
-        val initial=remember(pages,initialParagraph) {
-            if(initialParagraph<0)pages.lastIndex else tidalPageFor(pages,initialParagraph)
+        val initial=remember(pages,initialParagraph,initialOffset) {
+            if(initialParagraph<0)pages.lastIndex else tidalPageFor(pages,initialParagraph,initialOffset)
         }
         val hasPrevious=chapterIndex>0
         val hasNext=chapterIndex<chapters.size-1
@@ -145,7 +146,7 @@ internal fun TidalPagedReader(
                 hasPrevious && pager.currentPage==0 -> onChapter(chapterIndex-1,true)
                 hasNext && pager.currentPage==total-1 -> onChapter(chapterIndex+1,false)
                 else -> pages.getOrNull(pager.currentPage-offset)?.lastOrNull()?.let {
-                    onProgress(it.paragraphIndex)
+                    onProgress(it.paragraphIndex,it.start)
                 }
             }
         }
