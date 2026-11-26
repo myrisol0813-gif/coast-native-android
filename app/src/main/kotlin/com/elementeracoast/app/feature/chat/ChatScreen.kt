@@ -279,7 +279,7 @@ fun ChatWindow(
 
     voiceTarget?.let { message ->
         VoiceSelectionDialog(
-            message = message, working = voiceWorking,
+            message = message, working = voiceWorking, localMode=state.localMode,
             onDismiss = { voiceTarget = null },
             onGenerate = { indices ->
                 val variantId = message.remoteVariantId
@@ -298,7 +298,7 @@ fun ChatWindow(
                             })
                             voiceClips = decodeVoiceClips(sideRooms.voiceClips(state.activeConversationId))
                             voiceTarget = null
-                            onPlaceholder("Myraes 的声音已留在这条消息里。")
+                            onPlaceholder(if(state.localMode)"声音已留在这条消息里。" else "Myraes 的声音已留在这条消息里。")
                         } catch (error: Exception) {
                             onPlaceholder("生成失败：${error.message}")
                         } finally { voiceWorking = false }
