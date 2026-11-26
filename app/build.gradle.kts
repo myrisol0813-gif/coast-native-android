@@ -42,8 +42,8 @@ android {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 34
-        versionCode = 138
-        versionName = "0.1.136"
+        versionCode = 139
+        versionName = "0.1.137"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
     }
 
