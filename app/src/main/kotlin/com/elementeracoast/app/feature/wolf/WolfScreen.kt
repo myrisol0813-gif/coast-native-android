@@ -127,7 +127,7 @@ fun WolfScreen(
                 )
                 WolfDestination.BasicSettings -> BasicSettingsScreen(state.basic, store, onSnackbar)
                 WolfDestination.Diagnostics -> DiagnosticsScreen(shellState, state)
-                WolfDestination.Update -> if (shellState.localMode) LocalGithubUpdateScreen(onSnackbar) else WolfUpdateScreen(devHands, onSnackbar)
+                WolfDestination.Update -> LocalGithubUpdateScreen(onSnackbar, if (shellState.localMode) null else devHands)
             }
         }
     }
