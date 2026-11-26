@@ -139,19 +139,15 @@ fun DevHandsScreen(
                 busy = busy,
                 message = message,
                 onRefresh = { scope.launch { refreshUpdate() } },
-                onDownload = { relative, expectedSha ->
+                onDownload = { _, expectedSha ->
                     if (!busy) {
                         busy = true
                         message = null
                         scope.launch {
                             try {
-                                val apk = repository.downloadApk(relative, expectedSha)
-                                message = when (installNativeApk(context, apk)) {
-                                    NativeApkInstallLaunch.InstallerOpened ->
-                                        "APK 已使用海岸登录态下载并通过 SHA-256 校验，正在打开系统安装器。"
-                                    NativeApkInstallLaunch.PermissionSettingsOpened ->
-                                        "APK 已下载并通过 SHA-256 校验。请先允许海岸“安装未知应用”，返回后再点一次“下载并安装”。"
-                                }
+                                val updater = com.elementeracoast.app.feature.wolf.LocalGithubUpdater()
+                                val apk = updater.downloadMatching(context, expectedSha)
+                                message = if (updater.openInstaller(context, apk)) "APK 已直连 GitHub 下载，哈希、包名、版本及签名校验通过，正在打开系统安装器。" else "请先允许安装未知应用，返回后再点击下载并安装。"
                             } catch (error: Throwable) {
                                 message = error.message ?: "APK 下载或安装入口打开失败。"
                             } finally {
