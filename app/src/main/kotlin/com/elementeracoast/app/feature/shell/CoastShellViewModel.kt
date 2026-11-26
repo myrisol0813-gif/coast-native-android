@@ -347,6 +347,20 @@ class CoastShellViewModel(
         _state.update { it.copy(showModelPicker = false) }
     }
 
+    fun selectImageModel(model: String) {
+        if (generationJob?.isActive == true || _state.value.isStreaming || _state.value.isFinalizing) {
+            _state.update { it.copy(snackbarMessage = "当前对话还未结束，请稍后切换生图模型。") }
+            return
+        }
+        if (model !in _state.value.imageModels || model == _state.value.currentImageModel) return
+        viewModelScope.launch(workDispatcher) {
+            try {
+                val profile = backend.profile.setCurrentImageModel(model)
+                _state.update { it.copy(currentImageModel = profile.currentImageModel, snackbarMessage = "生图模型已选定；按所选 API 正常计费。") }
+            } catch (error: CoastApiException) { handleBackendError(error, "生图模型切换失败") }
+        }
+    }
+
     fun selectModel(model: String) {
         if (generationJob?.isActive == true || _state.value.isStreaming || _state.value.isFinalizing) {
             _state.update { it.copy(snackbarMessage = "当前对话还未结束，请稍后切换模型。") }
@@ -872,6 +886,7 @@ class CoastShellViewModel(
             it.copy(
                 currentModel = if (isChatGptPlanModel(it.currentModel)) it.currentModel
                     else current.ifBlank { it.currentModel },
+                currentImageModel = profile?.currentImageModel ?: it.currentImageModel,
                 myriAvatarDataUrl = myri,
                 xiaohanAvatarDataUrl = daily.xiaohanAvatarDataUrl,
                 coverDataUrl = daily.momentCoverDataUrl
@@ -884,15 +899,16 @@ class CoastShellViewModel(
         val models = buildList {
             addAll(catalog.groups.openAiChat.map { it.id })
             addAll(catalog.groups.freeTest.map { it.id })
-            addAll(catalog.groups.openAiImage.map { it.id })
         }.filter(String::isNotBlank).distinct()
+        val images = catalog.groups.openAiImage.map { it.id }.filter(String::isNotBlank).distinct()
         val current = _state.value.currentModel
         _state.update {
             it.copy(
-                models = if (!localMode && current.isNotBlank() && !isChatGptPlanModel(current) && current !in models) listOf(current) + models else models,
+                imageModels = images,
+                models = if (!localMode && current.isNotBlank() && !isChatGptPlanModel(current) && current !in images && current !in models) listOf(current) + models else models,
                 modelReasoningChoices = (catalog.groups.openAiChat + catalog.groups.freeTest)
                     .associate { it.id to it.reasoningEfforts },
-                currentModel = if (localMode) current.takeIf { isChatGptPlanModel(it) || it in models }.orEmpty() else current.ifBlank { models.firstOrNull().orEmpty() }
+                currentModel = if (localMode) current.takeIf { isChatGptPlanModel(it) || it in models }.orEmpty() else current.takeUnless { it in images }.orEmpty().ifBlank { models.firstOrNull().orEmpty() }
             )
         }
     }
