@@ -116,6 +116,13 @@ internal class LocalGithubUpdater {
         val a = selectGithubRelease(json, SOURCE_CHANNEL) ?: error("未找到完整正式发行包。")
         parseLocalRelease(a, get(asset(a, "BUILD_INFO.txt"), 65536).decodeToString(), get(asset(a, "SHA256SUMS.txt"), 65536).decodeToString(), BuildConfig.APPLICATION_ID, SOURCE_CHANNEL)
     }
+    // The online metadata receipt must match the official release before downloading.
+    suspend fun downloadMatching(context: Context, expectedSha: String?): File {
+        val release = latest()
+        val expected = expectedSha?.trim()?.removePrefix("sha256:")?.lowercase()
+        require(expected == release.sha) { "正式发行与当前更新回执不一致，请刷新版本信息后重试。" }
+        return download(context, release)
+    }
     suspend fun download(context: Context, release: LocalRelease): File = withContext(Dispatchers.IO) {
         require(release.code > BuildConfig.VERSION_CODE) { "当前版本无需更新。" }
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
