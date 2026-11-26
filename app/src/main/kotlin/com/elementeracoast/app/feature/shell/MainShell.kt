@@ -87,6 +87,7 @@ fun MainShell(
     onChatGptDisconnect: () -> Unit,
     onChatGptRefresh: () -> Unit,
     onChatGptProbe: (String) -> Unit,
+    onEnterLocalWorkspace: () -> Unit,
     onLogout: () -> Unit,
     onPlaceholder: (String) -> Unit,
     onSnackbarShown: () -> Unit
@@ -216,6 +217,7 @@ fun MainShell(
                             onChatGptDisconnect = onChatGptDisconnect,
                             onChatGptRefresh = onChatGptRefresh,
                             onChatGptProbe = onChatGptProbe,
+                            onEnterLocalWorkspace = onEnterLocalWorkspace,
                             onLogout = onLogout,
                             onImportMessages = onImportMessages,
                             onLocalActionLogged = onLocalActionLogged,
