@@ -47,6 +47,7 @@ internal fun MessageItem(
             thoughtSoil = thoughtSoil,
             metadataMessageId = metadataMessageId,
             metadataSource = metadataSource,
+            attachmentPreviewSource = attachmentPreviewSource,
             onAvatarClick = onAvatarClick,
             onOpenThoughtSoil = onOpenThoughtSoil,
             onCopy = { onCopy(message) },
