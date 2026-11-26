@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
                         onUpdateMyriAvatar = vm::updateMyriAvatar,
                         onUploadAttachment = vm::uploadAttachment,
                         onRemovePendingAttachment = vm::removePendingAttachment,
+                        onComposerDraftChange = vm::updateComposerDraft,
                         onSend = vm::sendMessage,
                         onStop = vm::stopGeneration,
                         onMessageAction = vm::handleMessageAction,
