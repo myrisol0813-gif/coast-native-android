@@ -105,7 +105,7 @@ class LocalAttachmentArchiveTest {
         cache.putConversations(listOf(RemoteConversation(cid,"图片","main")))
         cache.putHistory(cid,RemoteHistory(conversationId=cid,turns=listOf(RemoteTurn("turn1",user=RemoteUserBranch(0,listOf(RemoteVariant("user1","draw")))))))
         val config=LocalProviderConfig("image","image","https://openrouter.ai/api/v1","test-key",listOf("fixture/paid","fixture/image:free"))
-        val discover:(String)->List<LocalImageProvider.Model>={key->assertEquals("test-key",key);listOf(LocalImageProvider.Model("fixture/paid","paid",false),LocalImageProvider.Model("fixture/image:free","free",true))}
+        val discover:(String)->List<LocalImageProvider.Model> = {key->assertEquals("test-key",key);listOf(LocalImageProvider.Model("fixture/paid","paid",false),LocalImageProvider.Model("fixture/image:free","free",true))}
         val input=buildJsonObject{put("conversation_id",cid);put("turn_id","turn1");put("user_variant_id","user1");put("message_id","assistant1");put("prompt","draw a wolf")}
         val png=byteArrayOf(137.toByte(),80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0)
         var calls=0

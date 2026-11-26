@@ -207,7 +207,7 @@ internal class ManualImageFailure(val type:String,override val message:String,va
 
 /** Explicit owner request, exact reserved branch, no repeated provider request.
  * The network is deliberately outside the workspace transaction and router lock. */
-internal fun runLocalManualImageGeneration(store:LocalPersistence,config:LocalProviderConfig?,input:JsonObject,discover:(String)->List<LocalImageProvider.Model>={key->LocalImageProvider().discover(key)},generate:(LocalImageProvider.Config,JsonObject)->LocalImageProvider.Generated={c,p->LocalImageProvider().generate(c,p)}):JsonObject{
+internal fun runLocalManualImageGeneration(store:LocalPersistence,config:LocalProviderConfig?,input:JsonObject,discover:(String)->List<LocalImageProvider.Model> = {key->LocalImageProvider().discover(key)},generate:(LocalImageProvider.Config,JsonObject)->LocalImageProvider.Generated={c,p->LocalImageProvider().generate(c,p)}):JsonObject{
     fun fail(type:String,message:String,status:Int=400):Nothing=throw ManualImageFailure(type,message,status)
     if(input.keys!=setOf("conversation_id","turn_id","user_variant_id","message_id","prompt"))fail("image_request_invalid","生成图像请求无效。")
     fun str(k:String)=(input[k] as? JsonPrimitive)?.takeIf{it.isString}?.content?:fail("image_request_invalid","缺少消息版本或绘图提示。")
