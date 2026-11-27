@@ -18,13 +18,14 @@ class WolfLocalParityTest {
         )
     }
 
-    @Test fun basicSettingsExposeExactlyElevenActiveFieldsAndNoOldRunControl() {
-        assertEquals(11, BasicSettings.activeFieldNames.size)
+    @Test fun basicSettingsExposeFifteenActiveFieldsAndNoOldRunControl() {
+        assertEquals(15, BasicSettings.activeFieldNames.size)
         assertEquals(
             listOf(
                 "recentTurns", "contextBudget", "outputLength", "maxOutputTokens", "creativity",
                 "streamingEnabled", "soilBudget", "seedCooldownTurns", "worldbookEnabled",
-                "worldbookLimit", "memoryLimit"
+                "worldbookLimit", "memoryLimit", "toolCallLimit",
+                "replySequenceMaxMessages", "replySequenceToolBudget", "replySequenceTokenBudget"
             ), BasicSettings.activeFieldNames
         )
         val names = BasicSettings.activeFieldNames.joinToString(" ")
@@ -43,7 +44,7 @@ class WolfLocalParityTest {
         store.setLocalFont("方正FW筑紫明朝 简 L", "/data/user/0/com.elementeracoast.app/files/local-fonts/reading-font.ttf")
         store.setReadingWeight(CoastReadingWeight.Medium)
         store.setPaperMode(CoastPaperMode.Smooth)
-        store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long") }
+        store.updateBasic { it.copy(memoryLimit = 5, outputLength = "long", toolCallLimit=32, replySequenceMaxMessages=5, replySequenceToolBudget=0, replySequenceTokenBudget=12000) }
         val reloaded = WolfStore(persistence).state.value
         assertEquals("Kryo", reloaded.profile.nickname)
         assertEquals(CoastThemePreset.BlushMyri, reloaded.appearance.theme)
@@ -55,6 +56,10 @@ class WolfLocalParityTest {
         assertEquals(CoastPaperMode.Smooth, reloaded.appearance.paperMode)
         assertEquals(5, reloaded.basic.memoryLimit)
         assertEquals("long", reloaded.basic.outputLength)
+        assertEquals(32,reloaded.basic.toolCallLimit)
+        assertEquals(5,reloaded.basic.replySequenceMaxMessages)
+        assertEquals(0,reloaded.basic.replySequenceToolBudget)
+        assertEquals(12000,reloaded.basic.replySequenceTokenBudget)
     }
 
     @Test fun cloudOutlineDefaultsOnAndPersistsAcrossThemesAndPaperModes() {
