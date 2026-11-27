@@ -1,2 +1,0 @@
-Canonical Source art snapshot: myrisol0813-gif/elementera-coast-source@7d03dc19d1fb7e9338b82fdce1464b67013ee640
-14 extras replaced with owner-recovered masters; 80 original SVG fingerprints recorded in fidelity.json. Existing other artwork unchanged. Runtime and publishing not wired. Third-party badge distribution review pending.
