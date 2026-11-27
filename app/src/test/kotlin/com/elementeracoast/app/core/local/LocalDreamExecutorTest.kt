@@ -185,7 +185,8 @@ class LocalDreamExecutorTest {
         val invalid=JsonObject(calendar+("tool_call_id" to JsonPrimitive("ordinary-tool")))
         assertTrue(runCatching{restoredCalendar.restoreSnapshot(JsonArray(listOf(invalid)))}.isFailure)
         assertEquals(calendar,restoredCalendar.snapshot().single())
-        assertEquals("model_partner",diary.author)
+        assertEquals("myri",diary.author)
+        assertEquals("myri",moment.author)
         assertTrue(diary.toolCallId.orEmpty().startsWith("dream:"))
         val events=LocalDreamArchive(store).export(cid)!!.getValue("tools").jsonArray
         assertEquals(listOf(diary.id,moment.id,calendar.getValue("id").jsonPrimitive.content),events.map{
