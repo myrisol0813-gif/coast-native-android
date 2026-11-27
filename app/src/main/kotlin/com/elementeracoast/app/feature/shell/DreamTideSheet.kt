@@ -24,7 +24,7 @@ private fun status(value:String)=when(value){
     "running"->"活动中";"completed"->"已结束";"failed"->"未完成";"cancelled"->"已取消";"interrupted"->"已中断";"claimed"->"结果未确认";else->value
 }
 private fun toolName(value:String)=when(value){
-    "voice_create"->"自主语音";"image_generate"->"自主生图";"dream_memory_candidate"->"提议记忆候选";"dream_read_history"->"阅读历史";"dream_write_note"->"写自主手记";"dream_schedule_extra"->"提议额外唤醒";else->value
+    "voice_create"->"自主语音";"image_generate"->"自主生图";"dream_memory_candidate"->"提议记忆候选";"dream_read_history"->"阅读历史";"dream_write_note"->"写小笺";"dream_schedule_extra"->"提议额外唤醒";else->value
 }
 private fun JsonElement?.field(key:String):String?=((this as? JsonObject)?.get(key) as? JsonPrimitive)?.contentOrNull
 
@@ -110,7 +110,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 if(!saved.ok)error="保存未确认。"
                 else{
                     hydrate(api.dreamSettings(cid))
-                    notice=when(action){"arm"->"已授权自主唤醒";"disarm"->"已撤回授权";else->"设置已保存 · 未启用"}
+                    notice=when(action){"arm"->"已授权梦醒潮";"disarm"->"已撤回授权";else->"设置已保存 · 未启用"}
                 }
             }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"保存未完成。"}
             finally{busy=false}
@@ -118,10 +118,10 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
     }
     ModalBottomSheet(onDismissRequest=onDismiss,sheetState=sheetState){
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=16.dp).padding(bottom=28.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-            Text("自主唤醒",style=MaterialTheme.typography.titleLarge)
+            Text("梦醒潮",style=MaterialTheme.typography.titleLarge)
             Text("仅本窗口 · 独立于普通聊天",style=MaterialTheme.typography.bodySmall)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-                listOf("唤醒设置","自主手记","活动记录").forEachIndexed{i,label->
+                listOf("梦醒设置","小笺","潮痕").forEachIndexed{i,label->
                     FilterChip(selected=tab==i,onClick={if(!busy){tab=i;offset=0;notice=""}},label={Text(label)},modifier=Modifier.weight(1f))
                 }
             }
@@ -169,9 +169,9 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 Text("可以什么也不做。输入 token 为估算，实际费用以供应商为准。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("当前时间",execution.includeTime,!busy){execution=execution.copy(includeTime=it)}
                 DreamSwitch("上次活动与间隔",execution.includePrevious,!busy){execution=execution.copy(includePrevious=it)}
-                DreamSwitch("自主手记与回复",execution.includeReplies,!busy){execution=execution.copy(includeReplies=it)}
+                DreamSwitch("小笺与回笺",execution.includeReplies,!busy){execution=execution.copy(includeReplies=it)}
                 DreamSwitch("允许自主选读窗口历史",execution.readHistory,!busy){execution=execution.copy(readHistory=it)}
-                DreamSwitch("允许写自主手记",execution.writeNote,!busy){execution=execution.copy(writeNote=it)}
+                DreamSwitch("允许写小笺",execution.writeNote,!busy){execution=execution.copy(writeNote=it)}
                 DreamSwitch("核心自定义",execution.includeCustom,!busy){execution=execution.copy(includeCustom=it)}
                 DreamSwitch("用户画像",execution.includeUserPortrait,!busy){execution=execution.copy(includeUserPortrait=it)}
                 DreamSwitch("自我画像",execution.includeSelfPortrait,!busy){execution=execution.copy(includeSelfPortrait=it)}
@@ -201,8 +201,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 }
             }else if(tab==1){
                 if(localMode&&!canArm)Text("本机自动执行尚未开放；已归档的历史仍可阅读。",style=MaterialTheme.typography.bodySmall)
-                if(notePage.items.isEmpty()&&!busy)Text("还没有自主手记。")
-                Text("回复只保存文字，不立即唤醒模型。",style=MaterialTheme.typography.bodySmall)
+                if(notePage.items.isEmpty()&&!busy)Text("还没有小笺。")
+                Text("回笺只保存文字，不立即唤醒模型。",style=MaterialTheme.typography.bodySmall)
                 notePage.items.forEach{note->key(cid,note.claimId){
                     var body by remember{mutableStateOf("")}
                     var retryId by remember{mutableStateOf("")}
@@ -211,8 +211,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                         Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text(stamp(note.createdAt)+" · "+note.modelId,style=MaterialTheme.typography.bodySmall)
                             Text(note.body)
-                            note.replies.forEach{reply->Text(stamp(reply.createdAt)+" · 回复\n"+reply.body,style=MaterialTheme.typography.bodySmall)}
-                            OutlinedTextField(body,{body=it.take(16000)},label={Text("回复")},modifier=Modifier.fillMaxWidth(),enabled=!busy,minLines=2)
+                            note.replies.forEach{reply->Text(stamp(reply.createdAt)+" · 回笺\n"+reply.body,style=MaterialTheme.typography.bodySmall)}
+                            OutlinedTextField(body,{body=it.take(16000)},label={Text("回笺")},modifier=Modifier.fillMaxWidth(),enabled=!busy,minLines=2)
                             Button(enabled=!busy&&body.isNotBlank(),onClick={
                                 if(retryBody!=body){retryBody=body;retryId=UUID.randomUUID().toString()}
                                 val text=body;val id=retryId
@@ -222,13 +222,13 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                                     catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"回复保存未确认。"}
                                     finally{busy=false}
                                 }
-                            }){Text("保存回复")}
+                            }){Text("保存回笺")}
                         }
                     }
                 }}
             }else if(tab==2){
                 if(localMode&&!canArm)Text("本机自动执行尚未开放；已归档的历史仍可阅读。",style=MaterialTheme.typography.bodySmall)
-                if(activityPage.items.isEmpty()&&!busy)Text("还没有活动记录。")
+                if(activityPage.items.isEmpty()&&!busy)Text("还没有潮痕。")
                 activityPage.items.forEach{r->Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.45f)){
                     Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                         Text(stamp(r.startedAt)+" · "+if(r.kind=="daily")"固定唤醒" else "额外唤醒")
