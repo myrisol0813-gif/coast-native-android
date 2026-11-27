@@ -169,6 +169,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("允许模型自主预约额外唤醒",cfg.allowExtra,!busy){cfg=cfg.copy(allowExtra=it)}
                 DreamField("每日额外次数上限",extraText,{extraText=it},!busy)
                 Text("独立预算与邀请",style=MaterialTheme.typography.titleMedium)
+                Text("预算可自行填写；整数范围 1–2147483646，次数允许 0 表示禁止相应操作。实际输出受累计剩余预算、供应商能力与上下文约束；套餐输出为建议值。单次读取正文最多 60000 字符，过大请分页。",style=MaterialTheme.typography.bodySmall)
                 DreamField("单次累计 token 预算",tokenText,{tokenText=it},!busy)
                 DreamField(if(planDraft)"每次请求建议输出（软限制）" else "每次请求输出上限",outputText,{outputText=it},!busy)
                 DreamField("单次工具调用上限",toolsText,{toolsText=it},!busy)
@@ -243,6 +244,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                         Text(stamp(r.startedAt)+" · "+if(r.kind=="daily")"固定唤醒" else "额外唤醒")
                         Text(status(r.status)+" · "+r.modelId,style=MaterialTheme.typography.bodySmall)
+                        r.result.field("reason")?.let{reason->Text("活动回执："+when(reason){"ended"->"正常结束";"budget_or_usage_unknown"->"预算已用尽或供应商未返回用量";"plan_step_or_soft_budget_limit"->"套餐请求次数或软预算达到上限";"plan_soft_budget_exhausted"->"套餐软预算已用尽";"execution_failed"->"执行异常";"process_interrupted"->"进程中断";"cancelled"->"已取消";else->reason},style=MaterialTheme.typography.bodySmall)}
                         Text("总 token："+(r.result.field("total_tokens")?:"未确认")+" · 成本："+(r.result.field("reported_cost")?.let{"USD "+it}?:"未确认"),style=MaterialTheme.typography.bodySmall)
                         r.tools.forEach{t->
                             val name=t.field("tool_name").orEmpty()
