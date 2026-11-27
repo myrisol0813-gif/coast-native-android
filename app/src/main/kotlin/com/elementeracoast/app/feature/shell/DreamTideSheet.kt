@@ -93,16 +93,25 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
             val t=tokenText.toIntOrNull();val o=outputText.toIntOrNull();val u=toolsText.toIntOrNull()
             val r=readText.toIntOrNull();val x=extraText.toIntOrNull()
             val v=voiceLimitText.toIntOrNull();val i=imageLimitText.toIntOrNull()
-            if(t==null||t !in 1..1000000||o==null||o !in 1..65536||u==null||u !in 0..128||r==null||r !in 1..400||x==null||x !in 0..128||v==null||v !in 0..128||i==null||i !in 0..128||execution.invitation.isBlank()||model.isBlank()){
-                error="请填写模型、邀请词和有效整数预算。";return
-            }
-            execution.copy(tokenBudget=t,outputLimit=o,toolBudget=u,readTurns=r,extraPerDay=x,voiceLimit=v,imageLimit=i)
+            val fields=listOf(Triple("单次累计 token 预算",t,1),Triple("每次请求输出",o,1),Triple("单次工具调用上限",u,0),Triple("每次阅读最大轮数",r,1),Triple("每日额外次数上限",x,0),Triple("语音尝试上限",v,0),Triple("生图尝试上限",i,0))
+            val invalid=fields.firstOrNull{(_,value,min)->value==null||value<min||value==Int.MAX_VALUE}
+            if(invalid!=null){error=invalid.first+"：请输入 "+invalid.third+"–2147483646 的整数。";return}
+            if(execution.invitation.isBlank()||execution.invitation.length>16000){error="唤醒邀请词须为 1–16000 字符。";return}
+            if(model.isBlank()||model.length>180){error="绑定模型 ID 须为 1–180 字符。";return}
+            execution.copy(tokenBudget=t!!,outputLimit=o!!,toolBudget=u!!,readTurns=r!!,extraPerDay=x!!,voiceLimit=v!!,imageLimit=i!!)
         }
         if(action=="arm"&&(!canArmSelected||!consent||planDraft&&!softConsent))return
         val planLimit=planLimitText.toIntOrNull()
-        if(action=="arm"&&planDraft&&(planLimit==null||planLimit !in 1..129)){error="请填写 1–129 的套餐请求次数上限。";return}
+        if(action=="arm"&&planDraft&&(planLimit==null||planLimit !in 1..2147483646)){error="请填写 1–2147483646 的套餐请求次数上限。";return}
+        val daily=cfg.dailyTime.trim();val qs=quietStart.trim();val qe=quietEnd.trim()
+        if(action!="disarm"){
+            val clock=Regex("^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+            if(!clock.matches(daily)){error="每日固定时间请填写 HH:mm（00:00–23:59）。";return}
+            if(quiet&&(!clock.matches(qs)||!clock.matches(qe))){error="安静时段请填写 HH:mm。";return}
+            if(runCatching{ZoneId.of(cfg.timeZone.trim())}.isFailure){error="时区无效，请填写 IANA 时区。";return}
+        }
         val request=DreamSettingsRequest(cid,response.settings.revision,action,
-            e?.let{cfg.copy(quietHours=if(quiet)DreamQuietHours(quietStart,quietEnd)else null,execution=it)},model,consent,softConsent,planLimit?:5)
+            e?.let{cfg.copy(timeZone=cfg.timeZone.trim(),dailyTime=daily,quietHours=if(quiet)DreamQuietHours(qs,qe)else null,execution=it)},model,consent,softConsent,planLimit?:5)
         busy=true;error="";notice=""
         scope.launch{
             try{
@@ -146,7 +155,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     response.planStatus?.let{Text(when(it){"paused"->"套餐活动已暂停，请检查额度并重新授权。";"account_disconnected"->"套餐账号未连接或需重新授权。";"authorization_changed"->"账号或窗口授权已改变。";"authorized"->"套餐独立授权有效";else->"尚无套餐独立授权"},style=MaterialTheme.typography.bodySmall)}
                     val uri=androidx.compose.ui.platform.LocalUriHandler.current
                     TextButton(onClick={uri.openUri(com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.USAGE_URL)}){Text("查看 ChatGPT 使用额度")}
-                    DreamField("套餐单次请求次数上限",planLimitText,{planLimitText=it},!busy)
+                    DreamField("套餐单次请求次数上限（1–2147483646）",planLimitText,{planLimitText=it},!busy)
                 }
                 DreamField("时区（IANA）",cfg.timeZone,{cfg=cfg.copy(timeZone=it)},!busy)
                 DreamField("每日固定时间（HH:mm）",cfg.dailyTime,{cfg=cfg.copy(dailyTime=it)},!busy)
@@ -166,7 +175,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamField("每次阅读最大轮数",readText,{readText=it},!busy)
                 DreamField("每次活动语音尝试上限",voiceLimitText,{voiceLimitText=it},!busy)
                 DreamField("每次活动生图尝试上限",imageLimitText,{imageLimitText=it},!busy)
-                OutlinedTextField(execution.invitation,{execution=execution.copy(invitation=it.take(16000))},label={Text("唤醒邀请词")},modifier=Modifier.fillMaxWidth(),minLines=4,enabled=!busy)
+                OutlinedTextField(execution.invitation,{execution=execution.copy(invitation=it)},label={Text("唤醒邀请词（最多16000字符）")},isError=execution.invitation.length>16000,modifier=Modifier.fillMaxWidth(),minLines=4,enabled=!busy)
                 Text("可以什么也不做。输入 token 为估算，实际费用以供应商为准。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("当前时间",execution.includeTime,!busy){execution=execution.copy(includeTime=it)}
                 DreamSwitch("上次活动与间隔",execution.includePrevious,!busy){execution=execution.copy(includePrevious=it)}
@@ -208,7 +217,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     var body by remember{mutableStateOf("")}
                     var retryId by remember{mutableStateOf("")}
                     var retryBody by remember{mutableStateOf("")}
-                    Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.45f)){
+                    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp){
                         Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text(stamp(note.createdAt)+" · "+note.modelId,style=MaterialTheme.typography.bodySmall)
                             Text(note.body)
@@ -230,7 +239,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
             }else if(tab==2){
                 if(localMode&&!canArm)Text("本机自动执行尚未开放；已归档的历史仍可阅读。",style=MaterialTheme.typography.bodySmall)
                 if(activityPage.items.isEmpty()&&!busy)Text("还没有潮痕。")
-                activityPage.items.forEach{r->Surface(shape=MaterialTheme.shapes.medium,color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.45f)){
+                activityPage.items.forEach{r->com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp){
                     Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                         Text(stamp(r.startedAt)+" · "+if(r.kind=="daily")"固定唤醒" else "额外唤醒")
                         Text(status(r.status)+" · "+r.modelId,style=MaterialTheme.typography.bodySmall)
