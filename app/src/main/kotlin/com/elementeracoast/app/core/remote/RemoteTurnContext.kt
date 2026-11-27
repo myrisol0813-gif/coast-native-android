@@ -42,6 +42,7 @@ data class RemoteDeskSlip(
     @SerialName("web_search") val webSearch: RemoteDeskWebSearch? = null,
     @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide(),
     @SerialName("context_budget") val contextBudget: RemoteDeskContextBudget = RemoteDeskContextBudget(),
+    @SerialName("reply_sequence_previous") val replySequencePrevious:List<RemoteDeskSequenceMessage> = emptyList(),
     @Transient val archivedJson: JsonObject? = null
 )
 
@@ -87,6 +88,9 @@ data class RemoteDeskCurrentMessage(
     val delivered: Boolean = false,
     val content: String = ""
 )
+
+@Serializable
+data class RemoteDeskSequenceMessage(@SerialName("message_id") val messageId:String,val content:String,@SerialName("media_receipt") val mediaReceipt:RemoteDeskAttachments?=null)
 
 @Serializable
 data class RemoteDeskRecentContext(
@@ -243,7 +247,8 @@ data class RemoteDeskResponseMode(
     val status: String = "普通",
     @SerialName("short_reply_mode") val shortReplyMode: Boolean = false,
     val delivered: Boolean = false,
-    val context: String = ""
+    val context: String = "",
+    @SerialName("segmented_bubbles") val segmentedBubbles: Boolean = false
 )
 
 @Serializable
@@ -448,6 +453,7 @@ data class RemotePlanSoilPrepareResponse(
     @SerialName("expected_turn_id") val expectedTurnId: String = "",
     @SerialName("expected_assistant_id") val expectedAssistantId: String = "",
     @SerialName("expected_soil_revision") val expectedSoilRevision: Int = 0,
+    @SerialName("expected_history_revision") val expectedHistoryRevision:String="",
     @SerialName("max_result_chars") val maxResultChars: Int = 10000
 )
 

@@ -29,7 +29,7 @@ class FeatureParityTest {
     }
 
     @Test fun dailyLandingIncludesCalendarAndTidalLibrary() = assertEquals(
-        listOf("碳硅圈", "日记", "文件库", "海岸日历", "潮中书房", "宠物系统"), dailyLandingItems().map { it.title }
+        listOf("碳硅圈", "日记", "文件库", "海岸日历", "潮中书房", "休憩箱"), dailyLandingItems().map { it.title }
     )
 
     @Test fun memoryLandingKeepsMemoryV2AndPortraitEntrances() = assertEquals(

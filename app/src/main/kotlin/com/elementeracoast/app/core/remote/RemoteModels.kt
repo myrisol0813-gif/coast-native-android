@@ -148,6 +148,9 @@ data class RemoteImageGeneration(
 )
 
 @Serializable
+data class RemoteStickerDelivery(@SerialName("message_id") val messageId:String,@SerialName("sticker_id") val stickerId:String)
+
+@Serializable
 data class RemoteAttachment(
     val id: String,
     val type: String = "file",
@@ -156,7 +159,10 @@ data class RemoteAttachment(
     val size: Long = 0L,
     @SerialName("storage_key") val storageKey: String = "",
     @SerialName("created_at") val createdAt: String = "",
-    @SerialName("image_generation") val imageGeneration: RemoteImageGeneration? = null
+    @SerialName("image_generation") val imageGeneration: RemoteImageGeneration? = null,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    @SerialName("sticker_delivery") val stickerDelivery: RemoteStickerDelivery? = null
 )
 
 @Serializable
@@ -164,6 +170,9 @@ data class RemoteAttachmentResponse(
     val ok: Boolean = false,
     val attachment: RemoteAttachment
 )
+
+@Serializable
+data class RemoteReplySequence(val id:String,val index:Int)
 
 @Serializable
 data class RemoteVariant(
@@ -187,7 +196,10 @@ data class RemoteVariant(
     @SerialName("input_type") val inputType: String? = null,
     @SerialName("source_model_label") val sourceModelLabel: String? = null,
     @SerialName("dogtalk_snapshot_id") val dogtalkSnapshotId: String? = null,
-    @SerialName("archive_retained_desk_slip") val archiveRetainedDeskSlip: Boolean = false
+    @SerialName("archive_retained_desk_slip") val archiveRetainedDeskSlip: Boolean = false,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    @SerialName("reply_sequence") val replySequence: RemoteReplySequence? = null
 )
 
 @Serializable
@@ -212,12 +224,6 @@ data class RemoteChatMessage(val role: String, val content: String)
 data class RemoteRealityBattery(
     val percent: Int,
     val charging: Boolean? = null
-)
-
-@Serializable
-data class RemoteRealityWeather(
-    val city: String = "",
-    val summary: String = ""
 )
 
 @Serializable
@@ -246,11 +252,17 @@ data class RemoteRealitySteps(
 data class RemoteRealityContext(
     val timezone: String = "",
     val battery: RemoteRealityBattery? = null,
-    val weather: RemoteRealityWeather? = null,
     val location: RemoteRealityLocation? = null,
     @SerialName("recent_app") val recentApp: RemoteRealityApp? = null,
     @SerialName("app_usage") val appUsage: List<RemoteRealityAppUsage> = emptyList(),
-    val steps: RemoteRealitySteps? = null
+    val steps: RemoteRealitySteps? = null,
+    val weather: RemoteRealityWeather? = null
+)
+
+@Serializable
+data class RemoteRealityWeather(
+    val city: String = "",
+    val summary: String = ""
 )
 
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -271,7 +283,10 @@ data class RemoteChatRequest(
     val stream: Boolean = true,
     @SerialName("client_info") val clientInfo: String = "native_android",
     @SerialName("image_tool_enabled") val imageToolEnabled: Boolean = false,
-    @SerialName("image_model_id") val imageModelId: String? = null
+    @SerialName("image_model_id") val imageModelId: String? = null,
+    @SerialName("reply_sequence_id") val replySequenceId:String?=null,
+    @SerialName("user_variant_id") val userVariantId:String?=null,
+    @SerialName("native_single_claim") val nativeSingleClaim:String?=null
 )
 
 @Serializable

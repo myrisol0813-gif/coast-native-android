@@ -63,6 +63,9 @@ internal fun ModelBoxScreen(
     var expandedModel by remember { mutableStateOf<String?>(null) }
     val grouped = remember(models, current) { groupedUnselectedModels(models, current) }
     var query by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf(ModelKind.Chat) }
+    var imageQuery by remember { mutableStateOf("") }
+    var imageOpen by remember { mutableStateOf<Set<ImageGroup>>(emptySet()) }
     var channel by remember { mutableStateOf(if (current.startsWith("local:") || !chatGpt.connected) LocalModelChannel.Provider else LocalModelChannel.Codex) }
     var openGroups by remember { mutableStateOf<Set<ModelSeries>>(emptySet()) }
     val context = LocalContext.current.applicationContext
@@ -115,31 +118,20 @@ internal fun ModelBoxScreen(
             }
         }
 
+        item { ModelKindTabs(kind){kind=it} }
+        if(kind==ModelKind.Image){
+            item { CurrentImageCard(currentImage) }
+            item { OutlinedTextField(imageQuery,{imageQuery=it},modifier=Modifier.fillMaxWidth(),singleLine=true,placeholder={Text("搜索生图模型")}) }
+            imageModelItems(imageModels,currentImage,imageQuery,imageOpen,{g->imageOpen=if(g in imageOpen)imageOpen-g else imageOpen+g},onSelectImage,providerNames)
+        } else if(kind==ModelKind.Voice){
+            item { if(localMode) LocalVoicePanel() else OnlineVoiceInfo() }
+        } else {
         item {
             Text("当前模型", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
             CurrentModelCard(current, if (!localMode) "" else if (current.startsWith("chatgpt-plan:")) "ChatGPT 套餐" else providerNames[localProviderId(current)].orEmpty())
         }
 
-        item {
-            Text("当前生图模型", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            CurrentModelCard(currentImage, "独立图片 API")
-            Text("与聊天模型独立；使用已配置 API 正常计费。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        item {
-            Text("图片模型目录", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            if (imageModels.isEmpty()) Text("暂无已核验的生图模型，请刷新目录。", style = MaterialTheme.typography.bodySmall)
-        }
-        items(imageModels.filter { query.isBlank() || it.contains(query, ignoreCase = true) }, key = { "image-model:" + it }) { model ->
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f), RoundedCornerShape(18.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if (localMode) localRawModelId(model) else model, style = MaterialTheme.typography.bodyMedium)
-                    if (localMode) Text(providerNames[localProviderId(model)].orEmpty(), style = MaterialTheme.typography.bodySmall)
-                }
-                TextButton(onClick = { onSelectImage(model) }, enabled = model != currentImage) { Text(if (model == currentImage) "当前" else "设为当前") }
-            }
-        }
         if (localMode) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -254,6 +246,7 @@ internal fun ModelBoxScreen(
             )
         }
         }
+        }
     }
 }
 
@@ -270,12 +263,7 @@ private fun LocalModelEntry(title: String, subtitle: String, modifier: Modifier,
 @Composable
 private fun CurrentModelCard(model: String, source: String = "") {
     val shape = RoundedCornerShape(18.dp)
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shadowElevation = 1.dp
-    ) {
+    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text(
                 model.removePrefix("chatgpt-plan:").substringAfterLast('/').ifBlank { "尚未载入" },
@@ -355,10 +343,7 @@ private fun ChatGptPlanCard(
     localMode: Boolean = false
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .65f)
-    ) {
+    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Text("官端 GPT · ChatGPT 套餐", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(

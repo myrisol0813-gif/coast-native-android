@@ -42,9 +42,13 @@ android {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 34
-        versionCode = 138
-        versionName = "0.1.136"
+        versionCode = 139
+        versionName = "0.1.137"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
+        // Feature availability is on; each window must still explicitly authorize execution.
+        // Build overrides remain available for diagnostic or restricted distributions.
+        buildConfigField("boolean", "LOCAL_DREAM_EXECUTION_ENABLED", providers.gradleProperty("COAST_LOCAL_DREAM_EXECUTION_ENABLED").orElse("true").map { it.equals("true",ignoreCase=true) }.get().toString())
+        buildConfigField("boolean", "LOCAL_DREAM_PLAN_EXECUTION_ENABLED", providers.gradleProperty("COAST_LOCAL_DREAM_PLAN_EXECUTION_ENABLED").orElse("true").map { it.equals("true",ignoreCase=true) }.get().toString())
     }
 
     signingConfigs {
@@ -153,6 +157,7 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.02")
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6")

@@ -20,12 +20,14 @@ interface ThoughtSoilRepository {
     suspend fun saveManual(conversationId: String, current: String, afterthoughts: List<String>): ThoughtSoilSnapshot
     suspend fun resumeAutomatic(conversationId: String): ThoughtSoilSnapshot
     suspend fun organizeAfterReply(conversationId: String, modelId: String): ThoughtSoilSnapshot
+    suspend fun organizeAfterSequence(conversationId:String,modelId:String,sequenceId:String):ThoughtSoilSnapshot = error("连续回复整理未接入")
 }
 
 class DefaultThoughtSoilRepository(
     private val api: CoastApiClient,
     private val plan: ChatGptPlanRepository? = null,
-    private val localOrganizer: (suspend (String, String) -> Unit)? = null
+    private val localOrganizer: (suspend (String, String) -> Unit)? = null,
+    private val localSequenceOrganizer:(suspend (String,String,String)->Unit)?=null
 ) : ThoughtSoilRepository {
     override suspend fun load(conversationId: String): ThoughtSoilSnapshot {
         val response = api.getThoughtSoilResponse(conversationId)
@@ -54,16 +56,36 @@ class DefaultThoughtSoilRepository(
         return load(conversationId)
     }
 
+    override suspend fun organizeAfterSequence(conversationId:String,modelId:String,sequenceId:String):ThoughtSoilSnapshot{
+        if(localOrganizer!=null){
+            requireNotNull(localSequenceOrganizer){"本机连续回复整理尚未接通"}.invoke(conversationId,modelId,sequenceId)
+            return load(conversationId)
+        }
+        if(modelId.startsWith("chatgpt-plan:"))return organizePlan(conversationId,modelId,sequenceId)
+        val result=api.organizeReplyRunSoil(conversationId,modelId,sequenceId)
+        require(result.ok&&!result.degraded){"思维壤整理未确认"}
+        return load(conversationId)
+    }
+
     override suspend fun organizeAfterReply(conversationId: String, modelId: String): ThoughtSoilSnapshot {
         if (localOrganizer != null) {
             localOrganizer.invoke(conversationId, modelId)
             return load(conversationId)
         }
-        if (modelId.startsWith("chatgpt-plan:")) {
+        if (modelId.startsWith("chatgpt-plan:")) return organizePlan(conversationId,modelId,null)
+        return try {
+            api.organizeThoughtSoil(conversationId, modelId)
+            load(conversationId)
+        } catch (error: CoastApiException) {
+            if (error.type != "soil_locked") throw error
+            load(conversationId)
+        }
+    }
+    private suspend fun organizePlan(conversationId:String,modelId:String,sequenceId:String?):ThoughtSoilSnapshot {
             val account = requireNotNull(plan) { "请先连接 ChatGPT 套餐再整理思维壤。" }
-            val prepared = api.preparePlanSoil(conversationId, modelId)
+            val prepared = api.preparePlanSoil(conversationId, modelId, sequenceId)
             if (prepared.skipped) return load(conversationId)
-            require(prepared.ok && prepared.prompt.isNotBlank() && prepared.model == modelId) {
+            require(prepared.ok && prepared.prompt.isNotBlank() && prepared.model == modelId && (sequenceId==null||prepared.expectedHistoryRevision.isNotBlank())) {
                 "思维壤准备失败；未调用其他模型额度。"
             }
             val modelSlug = modelId.removePrefix("chatgpt-plan:")
@@ -79,18 +101,10 @@ class DefaultThoughtSoilRepository(
             }
             val committed = api.commitPlanSoil(
                 conversationId, modelId, prepared, result.text,
-                result.inputTokens, result.cachedTokens, result.outputTokens
+                result.inputTokens, result.cachedTokens, result.outputTokens, sequenceId
             )
-            require(committed.ok) { "思维壤结果未能保存。" }
+            require(committed.ok&&!committed.degraded&&!committed.skipped) { "思维壤结果未能保存。" }
             return load(conversationId)
-        }
-        return try {
-            api.organizeThoughtSoil(conversationId, modelId)
-            load(conversationId)
-        } catch (error: CoastApiException) {
-            if (error.type != "soil_locked") throw error
-            load(conversationId)
-        }
     }
 }
 

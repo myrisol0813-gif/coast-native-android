@@ -28,6 +28,12 @@ import com.elementeracoast.app.core.remote.RemoteProfile
 import com.elementeracoast.app.feature.chat.ChatBranchNavigator
 import com.elementeracoast.app.feature.chat.ChatHistoryMutations
 import com.elementeracoast.app.feature.chat.ChatProgress
+import com.elementeracoast.app.feature.chat.ReplySequence
+import com.elementeracoast.app.core.network.ReplyRunEvent
+import com.elementeracoast.app.core.network.RemoteReplyRunRequest
+import com.elementeracoast.app.core.network.RemoteReplyRunBudget
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import com.elementeracoast.app.feature.chat.ChatSyncMapper
 import com.elementeracoast.app.feature.chatgpt.ChatGptConnectState
 import com.elementeracoast.app.feature.chatgpt.ChatGptPlanRepository
@@ -59,7 +65,8 @@ class CoastShellViewModel(
     private val workDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     private val chatGpt: ChatGptPlanRepository? = null,
     private val localMode: Boolean = false,
-    private val foregroundLease: ((()->Unit,()->Unit)->AutoCloseable?)? = null
+    private val foregroundLease: ((()->Unit,()->Unit)->AutoCloseable?)? = null,
+    private val onCommittedNotice: (String,com.elementeracoast.app.core.remote.RemoteVariant)->Unit = {_,_->}
 ) : ViewModel() {
     private val _state = MutableStateFlow(CoastShellState(
         currentModel = chatGpt?.preferredModel()?.let { CHATGPT_PLAN_PREFIX + it }.orEmpty(),
@@ -83,9 +90,15 @@ class CoastShellViewModel(
     val dogtalk: DogtalkRepository get() = backend.dogtalk
     val crossWindowRepository: CrossWindowRepository get() = backend.crossWindow
     val archive: GlobalArchiveRepository get() = backend.archive
+    val dreamApi get() = backend.dreamApi
     private var generationJob: Job? = null
+        set(value){
+            field=value
+            if(value!=null){val lease=generationRun?.localLease;value.invokeOnCompletion{lease?.close()}}
+        }
     private class GenerationRun(var ownerId: String) {
         var lease: AutoCloseable? = null
+        var localLease: AutoCloseable? = null
         var preparing = true
         var streaming = false
         var messageId: Long? = null
@@ -106,19 +119,23 @@ class CoastShellViewModel(
         )
     }
 
-    private fun beginGeneration(ownerId: String) {
-        check(generationRun == null)
+    private fun beginGeneration(ownerId: String):Boolean {
+        if(generationRun!=null)return false
+        val localLease=if(localMode)com.elementeracoast.app.core.local.LocalDreamRuntime.acquire() else null
+        if(localMode&&localLease==null){showPlaceholder("本机正在自主唤醒；请稍后再发送，或在对应窗口撤回唤醒授权。");return false}
         historyJob?.cancel()
-        val run = GenerationRun(ownerId)
+        val run = GenerationRun(ownerId).also{it.localLease=localLease}
         generationRun = run
         _state.update { generationUi(it.copy(historyLoading = false)) }
         run.lease = foregroundLease?.invoke({ if (generationRun === run) generationJob?.cancel() }, {
             if (generationRun === run) showPlaceholder("系统后台保护不可用；本轮仍可在应用内继续，切出应用可能中断。")
         })
+        return true
     }
 
     private fun finishGeneration() {
         generationRun?.lease?.close()
+        generationRun?.localLease?.close()
         generationRun = null
         generationJob = null
         _state.update(::generationUi)
@@ -604,7 +621,7 @@ class CoastShellViewModel(
         if(current.activeRoomType==RoomType.Lighthouse){showPlaceholder("灯塔窗口不支持生图。");return}
         if(current.pendingAttachments.isNotEmpty()){showPlaceholder("手动生图暂不接收参考图或文件，请先移除待发送附件。");return}
         if(current.searchFocus!=null){showPlaceholder("请先结束旧版本预览。");return}
-        beginGeneration(current.activeConversationId)
+        if(!beginGeneration(current.activeConversationId))return
         generationJob=viewModelScope.launch(workDispatcher){
             var cid=""
             var requested=false
@@ -624,6 +641,7 @@ class CoastShellViewModel(
                 requested=true
                 val result=backend.chat.generateImage(cid,turn.id,uid,mid,prompt)
                 showHistory(cid,result)
+                result.turns.firstOrNull{it.id==turn.id}?.assistant?.variantsByUserVariant?.values?.flatten()?.firstOrNull{it.id==mid}?.let{notifyCommitted(cid,it)}
                 showPlaceholder("图片已保存。")
             }catch(error:kotlinx.coroutines.CancellationException){
                 if(requested&&cid.isNotBlank())kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable){runCatching{backend.chat.loadHistory(cid)}.onSuccess{showHistory(cid,it)}}
@@ -646,8 +664,8 @@ class CoastShellViewModel(
         pendingSearchHit = null
         _state.update { it.copy(searchFocus = null) }
         val submittedModel = _state.value.currentModel
+        if(!beginGeneration(_state.value.activeConversationId))return
         val submittedCrossWindow = consumeCrossWindowRequest()
-        beginGeneration(_state.value.activeConversationId)
         generationJob = viewModelScope.launch(workDispatcher) {
             try {
                 val conversation = ensureRemoteConversation()
@@ -799,10 +817,10 @@ class CoastShellViewModel(
             is MessageAction.Retry -> retryMessage(message)
             is MessageAction.SelectVariant -> selectVariantForViewing(message, action.index)
             is MessageAction.ToggleLike -> mutateMessageHistory("点赞写回失败", "已同步点赞") { history ->
-                ChatHistoryMutations.toggleActiveAssistantLike(history, message.turnId ?: return@mutateMessageHistory history)
+                ChatHistoryMutations.toggleActiveAssistantLike(history, message.turnId ?: return@mutateMessageHistory history, message.remoteVariantId)
             }
             is MessageAction.ToggleFavorite -> mutateMessageHistory("收藏写回失败", "已同步收藏") { history ->
-                ChatHistoryMutations.toggleActiveAssistantFavorite(history, message.turnId ?: return@mutateMessageHistory history)
+                ChatHistoryMutations.toggleActiveAssistantFavorite(history, message.turnId ?: return@mutateMessageHistory history, message.remoteVariantId)
             }
             is MessageAction.Delete -> deleteMessage(message)
             is MessageAction.Edit -> editMessage(message, action.text)
@@ -1142,6 +1160,10 @@ class CoastShellViewModel(
         return backend.chat.loadHistory(conversationId)
     }
 
+    private fun notifyCommitted(cid:String,variant:com.elementeracoast.app.core.remote.RemoteVariant){
+        if(!variant.hidden && variant.finishReason !in setOf("cancelled","error","image_pending","image_tool_ready","image_failed") && (variant.content.isNotBlank()||variant.attachments.isNotEmpty()))runCatching{onCommittedNotice(cid,variant)}
+    }
+
     private suspend fun generateTurn(
         conversationId: String,
         history: RemoteHistory,
@@ -1149,6 +1171,10 @@ class CoastShellViewModel(
         modelId: String,
         crossWindowRequest: CrossWindowRequest
     ) {
+        if(history.contextSettings.replySequenceEnabled){
+            generateReplyRun(conversationId,history,turnId,modelId,crossWindowRequest)
+            return
+        }
         var partial = ""
         var replySaved = false
         val cleared = backend.chat.clearFailure(history, turnId)
@@ -1194,6 +1220,8 @@ class CoastShellViewModel(
                         generationRun?.apply { streaming = false; preview = null }
                         _state.update(::generationUi)
                         showHistory(conversationId, progress.history)
+                        val newId=ChatSyncMapper.nextAssistantVariantId(cleared,turnId)
+                        progress.history.turns.firstOrNull{it.id==turnId}?.assistant?.variantsByUserVariant?.values?.flatten()?.firstOrNull{it.id==newId}?.let{notifyCommitted(conversationId,it)}
                         if (_state.value.activeConversationId == conversationId) {
                             _state.update {
                                 it.copy(
@@ -1223,6 +1251,108 @@ class CoastShellViewModel(
             handleBackendError(error, "模型回复失败", keepAuthenticatedOnNetworkError = true)
         } finally {
             generationRun?.apply { streaming = false; preview = null }
+            _state.update(::generationUi)
+        }
+    }
+
+    private suspend fun generateReplyRun(cid:String,initial:RemoteHistory,tid:String,model:String,crossWindow:CrossWindowRequest){
+        // Never silently switch a requested group into a paid single reply.
+        if(isChatGptPlanModel(model)&&!localMode&&backend.officialChat==null){
+            showPlaceholder("当前安装包没有可用的套餐执行器。未发起请求，也不会切换供应商。");return
+        }
+        val window=initial.contextSettings
+        val imageModel=_state.value.currentImageModel
+ 
+        val source=initial.turns.firstOrNull{it.id==tid}?:return
+        val user=source.user.variants.getOrNull(source.user.active)?:return
+        val global=local.wolf.state.value.basic
+        val quota=ReplySequence.resolveBudget(global,window,source.assistant.variantsByUserVariant[source.user.active.toString()].orEmpty().size)
+        if(quota.maxMessages==0){showPlaceholder("回复分支已满，请先整理旧版本。");return}
+        val sequenceId=java.util.UUID.randomUUID().toString()
+        var canonical=initial
+        var mid:String?=null
+        var index=0
+        var partial=""
+        var tail:com.elementeracoast.app.core.remote.RemoteVariant?=null
+        val notified=mutableSetOf<String>()
+        var end:ReplyRunEvent.End?=null
+        val run=generationRun
+        fun preview(){
+            val messageId=mid?:return
+            val messages=ChatSyncMapper.replyRunPreview(canonical,tid,user.id,sequenceId,messageId,index,model,partial)
+            run?.preview=messages
+            run?.messageId=messages.first{it.remoteVariantId==messageId}.id
+            if(_state.value.activeConversationId==cid)_state.update{generationUi(it.copy(messages=messages))}
+        }
+        fun displayCanonical(){
+            run?.preview=ChatSyncMapper.toUi(canonical)
+            run?.messageId=null
+            showHistory(cid,canonical)
+            _state.update(::generationUi)
+        }
+        suspend fun readBack(){
+            // The server owns settlement; a cancelled native client must
+            // never synthesize a partial assistant or overwrite the group.
+            canonical=runCatching{backend.chat.loadHistory(cid)}.getOrElse{backend.chat.cachedHistory(cid)?:canonical}
+            displayCanonical()
+        }
+        run?.apply{preparing=false;streaming=true;preview=ChatSyncMapper.toUi(canonical);messageId=null}
+        _state.update{generationUi(it.copy(turnDeskReceipt=null))}
+        try{
+            val reality=backend.reality.capture(window)
+            val request=RemoteReplyRunRequest(cid,tid,user.id,sequenceId,model,RemoteReplyRunBudget(quota.maxMessages,quota.toolBudget,quota.tokenBudget),
+                java.time.LocalDate.now().toString(),java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+                buildJsonObject{
+                    put("recentTurns",global.recentTurns);put("contextBudget",global.contextBudget)
+                    put("outputLength",global.outputLength);put("maxOutputTokens",global.maxOutputTokens)
+                    put("streamingEnabled",global.streamingEnabled);put("toolCallLimit",global.toolCallLimit)
+                    put("soilBudget",global.soilBudget);put("worldbookEnabled",global.worldbookEnabled)
+                    put("worldbookLimit",global.worldbookLimit);put("memoryLimit",global.memoryLimit)
+                    put("creativity",global.creativity)
+                },reality,com.elementeracoast.app.core.remote.RemoteCrossWindowRequest(
+                    when(crossWindow.mode){
+                        com.elementeracoast.app.core.model.CrossWindowMode.Off->"off"
+                        com.elementeracoast.app.core.model.CrossWindowMode.Manual->"manual"
+                        com.elementeracoast.app.core.model.CrossWindowMode.ModelDecides->"model_decides"
+                        else->"keyword"
+                    },crossWindow.messages.map{com.elementeracoast.app.core.remote.RemoteCrossWindowMessageSelection(it.conversationId,it.messageId)}),
+                imageToolEnabled=imageModel.isNotBlank(),imageModelId=imageModel.takeIf{it.isNotBlank()})
+            val sequenceRepository=if(isChatGptPlanModel(model)&&!localMode)requireNotNull(backend.officialChat)else backend.chat
+            sequenceRepository.streamReplyRun(request).collect{event->
+                when(event){
+                    is ReplyRunEvent.Start->Unit
+                    is ReplyRunEvent.Begin->{mid=event.messageId;index=event.index;partial="";preview()}
+                    is ReplyRunEvent.Delta->{partial+=event.content;preview()}
+                    is ReplyRunEvent.Committed->{
+                        canonical=event.history;tail=event.variant;mid=null;partial=""
+                        if(notified.add(event.variant.id))notifyCommitted(cid,event.variant)
+                        displayCanonical()
+                        if(_state.value.activeConversationId==cid)_state.update{it.copy(backendOffline=false,
+                            turnDeskReceipt=event.variant.deskSlip?.let(com.elementeracoast.app.feature.chat.TurnDeskMapper::toUi))}
+                    }
+                    is ReplyRunEvent.End->{end=event;event.history?.let{canonical=it};displayCanonical()}
+                }
+            }
+            val settled=end?:throw CoastApiException(CoastApiErrorKind.Stream,"reply_group_incomplete","未确认整组结束。")
+            run?.apply{streaming=false;preview=null;messageId=null}
+            _state.update(::generationUi)
+            if(settled.status !in setOf("completed","limit_reached"))showPlaceholder(settled.message?:"连续回复已停止；正式消息保留。")
+            tail?.let{last->
+                try{
+                    val paper=backend.thoughtSoil.organizeAfterSequence(cid,last.modelId?:model,sequenceId)
+                    if(_state.value.activeConversationId==cid)_state.update{it.copy(thoughtSoil=paper)}
+                }catch(cancelled:CancellationException){throw cancelled}
+                catch(_:Exception){showPlaceholder("回复组已保存；思维壤整理未确认。")}
+                val group=canonical.turns.firstOrNull{it.id==tid}?.assistant?.variantsByUserVariant?.get(source.user.active.toString()).orEmpty()
+                    .filter{it.replySequence?.id==sequenceId}
+                if(!isChatGptPlanModel(model))refreshGeneratedTitle(cid,user.content,group.joinToString("\n\n"){it.content})
+            }
+        }catch(cancelled:CancellationException){
+            withContext(NonCancellable){readBack()};showPlaceholder("已停止；保留确认写入的回复，不会自动重试。");throw cancelled
+        }catch(error:CoastApiException){
+            withContext(NonCancellable){readBack()};handleBackendError(error,"连续回复未确认完成",keepAuthenticatedOnNetworkError=true)
+        }finally{
+            run?.apply{streaming=false;preview=null;messageId=null}
             _state.update(::generationUi)
         }
     }
@@ -1274,8 +1404,8 @@ class CoastShellViewModel(
             showPlaceholder("当前模型还没有从海岸载入，暂时不能重试。")
             return
         }
+        if(!beginGeneration(conversationId))return
         val submittedCrossWindow = consumeCrossWindowRequest()
-        beginGeneration(conversationId)
         generationJob = viewModelScope.launch(workDispatcher) {
             try {
                 val cleared = backend.chat.clearFailure(history, turnId)
@@ -1326,12 +1456,12 @@ class CoastShellViewModel(
         }
         val edited = ChatHistoryMutations.editActiveUser(previous, turnId, clean)
         if (edited == previous) return
+        if(!beginGeneration(conversationId))return
         backend.chat.cacheHistory(conversationId, edited)
         showHistory(conversationId, edited)
 
         val submittedModel = _state.value.currentModel
         val submittedCrossWindow = consumeCrossWindowRequest()
-        beginGeneration(conversationId)
         generationJob = viewModelScope.launch(workDispatcher) {
             try {
                 val persisted = backend.chat.persistHistory(conversationId, edited)
@@ -1380,8 +1510,8 @@ class CoastShellViewModel(
             showPlaceholder("当前模型还没有从海岸载入，暂时不能重新生成。")
             return
         }
+        if(!beginGeneration(conversationId))return
         val submittedCrossWindow = consumeCrossWindowRequest()
-        beginGeneration(conversationId)
         generationJob = viewModelScope.launch(workDispatcher) {
             try {
                 generateTurn(conversationId, history, turnId, model, submittedCrossWindow)
@@ -1597,7 +1727,8 @@ class CoastShellViewModel(
                 val backend = CoastBackendGraph.production(appContext, persistence, chatGpt)
                 return CoastShellViewModel(
                     persistence, backend, chatGpt = chatGpt, localMode = isLocal,
-                    foregroundLease = { cancel, unavailable -> GenerationForegroundService.acquire(appContext, cancel, unavailable) }
+                    foregroundLease = { cancel, unavailable -> GenerationForegroundService.acquire(appContext, cancel, unavailable) },
+                    onCommittedNotice={cid,variant->com.elementeracoast.app.core.local.CoastMessageNotifications.post(appContext,cid,variant,isLocal)}
                 ) as T
             }
         }

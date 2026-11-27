@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.elementeracoast.app.core.model.ChatMessage
 import com.elementeracoast.app.core.model.MessageAction
+import com.elementeracoast.app.core.model.ReplySegments
 import com.elementeracoast.app.core.model.ThoughtSoilSnapshot
 import com.elementeracoast.app.ui.theme.CoastChatTokens
 import com.elementeracoast.app.ui.theme.SnowLetterSurface
@@ -82,47 +85,50 @@ internal fun AssistantMessage(
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.fillMaxWidth()) {
-            SnowLetterSurface(
-                modifier = Modifier.fillMaxWidth(),
-                role = SnowLetterSurfaceRole.AssistantBubble,
-                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = .34f),
-                fallbackShape = RoundedCornerShape(18.dp)
-            ) {
-                Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
-                    Text(
-                        text = when {
-                            message.text.isEmpty() && isStreamingTail -> "•••"
-                            isStreamingTail -> message.text + " ▍"
-                            else -> message.text
-                        },
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = coastReadingMessageStyle(CoastChatTokens.ChatBodyLineHeight)
-                    )
-                    if (message.text.contains("\${audio_url}")) {
-                        Spacer(Modifier.height(7.dp))
-                        Text(
-                            "模型给出的链接仍是占位文字，并不是音频文件。请以本条消息下方的语音留存播放器为准。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
-                        Spacer(Modifier.height(5.dp))
-                        Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            val segments = remember(message.text,isStreamingTail) { ReplySegments.split(message.text,isStreamingTail) }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp),modifier=Modifier.fillMaxWidth()) {
+                segments.forEachIndexed { index, segment ->
+                    val last=index==segments.lastIndex
+                    SnowLetterSurface(
+                        modifier = Modifier.fillMaxWidth(),
+                        role = SnowLetterSurfaceRole.AssistantBubble,
+                        fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = .34f),
+                        fallbackShape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
+                            Text(
+                                text = remember(segment,isStreamingTail,last) { renderChatMarkdown(when {
+                                    segment.isEmpty() && isStreamingTail && last -> "•••"
+                                    isStreamingTail && last -> segment + " ▍"
+                                    else -> segment
+                                }) },
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = coastReadingMessageStyle(CoastChatTokens.ChatBodyLineHeight)
+                            )
+                            if (last && message.text.contains("\${audio_url}")) {
+                                Spacer(Modifier.height(7.dp))
+                                Text("模型给出的链接仍是占位文字，并不是音频文件。请以本条消息下方的语音留存播放器为准。",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,style = MaterialTheme.typography.bodySmall)
+                            }
+                            if(last)message.errorDetail?.takeIf(String::isNotBlank)?.let { detail ->
+                                Spacer(Modifier.height(5.dp))
+                                Text(detail, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                     }
                 }
             }
             if(message.attachments.isNotEmpty()){
                 Spacer(Modifier.height(6.dp))
-                MessageAttachmentList(conversationId=conversationId,attachments=message.attachments,previewSource=attachmentPreviewSource)
+                MessageAttachmentList(conversationId=conversationId,attachments=message.attachments,previewSource=attachmentPreviewSource,stickerSize=message.stickerDisplaySize)
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow(modifier = Modifier.fillMaxWidth()) {
                 MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
                 MessageActionButton(Icons.Default.Mic, "生成语音", enabled = !isStreamingTail && !message.remoteVariantId.isNullOrBlank(), onClick = onVoice)
-                MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
+                if(message.replyGroupTail) MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
-                MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
+                if(message.replyGroupTail) MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
                 if (metadataTraceState != null) {
                     Spacer(Modifier.weight(1f))
                     ModelMetadataTraceChip(state = metadataTraceState)
@@ -137,7 +143,7 @@ internal fun AssistantMessage(
                 Spacer(Modifier.height(CoastChatTokens.MetadataRowGap))
                 ModelMetadataTracePanel(state = metadataTraceState, modifier = Modifier.fillMaxWidth())
             }
-            if (message.variantCount > 1) {
+            if (message.replyGroupTail && message.variantCount > 1) {
                 Spacer(Modifier.height(4.dp))
                 Row(modifier = Modifier.align(Alignment.End)) {
                     VariantControl(

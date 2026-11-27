@@ -22,9 +22,28 @@ import com.elementeracoast.app.feature.shell.MainShell
 import com.elementeracoast.app.ui.theme.CoastTheme
 
 class MainActivity : ComponentActivity() {
+    private var dreamNotice by mutableStateOf<com.elementeracoast.app.core.local.LocalDreamNotifications.Target?>(null)
+    private var chatNotice by mutableStateOf<com.elementeracoast.app.core.local.CoastMessageNotifications.Target?>(null)
+    override fun onResume() {
+        super.onResume()
+        com.elementeracoast.app.core.local.CoastMessageNotifications.foreground=true
+    }
+    override fun onPause() {
+        com.elementeracoast.app.core.local.CoastMessageNotifications.foreground=false
+        super.onPause()
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        com.elementeracoast.app.core.local.CoastMessageNotifications.target(intent)?.let{chatNotice=it;dreamNotice=null}
+        com.elementeracoast.app.core.local.LocalDreamNotifications.target(intent)?.let{dreamNotice=it}
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NativeWorkspace.initialize(applicationContext)
+        if(savedInstanceState==null) chatNotice=com.elementeracoast.app.core.local.CoastMessageNotifications.target(intent)
+        if(savedInstanceState==null) dreamNotice=com.elementeracoast.app.core.local.LocalDreamNotifications.target(intent)
+        com.elementeracoast.app.core.local.LocalDreamWorker.sync(applicationContext)
         setContent {
             val vm: CoastShellViewModel = viewModel(factory = CoastShellViewModel.factory(applicationContext))
             val devHands = remember(applicationContext) { DevHandsProvider.production(applicationContext) }
@@ -34,6 +53,15 @@ class MainActivity : ComponentActivity() {
             val wolf by vm.local.wolf.state.collectAsState()
             var mailboxOpen by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
+            LaunchedEffect(chatNotice,state.authenticated,state.localMode,state.conversations,mailboxOpen){
+                val target=chatNotice?:return@LaunchedEffect
+                if(!state.authenticated||mailboxOpen)return@LaunchedEffect
+                if(target.local!=state.localMode){
+                    vm.showPlaceholder("请切换到通知所属的工作区查看消息。");chatNotice=null
+                }else if(state.conversations.any{it.id==target.cid}){
+                    vm.selectConversation(target.cid);chatNotice=null
+                }
+            }
 
             CoastTheme(
                 preset = wolf.appearance.theme,
@@ -65,6 +93,7 @@ class MainActivity : ComponentActivity() {
                         state = state,
                         chatGpt = chatGpt,
                         services = vm.local,
+                        dreamApi = vm.dreamApi,
                         daily = vm.daily,
                         memory = vm.memory,
                         dogtalk = vm.dogtalk,
@@ -126,6 +155,20 @@ class MainActivity : ComponentActivity() {
                         onPlaceholder = vm::showPlaceholder,
                         onSnackbarShown = vm::clearSnackbar
                     )
+                    val target=dreamNotice
+                    val noticeApi=vm.dreamApi
+                    if(target!=null && noticeApi!=null){
+                        if(state.localMode && state.conversations.any{it.id==target.cid}){
+                            androidx.compose.runtime.key(target){
+                                com.elementeracoast.app.feature.shell.DreamTideSheet(target.cid,state.currentModel,true,noticeApi,initialTab=target.tab,onDismiss={dreamNotice=null})
+                            }
+                        }else if(!state.localMode){
+                            LaunchedEffect(target){
+                                vm.showPlaceholder("这是一条本机活动通知。请切回本机模式查看。")
+                                dreamNotice=null
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -133,7 +176,7 @@ class MainActivity : ComponentActivity() {
 
     private fun switchWorkspace(local: Boolean) {
         if (!NativeWorkspace.select(applicationContext, local)) {
-            android.widget.Toast.makeText(this, "无法保存模式选择，请重试", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, "当前本机有执行任务或模式切换未保存，请稍后重试", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         // Destroy old workspace UI and ViewModel rather than reusing their state.

@@ -420,6 +420,9 @@ jobs:
           title="Elementera Coast Native ${COAST_VERSION_NAME}"
           apk="artifact/CoastGPT-native-${COAST_VERSION_NAME}-debug.apk"
           notes="V1 closeout signed debug APK. Signature verified with v1/v2/v3. versionCode=${COAST_VERSION_CODE}."
+          if [[ -s "docs/release-notes/${COAST_VERSION_NAME}.md" ]]; then
+            notes="$(cat "docs/release-notes/${COAST_VERSION_NAME}.md")"
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             # Keep already published version bytes immutable. Repair legacy receipts
             # only after checking the original APK digest and build identity.

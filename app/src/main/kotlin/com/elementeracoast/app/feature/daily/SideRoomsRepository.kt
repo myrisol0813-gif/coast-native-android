@@ -62,6 +62,7 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
         }
 
     suspend fun calendar(month: String): JsonObject = request("/api/calendar/entries?month=${encode(month)}")
+    suspend fun allCalendar(): JsonObject = request("/api/calendar/entries?all=1")
     private var sidebarMigrated = false
     suspend fun pinnedCalendar(today: String): JsonObject {
         if (config.localTransport == null && !sidebarMigrated) {
@@ -212,6 +213,9 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
     // Shared Coast Vault API. No local duplicate database and no paid audio regeneration.
     suspend fun chatSearch(query: String, cursor: String = ""): JsonObject =
         request("/api/chat/search?q=" + encode(query) + "&cursor=" + encode(cursor))
+
+    suspend fun vaultDreamOrigin(cid:String,mediaId:String):JsonObject =
+        request("/api/chat/dream-tide/activity?conversation_id="+encode(cid)+"&media_id="+encode(mediaId))
 
     suspend fun vaultMedia(kind: String = "all", query: String = "", cursor: String = ""): JsonObject =
         request("/api/coast-vault/media?kind=" + encode(kind) + "&q=" + encode(query) + "&cursor=" + encode(cursor))
