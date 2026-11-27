@@ -253,9 +253,9 @@ internal fun WindowContextSheet(
 
             if(usable&&roomType=="main"&&dreamApi!=null){
                 SoftSettingsCard {
-                    Text("自主唤醒",style=MaterialTheme.typography.titleSmall)
-                    Text("仅本窗口 · 唤醒设置、自主手记与活动记录",style=MaterialTheme.typography.bodySmall)
-                    Button(onClick={showDream=true}){Text("打开自主唤醒")}
+                    Text("梦醒潮",style=MaterialTheme.typography.titleSmall)
+                    Text("仅本窗口 · 梦醒设置、小笺与潮痕",style=MaterialTheme.typography.bodySmall)
+                    Button(onClick={showDream=true}){Text("打开梦醒潮")}
                 }
             }
 
