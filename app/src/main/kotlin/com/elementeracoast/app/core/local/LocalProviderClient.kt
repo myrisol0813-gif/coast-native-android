@@ -174,7 +174,7 @@ class LocalProviderClient(private val http: OkHttpClient = OkHttpClient.Builder(
         streamWithTools(p,model,messages,maxTokens,imageParts,null,temperature)
 
     internal fun streamWithTools(p:LocalProviderConfig, model:String, messages:List<RemoteChatMessage>,maxTokens:Int,imageParts:List<JsonObject>,session:LocalToolSession?,temperature:Double?=null):Flow<LocalProviderEvent> = callbackFlow {
-        val history=localMultimodalMessages(messages,imageParts).toMutableList()
+        val history=localMultimodalMessages(session?.withWorkbench(messages)?:messages,imageParts).toMutableList()
         val echo=LocalProviderEcho(p,model,maxTokens)
         val active=java.util.concurrent.atomic.AtomicReference<okhttp3.Call?>()
         val reader=launch(Dispatchers.IO) {

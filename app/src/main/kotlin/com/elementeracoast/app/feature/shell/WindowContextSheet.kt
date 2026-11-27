@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.elementeracoast.app.core.model.ConversationContextSettings
+import com.elementeracoast.app.core.model.DEFAULT_WORKBENCH_PROMPT
 import com.elementeracoast.app.core.model.RealityContextFields
 import com.elementeracoast.app.feature.chat.AndroidRealityContextSource
 
@@ -82,6 +83,7 @@ internal fun WindowContextSheet(
     var stepsAccess by remember { mutableStateOf(AndroidRealityContextSource.hasActivityRecognitionPermission(context)) }
     var locationAccess by remember { mutableStateOf(AndroidRealityContextSource.hasCoarseLocationPermission(context)) }
     var weatherCity by rememberSaveable(conversationId, settings.weatherCity) { mutableStateOf(settings.weatherCity) }
+    var workbenchPrompt by rememberSaveable(conversationId,settings.workbenchPrompt){mutableStateOf(settings.workbenchPrompt?:DEFAULT_WORKBENCH_PROMPT)}
 
     fun refreshPermissions() {
         usageAccess = AndroidRealityContextSource.hasUsageAccess(context)
@@ -212,6 +214,16 @@ internal fun WindowContextSheet(
                     enabled = usable,
                     onCheckedChange = onSetThoughtSoilEnabled
                 )
+            }
+
+            SoftSettingsCard {
+                SettingSwitchRow(title="分隔气泡",note="模型自主选择在同一次回复中分隔气泡；不增加生成次数。",checked=settings.segmentedBubbles,enabled=usable,onCheckedChange={onSettingsChange(settings.copy(segmentedBubbles=it))})
+                Text("工作区",style=MaterialTheme.typography.titleSmall)
+                OutlinedTextField(value=workbenchPrompt,onValueChange={workbenchPrompt=it.take(4000)},enabled=usable,modifier=Modifier.fillMaxWidth(),minLines=4,maxLines=8,label={Text("工具箱注入词")},supportingText={Text("有可用工具时递入；留空不关闭工具。")})
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    Button(onClick={workbenchPrompt=DEFAULT_WORKBENCH_PROMPT;onSettingsChange(settings.copy(workbenchPrompt=null))},enabled=usable){Text("恢复默认")}
+                    Button(onClick={onSettingsChange(settings.copy(workbenchPrompt=workbenchPrompt))},enabled=usable&&workbenchPrompt!=(settings.workbenchPrompt?:DEFAULT_WORKBENCH_PROMPT)){Text("保存注入词")}
+                }
             }
 
             if (wantsUsagePermission || wantsStepsPermission || wantsLocationPermission) {
