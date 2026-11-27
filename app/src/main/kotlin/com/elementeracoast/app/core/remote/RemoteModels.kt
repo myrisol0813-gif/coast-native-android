@@ -160,6 +160,8 @@ data class RemoteAttachment(
     @SerialName("storage_key") val storageKey: String = "",
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("image_generation") val imageGeneration: RemoteImageGeneration? = null,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     @SerialName("sticker_delivery") val stickerDelivery: RemoteStickerDelivery? = null
 )
 
@@ -195,6 +197,8 @@ data class RemoteVariant(
     @SerialName("source_model_label") val sourceModelLabel: String? = null,
     @SerialName("dogtalk_snapshot_id") val dogtalkSnapshotId: String? = null,
     @SerialName("archive_retained_desk_slip") val archiveRetainedDeskSlip: Boolean = false,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     @SerialName("reply_sequence") val replySequence: RemoteReplySequence? = null
 )
 

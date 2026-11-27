@@ -266,7 +266,8 @@ object ChatSyncMapper {
         mime = value.mime,
         size = value.size,
         storageKey = value.storageKey,
-        createdAt = value.createdAt
+        createdAt = value.createdAt,
+        isSticker = value.stickerDelivery != null
     )
 
     /** Ephemeral preview only, sharing the exact identity of the future saved

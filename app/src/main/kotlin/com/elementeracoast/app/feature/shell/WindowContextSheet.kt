@@ -218,6 +218,11 @@ internal fun WindowContextSheet(
 
             SoftSettingsCard {
                 SettingSwitchRow(title="分隔气泡",note="模型自主选择在同一次回复中分隔气泡；不增加生成次数。",checked=settings.segmentedBubbles,enabled=usable,onCheckedChange={onSettingsChange(settings.copy(segmentedBubbles=it))})
+                var stickerSize by remember(settings.stickerDisplaySize){mutableStateOf(settings.stickerDisplaySize.toString())}
+                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    OutlinedTextField(value=stickerSize,onValueChange={stickerSize=it.filter(Char::isDigit).take(3)},enabled=usable,modifier=Modifier.weight(1f),singleLine=true,label={Text("表情包显示尺寸 (dp)")},supportingText={Text("64—256，仅表情包")})
+                    Button(onClick={onSettingsChange(settings.copy(stickerDisplaySize=stickerSize.toInt()))},enabled=usable&&stickerSize.toIntOrNull()?.let{it in 64..256&&it!=settings.stickerDisplaySize}==true){Text("保存")}
+                }
                 Text("工作区",style=MaterialTheme.typography.titleSmall)
                 OutlinedTextField(value=workbenchPrompt,onValueChange={workbenchPrompt=it.take(4000)},enabled=usable,modifier=Modifier.fillMaxWidth(),minLines=4,maxLines=8,label={Text("工具箱注入词")},supportingText={Text("有可用工具时递入；留空不关闭工具。")})
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){

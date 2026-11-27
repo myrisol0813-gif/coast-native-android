@@ -148,7 +148,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
             if (!conversationExists(cid)) return missing(r)
             if (method == "GET") {
                 val h=store.readConsistent{s->val c=RemoteCacheStore(s,strictReads=true);val old=c.history(cid)?:RemoteHistory(conversationId=cid)
-                    LocalImageRecovery.recover(old).also{if(it!=old)c.putHistory(cid,it)}}
+                    if(LocalReplyRunStore(s).active(cid))old else LocalImageRecovery.recover(old).also{if(it!=old)c.putHistory(cid,it)}}
                 return ok(r,"source" to JsonPrimitive("local"),"history" to element(RemoteHistory.serializer(),h))
             }
             if (method == "PUT") {
@@ -156,6 +156,8 @@ class LocalCoastTransport(private val store: LocalPersistence,
                 val h=store.readConsistent{s->
                     val c=RemoteCacheStore(s,strictReads=true)
                     val old=c.history(cid)?:RemoteHistory(conversationId=cid)
+                    require(!LocalReplyRunStore(s).active(cid)){"当前窗口正在连续回复。"}
+                    LocalReplyRunStore.protect(old,input,r.header("X-Coast-Delete-Revision"))
                     val next=LocalImageRecovery.protect(old,input,r.header("X-Coast-Delete-Revision")).copy(conversationId=cid,updatedAt=now())
                     val originals=LocalAttachmentStore(s)
                     if(originals.needsHistoryLink(cid,next))s.atomic{staged->LocalAttachmentStore(staged).linkHistory(cid,next);RemoteCacheStore(staged).putHistory(cid,next)}
