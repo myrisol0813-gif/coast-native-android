@@ -1,0 +1,2 @@
+Canonical Source art snapshot: myrisol0813-gif/elementera-coast-source@e1cdafef3bb94f2947c10465b4565dbdd867feb7
+Original room/creature SVG payload from offline preview bundle 9666685, latest five metadata files read from pinned Source. Do not maintain independently. Runtime and publishing not wired. Third-party badge distribution review pending.
