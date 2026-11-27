@@ -45,9 +45,10 @@ android {
         versionCode = 138
         versionName = "0.1.136"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
-        // Explicit experimental build gate; not enabled in normal releases yet.
-        buildConfigField("boolean", "LOCAL_DREAM_EXECUTION_ENABLED", providers.gradleProperty("COAST_LOCAL_DREAM_EXECUTION_ENABLED").orElse("false").map { it.equals("true",ignoreCase=true) }.get().toString())
-        buildConfigField("boolean", "LOCAL_DREAM_PLAN_EXECUTION_ENABLED", providers.gradleProperty("COAST_LOCAL_DREAM_PLAN_EXECUTION_ENABLED").orElse("false").map { it.equals("true",ignoreCase=true) }.get().toString())
+        // Feature availability is on; each window must still explicitly authorize execution.
+        // Build overrides remain available for diagnostic or restricted distributions.
+        buildConfigField("boolean", "LOCAL_DREAM_EXECUTION_ENABLED", providers.gradleProperty("COAST_LOCAL_DREAM_EXECUTION_ENABLED").orElse("true").map { it.equals("true",ignoreCase=true) }.get().toString())
+        buildConfigField("boolean", "LOCAL_DREAM_PLAN_EXECUTION_ENABLED", providers.gradleProperty("COAST_LOCAL_DREAM_PLAN_EXECUTION_ENABLED").orElse("true").map { it.equals("true",ignoreCase=true) }.get().toString())
     }
 
     signingConfigs {
