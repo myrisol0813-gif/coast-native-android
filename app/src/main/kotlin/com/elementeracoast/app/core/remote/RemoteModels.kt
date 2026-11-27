@@ -227,12 +227,6 @@ data class RemoteRealityBattery(
 )
 
 @Serializable
-data class RemoteRealityWeather(
-    val city: String = "",
-    val summary: String = ""
-)
-
-@Serializable
 data class RemoteRealityLocation(
     val label: String = ""
 )
@@ -258,11 +252,17 @@ data class RemoteRealitySteps(
 data class RemoteRealityContext(
     val timezone: String = "",
     val battery: RemoteRealityBattery? = null,
-    val weather: RemoteRealityWeather? = null,
     val location: RemoteRealityLocation? = null,
     @SerialName("recent_app") val recentApp: RemoteRealityApp? = null,
     @SerialName("app_usage") val appUsage: List<RemoteRealityAppUsage> = emptyList(),
-    val steps: RemoteRealitySteps? = null
+    val steps: RemoteRealitySteps? = null,
+    val weather: RemoteRealityWeather? = null
+)
+
+@Serializable
+data class RemoteRealityWeather(
+    val city: String = "",
+    val summary: String = ""
 )
 
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -283,7 +283,10 @@ data class RemoteChatRequest(
     val stream: Boolean = true,
     @SerialName("client_info") val clientInfo: String = "native_android",
     @SerialName("image_tool_enabled") val imageToolEnabled: Boolean = false,
-    @SerialName("image_model_id") val imageModelId: String? = null
+    @SerialName("image_model_id") val imageModelId: String? = null,
+    @SerialName("reply_sequence_id") val replySequenceId:String?=null,
+    @SerialName("user_variant_id") val userVariantId:String?=null,
+    @SerialName("native_single_claim") val nativeSingleClaim:String?=null
 )
 
 @Serializable

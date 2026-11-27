@@ -41,8 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.elementeracoast.app.core.model.ConversationContextSettings
 import com.elementeracoast.app.core.model.DEFAULT_WORKBENCH_PROMPT
+import com.elementeracoast.app.core.model.ConversationContextSettings
 import com.elementeracoast.app.core.model.RealityContextFields
 import com.elementeracoast.app.feature.chat.AndroidRealityContextSource
 
@@ -58,7 +58,7 @@ private val REALITY_FIELDS = listOf(
     RealityFieldUi(RealityContextFields.BATTERY, "电量", "电量百分比与是否正在充电"),
     RealityFieldUi(RealityContextFields.WEATHER, "天气", "按下方手动城市读取当前天气"),
     RealityFieldUi(RealityContextFields.LOCATION, "位置", "可选 · 只给粗粒度城市 / 区域"),
-    RealityFieldUi(RealityContextFields.RECENT_APP, "最近使用 App", "进入海岸前最近一个非 Coast App"),
+    RealityFieldUi(RealityContextFields.RECENT_APP, "最近使用 App", "进入应用前最近一个其他 App"),
     RealityFieldUi(RealityContextFields.APP_USAGE, "今日 App 使用时间", "今天使用最多的前 5 个 App"),
     RealityFieldUi(RealityContextFields.CALENDAR, "海岸日历", "未来 7 天所有重要日期"),
     RealityFieldUi(RealityContextFields.STEPS, "步数", "轻量系统计步；本日首次读取建立基线，无可靠数据时不递入")
@@ -70,20 +70,30 @@ internal fun WindowContextSheet(
     conversationId: String,
     settings: ConversationContextSettings,
     thoughtSoilEnabled: Boolean,
+    localMode:Boolean=false,
+    selectedModel:String="",
+    roomType:String="main",
     onSettingsChange: (ConversationContextSettings) -> Unit,
     onSetThoughtSoilEnabled: (Boolean) -> Unit,
     onOpenIslandLetter: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    dreamApi: com.elementeracoast.app.core.network.CoastApiClient? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val usable = conversationId.isNotBlank()
+    val sequenceSupported=roomType in setOf("main","radio")
 
     var usageAccess by remember { mutableStateOf(AndroidRealityContextSource.hasUsageAccess(context)) }
     var stepsAccess by remember { mutableStateOf(AndroidRealityContextSource.hasActivityRecognitionPermission(context)) }
     var locationAccess by remember { mutableStateOf(AndroidRealityContextSource.hasCoarseLocationPermission(context)) }
+    var workbenchPrompt by rememberSaveable(conversationId, settings.workbenchPrompt) { mutableStateOf(settings.workbenchPrompt ?: DEFAULT_WORKBENCH_PROMPT) }
+    var showDream by remember(conversationId){mutableStateOf(false)}
+    if(showDream&&dreamApi!=null){
+        DreamTideSheet(conversationId,selectedModel,localMode,dreamApi,onDismiss={showDream=false})
+        return
+    }
     var weatherCity by rememberSaveable(conversationId, settings.weatherCity) { mutableStateOf(settings.weatherCity) }
-    var workbenchPrompt by rememberSaveable(conversationId,settings.workbenchPrompt){mutableStateOf(settings.workbenchPrompt?:DEFAULT_WORKBENCH_PROMPT)}
 
     fun refreshPermissions() {
         usageAccess = AndroidRealityContextSource.hasUsageAccess(context)
@@ -127,16 +137,16 @@ internal fun WindowContextSheet(
         ) {
             Text("这个窗口", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text(
-                if (usable) "只改变当前聊天窗口。屏幕上显示的时间不等于模型自动知道时间。"
-                else "先进入或新建一个聊天窗口，再设置这一窗的注入。",
+                if (usable) "只改变当前聊天窗口。屏幕显示的时间不等于模型自动知道时间。"
+                else "先进入或新建一个聊天窗口，再设置这一窗的上下文。",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
 
             SoftSettingsCard {
                 SettingSwitchRow(
-                    title = "现实注入",
-                    note = if (settings.realityEnabled) "当前窗口按下方选择读取现场信息" else "关闭时保持无钟、无设备现场",
+                    title = "现实上下文",
+                    note = if (settings.realityEnabled) "当前窗口按下方选择读取现场信息" else "关闭时不自动递入设备现场",
                     checked = settings.realityEnabled,
                     enabled = usable,
                     onCheckedChange = { onSettingsChange(settings.copy(realityEnabled = it)) }
@@ -151,15 +161,11 @@ internal fun WindowContextSheet(
                             checked = checked,
                             enabled = usable,
                             onCheckedChange = { enabled ->
-                                val fields = if (enabled) {
-                                    (settings.realityFields + field.key).distinct()
-                                } else {
-                                    settings.realityFields - field.key
-                                }
+                                val fields = if (enabled) (settings.realityFields + field.key).distinct()
+                                else settings.realityFields - field.key
                                 onSettingsChange(settings.copy(realityFields = fields))
                             }
                         )
-
                         if (field.key == RealityContextFields.WEATHER && checked) {
                             OutlinedTextField(
                                 value = weatherCity,
@@ -168,47 +174,76 @@ internal fun WindowContextSheet(
                                 singleLine = true,
                                 shape = RoundedCornerShape(16.dp),
                                 label = { Text("天气城市") },
-                                supportingText = { Text("只按这里的城市取天气，不按 VPN / IP 猜位置。") }
+                                supportingText = { Text("只按这里的城市取天气，不按 IP 猜位置。") }
                             )
                             Button(
-                                onClick = {
-                                    onSettingsChange(settings.copy(weatherCity = weatherCity.trim()))
-                                },
+                                onClick = { onSettingsChange(settings.copy(weatherCity = weatherCity.trim())) },
                                 enabled = usable && weatherCity.trim() != settings.weatherCity,
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
-                            ) {
-                                Text("保存天气城市")
-                            }
+                            ) { Text("保存天气城市") }
                         }
                     }
                 }
             }
 
             SoftSettingsCard {
+                SettingSwitchRow(title="分隔气泡",note="模型自主选择在同一次回复中分隔气泡；不增加生成次数。",checked=settings.segmentedBubbles,enabled=usable&&sequenceSupported,onCheckedChange={onSettingsChange(settings.copy(segmentedBubbles=it))})
+                SettingSwitchRow(title="真实连续回复",note=when{
+                    roomType !in setOf("main","radio")->"当前窗口不执行连续回复。"
+                    localMode->"模型可主动追加独立回复。套餐 token 为软预算，单次可能超额；未报告用量则停止追加。"
+                    selectedModel.startsWith("chatgpt-plan:")->"在线套餐需已更新服务端；token 为软预算，单次可能超额，缺失用量则停止。"
+                    else->"在线普通 API 需要已更新的服务端；模型可主动追加独立回复。"
+                },checked=settings.replySequenceEnabled,enabled=usable&&(sequenceSupported||settings.replySequenceEnabled),onCheckedChange={if(sequenceSupported||!it)onSettingsChange(settings.copy(replySequenceEnabled=it))})
+                androidx.compose.runtime.key(conversationId){
+                    ReplySequenceBudgetBlock(settings,usable,onSettingsChange)
+                }
+            }
+            SoftSettingsCard {
+                if(roomType=="main")SettingSwitchRow(title="允许回读自主活动",note="普通聊天按需读取本窗口手记与活动摘要；不启动唤醒。本机还需开启模型工具。",checked=settings.dreamReadbackEnabled,enabled=usable,onCheckedChange={onSettingsChange(settings.copy(dreamReadbackEnabled=it))})
+                Text("表情包",style=MaterialTheme.typography.titleSmall)
+                StickerDisplaySizeBlock(settings,usable,onSettingsChange)
+                SettingSwitchRow(title="允许发送表情包",note="自主查找并发送已登记素材；本机还需开启模型工具与写入权限。",checked=settings.stickerSendEnabled,enabled=usable,onCheckedChange={onSettingsChange(settings.copy(stickerSendEnabled=it))})
+                SettingSwitchRow(title="允许添加表情包",note="登记自己在当前窗口生成的图片；本机还需写入权限。",checked=settings.stickerAddEnabled,enabled=usable,onCheckedChange={onSettingsChange(settings.copy(stickerAddEnabled=it))})
+            }
+            SoftSettingsCard {
+                Text("工作区",style=MaterialTheme.typography.titleSmall)
+                if (sequenceSupported) {
+                    OutlinedTextField(value=workbenchPrompt,onValueChange={workbenchPrompt=it.take(4000)},
+                        enabled=usable,modifier=Modifier.fillMaxWidth(),minLines=4,maxLines=8,
+                        label={Text("工具箱注入词")}, supportingText={Text("仅当前窗口生效；有可用工具时递入。留空不递入邀请词，不关闭工具。")})
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        Button(onClick={workbenchPrompt=DEFAULT_WORKBENCH_PROMPT;onSettingsChange(settings.copy(workbenchPrompt=null))},enabled=usable){
+                            Text("恢复默认")
+                        }
+                        Button(onClick={onSettingsChange(settings.copy(workbenchPrompt=workbenchPrompt))},enabled=usable&&workbenchPrompt!=(settings.workbenchPrompt?:DEFAULT_WORKBENCH_PROMPT)){
+                            Text("保存注入词")
+                        }
+                    }
+                }
                 if (com.elementeracoast.app.core.local.NativeWorkspace.isLocal) {
                     SettingSwitchRow(title = "跨窗口回忆", note = if(settings.crossWindowAuto) "由模型决定 · 持续生效" else "关闭 · 仍可手动递入旧消息",
                         checked = settings.crossWindowAuto, enabled = usable,
                         onCheckedChange = { onSettingsChange(settings.copy(crossWindowAuto=it)) })
-                    SettingSwitchRow(title = "本机模型工具", note = "允许模型读取本机记忆、日常、日历、书房与拾潮等资料",
+                    SettingSwitchRow(title = "本机模型工具", note = "默认关闭，仅当前窗口；允许模型按需读取本机记忆、日常、日历、书房及收藏",
                         checked = settings.localModelToolsEnabled, enabled = usable,
                         onCheckedChange = { onSettingsChange(settings.copy(localModelToolsEnabled=it)) })
-                    SettingSwitchRow(title = "本机模型写入", note = "允许模型新增日记、动态、批注、日历事项与待确认记忆；不会直接确认记忆",
+                    SettingSwitchRow(title = "本机模型写入", note = "默认关闭，仅当前窗口；允许新增已支持的日常记录、笔记及记忆候选；正式记忆仍需确认",
                         checked = settings.localModelWriteEnabled, enabled = usable,
                         onCheckedChange = { onSettingsChange(settings.copy(localModelWriteEnabled=it)) })
                 }
                 SettingSwitchRow(
                     title = "短句模式",
-                    note = "独立于现实注入。普通闲聊优先短短地接话，深话题仍可自然变长。",
+                    note = "独立于现实上下文。普通闲聊优先简短接话，深话题仍可自然变长。",
                     checked = settings.shortReplyMode,
                     enabled = usable,
                     onCheckedChange = { onSettingsChange(settings.copy(shortReplyMode = it)) }
                 )
                 SettingSwitchRow(
-                    title = "思维壤",
+                    title = "整理当前对话的纸条",
                     note = if (thoughtSoilEnabled) "每轮后整理，并递入下一轮上下文" else "旧内容保留；不再自动整理，也不递入",
                     checked = thoughtSoilEnabled,
                     enabled = usable,
@@ -216,18 +251,11 @@ internal fun WindowContextSheet(
                 )
             }
 
-            SoftSettingsCard {
-                SettingSwitchRow(title="分隔气泡",note="模型自主选择在同一次回复中分隔气泡；不增加生成次数。",checked=settings.segmentedBubbles,enabled=usable,onCheckedChange={onSettingsChange(settings.copy(segmentedBubbles=it))})
-                var stickerSize by remember(settings.stickerDisplaySize){mutableStateOf(settings.stickerDisplaySize.toString())}
-                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                    OutlinedTextField(value=stickerSize,onValueChange={stickerSize=it.filter(Char::isDigit).take(3)},enabled=usable,modifier=Modifier.weight(1f),singleLine=true,label={Text("表情包显示尺寸 (dp)")},supportingText={Text("64—256，仅表情包")})
-                    Button(onClick={onSettingsChange(settings.copy(stickerDisplaySize=stickerSize.toInt()))},enabled=usable&&stickerSize.toIntOrNull()?.let{it in 64..256&&it!=settings.stickerDisplaySize}==true){Text("保存")}
-                }
-                Text("工作区",style=MaterialTheme.typography.titleSmall)
-                OutlinedTextField(value=workbenchPrompt,onValueChange={workbenchPrompt=it.take(4000)},enabled=usable,modifier=Modifier.fillMaxWidth(),minLines=4,maxLines=8,label={Text("工具箱注入词")},supportingText={Text("有可用工具时递入；留空不关闭工具。")})
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                    Button(onClick={workbenchPrompt=DEFAULT_WORKBENCH_PROMPT;onSettingsChange(settings.copy(workbenchPrompt=null))},enabled=usable){Text("恢复默认")}
-                    Button(onClick={onSettingsChange(settings.copy(workbenchPrompt=workbenchPrompt))},enabled=usable&&workbenchPrompt!=(settings.workbenchPrompt?:DEFAULT_WORKBENCH_PROMPT)){Text("保存注入词")}
+            if(usable&&roomType=="main"&&dreamApi!=null){
+                SoftSettingsCard {
+                    Text("自主唤醒",style=MaterialTheme.typography.titleSmall)
+                    Text("仅本窗口 · 唤醒设置、自主手记与活动记录",style=MaterialTheme.typography.bodySmall)
+                    Button(onClick={showDream=true}){Text("打开自主唤醒")}
                 }
             }
 
@@ -239,15 +267,12 @@ internal fun WindowContextSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
-
                     if (wantsUsagePermission) {
                         PermissionRow(
                             title = "App 使用情况",
                             status = if (usageAccess) "已允许" else "未允许",
                             action = if (usageAccess) null else "去系统开启",
-                            onAction = {
-                                context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                            }
+                            onAction = { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
                         )
                     }
                     if (wantsStepsPermission) {
@@ -282,16 +307,12 @@ internal fun WindowContextSheet(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
-                ) {
-                    Text("登岛信")
-                }
+                ) { Text("新居信") }
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(18.dp)
-                ) {
-                    Text("完成")
-                }
+                ) { Text("完成") }
             }
         }
     }
@@ -327,11 +348,7 @@ private fun SettingSwitchRow(
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Text(
-                note,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text(note, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange)
@@ -362,9 +379,52 @@ private fun PermissionRow(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-            ) {
-                Text(it)
-            }
+            ) { Text(it) }
         }
+    }
+}
+
+
+@Composable
+private fun ReplySequenceBudgetBlock(settings:ConversationContextSettings,enabled:Boolean,onSave:(ConversationContextSettings)->Unit){
+    var messages by remember(settings.replySequenceMaxMessages){mutableStateOf(settings.replySequenceMaxMessages?.toString().orEmpty())}
+    var tools by remember(settings.replySequenceToolBudget){mutableStateOf(settings.replySequenceToolBudget?.toString().orEmpty())}
+    var tokens by remember(settings.replySequenceTokenBudget){mutableStateOf(settings.replySequenceTokenBudget?.toString().orEmpty())}
+    fun valid(text:String,range:IntRange)=text.isBlank()||text.toIntOrNull()?.let{it in range}==true
+    val validAll=valid(messages,1..20)&&valid(tools,0..128)&&valid(tokens,1..1000000)
+    val dirty=messages!=settings.replySequenceMaxMessages?.toString().orEmpty()||
+        tools!=settings.replySequenceToolBudget?.toString().orEmpty()||tokens!=settings.replySequenceTokenBudget?.toString().orEmpty()
+    Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+        Text("留空继承基本设置；工具预算可以设为 0。",style=MaterialTheme.typography.bodySmall)
+        ReplySequenceBudgetRow("单组回复上限","1—20",messages,1..20,enabled){messages=it}
+        ReplySequenceBudgetRow("累计工具预算","0—128",tools,0..128,enabled){tools=it}
+        ReplySequenceBudgetRow("累计 token 预算","1—1000000",tokens,1..1000000,enabled){tokens=it}
+        androidx.compose.material3.TextButton(enabled=enabled&&validAll&&dirty,onClick={
+            onSave(settings.copy(replySequenceMaxMessages=messages.toIntOrNull(),replySequenceToolBudget=tools.toIntOrNull(),replySequenceTokenBudget=tokens.toIntOrNull()))
+        }){Text("保存本窗口预算")}
+    }
+}
+@Composable
+private fun ReplySequenceBudgetRow(title:String,rangeLabel:String,value:String,range:IntRange,enabled:Boolean,onChange:(String)->Unit){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+        Column(Modifier.weight(1f)){
+            Text(title,style=MaterialTheme.typography.bodyMedium)
+            Text(rangeLabel,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        OutlinedTextField(value=value,onValueChange={onChange(it.filter(Char::isDigit).take(7))},modifier=Modifier.weight(1f),
+            singleLine=true,enabled=enabled,isError=value.isNotBlank()&&value.toIntOrNull()?.let{it in range}!=true,
+            placeholder={Text("继承")},
+            keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
+    }
+}
+
+@Composable
+private fun StickerDisplaySizeBlock(settings:ConversationContextSettings,enabled:Boolean,onSave:(ConversationContextSettings)->Unit){
+    var size by remember(settings.stickerDisplaySize){mutableStateOf(settings.stickerDisplaySize.toString())}
+    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        OutlinedTextField(value=size,onValueChange={size=it.filter(Char::isDigit).take(3)},enabled=enabled,
+            modifier=Modifier.weight(1f),singleLine=true,label={Text("显示尺寸 (dp)")},supportingText={Text("64—256，仅表情包")})
+        Button(onClick={onSave(settings.copy(stickerDisplaySize=size.toInt()))},
+            enabled=enabled&&size.toIntOrNull()?.let{it in 64..256&&it!=settings.stickerDisplaySize}==true){Text("保存")}
     }
 }

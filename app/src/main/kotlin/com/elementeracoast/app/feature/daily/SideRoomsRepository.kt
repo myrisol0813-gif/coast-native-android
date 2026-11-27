@@ -214,6 +214,9 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
     suspend fun chatSearch(query: String, cursor: String = ""): JsonObject =
         request("/api/chat/search?q=" + encode(query) + "&cursor=" + encode(cursor))
 
+    suspend fun vaultDreamOrigin(cid:String,mediaId:String):JsonObject =
+        request("/api/chat/dream-tide/activity?conversation_id="+encode(cid)+"&media_id="+encode(mediaId))
+
     suspend fun vaultMedia(kind: String = "all", query: String = "", cursor: String = ""): JsonObject =
         request("/api/coast-vault/media?kind=" + encode(kind) + "&q=" + encode(query) + "&cursor=" + encode(cursor))
 

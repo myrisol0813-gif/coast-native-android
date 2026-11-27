@@ -17,11 +17,11 @@ import com.elementeracoast.app.core.network.CoastApiConfig
 import com.elementeracoast.app.core.network.CoastHttpClient
 import com.elementeracoast.app.core.remote.RemoteCacheStore
 import com.elementeracoast.app.feature.chat.ChatRepository
+import com.elementeracoast.app.feature.chat.AndroidRealityContextSource
+import com.elementeracoast.app.feature.chat.RealityContextSource
 import com.elementeracoast.app.feature.chat.DefaultChatRepository
 import com.elementeracoast.app.feature.chat.ReasoningEffortStore
 import com.elementeracoast.app.feature.chat.NativeChatGptTurnRepository
-import com.elementeracoast.app.feature.chat.AndroidRealityContextSource
-import com.elementeracoast.app.feature.chat.RealityContextSource
 import com.elementeracoast.app.feature.chatgpt.ChatGptPlanRepository
 import com.elementeracoast.app.feature.chat.ModelMetadataRemoteDataSource
 import com.elementeracoast.app.feature.daily.DailyRepository
@@ -50,7 +50,8 @@ data class CoastBackendGraph(
     val dogtalk: DogtalkRepository,
     val crossWindow: CrossWindowRepository,
     val archive: GlobalArchiveRepository,
-    val officialChat: ChatRepository? = null
+    val officialChat: ChatRepository? = null,
+    val dreamApi: CoastApiClient? = null
 ) {
     companion object {
         fun production(
@@ -73,7 +74,9 @@ data class CoastBackendGraph(
                 auth = DefaultAuthRepository(authStore, api),
                 conversations = DefaultConversationRepository(api, cache, titleRemote),
                 profile = DefaultProfileRepository(api, cache),
-                chat = if (config.localTransport != null) LocalDirectChatRepository(chatRepository, LocalProviderStore(context), LocalKnowledgeStore(persistence,com.elementeracoast.app.core.local.LocalIndependentWeb(context.applicationContext),com.elementeracoast.app.core.local.LocalVoiceProvider(context.applicationContext)),sequenceStore=persistence) else chatRepository,
+                chat = if (config.localTransport != null) LocalDirectChatRepository(chatRepository, LocalProviderStore(context), LocalKnowledgeStore(persistence,com.elementeracoast.app.core.local.LocalIndependentWeb(context.applicationContext),com.elementeracoast.app.core.local.LocalVoiceProvider(context.applicationContext)),sequenceStore=persistence,
+                    planInference=chatGptPlan?.let{com.elementeracoast.app.feature.chatgpt.ChatGptNativeInference(it,api)},
+                    planReasoning={id->reasoning.get(id,chatGptPlan?.reasoningEffortsFor(id.removePrefix("chatgpt-plan:")).orEmpty())}) else chatRepository,
                 reality = AndroidRealityContextSource(context.applicationContext, persistence,config.localTransport!=null),
                 thoughtSoil = DefaultThoughtSoilRepository(api, chatGptPlan,
                     localSoil?.let{it::organize},localSoil?.let{it::organizeSequence}),
@@ -83,7 +86,8 @@ data class CoastBackendGraph(
                 dogtalk = DefaultDogtalkRepository(config, http),
                 crossWindow = DefaultCrossWindowRepository(config, http),
                 archive = DefaultGlobalArchiveRepository(api),
-                officialChat = chatGptPlan?.let { NativeChatGptTurnRepository(api, chatRepository, it, reasoning,toolLimit=toolLimit) }
+                officialChat = chatGptPlan?.let { NativeChatGptTurnRepository(api, chatRepository, it, reasoning,toolLimit=toolLimit) },
+                dreamApi = api
             )
         }
     }

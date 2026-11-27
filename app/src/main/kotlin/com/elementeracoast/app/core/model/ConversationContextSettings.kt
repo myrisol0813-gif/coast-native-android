@@ -49,15 +49,17 @@ data class ConversationContextSettings(
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     @SerialName("segmented_bubbles") val segmentedBubbles: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    @SerialName("sticker_display_size") val stickerDisplaySize: Int = 144
+    @SerialName("sticker_display_size") val stickerDisplaySize: Int = 144,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    @SerialName("dream_readback_enabled") val dreamReadbackEnabled: Boolean = false
 ) {
     fun normalized(): ConversationContextSettings = copy(
         realityFields = realityFields.filter(RealityContextFields.all::contains).distinct(),
         workbenchPrompt = workbenchPrompt?.take(4000),
+        stickerDisplaySize = stickerDisplaySize.takeIf { it in 64..256 } ?: 144,
         replySequenceMaxMessages = replySequenceMaxMessages?.takeIf { it in 1..20 },
         replySequenceToolBudget = replySequenceToolBudget?.takeIf { it in 0..128 },
         replySequenceTokenBudget = replySequenceTokenBudget?.takeIf { it in 1..1000000 },
-        stickerDisplaySize = stickerDisplaySize.takeIf { it in 64..256 } ?: 144,
         weatherCity = weatherCity.replace(Regex("[\\r\\n\\t]+"), " ").trim().take(80)
     )
 

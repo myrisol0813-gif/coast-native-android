@@ -92,7 +92,8 @@ fun MainShell(
     onEnterLocalWorkspace: () -> Unit,
     onLogout: () -> Unit,
     onPlaceholder: (String) -> Unit,
-    onSnackbarShown: () -> Unit
+    onSnackbarShown: () -> Unit,
+    dreamApi: com.elementeracoast.app.core.network.CoastApiClient? = null
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val snackbar = remember { SnackbarHostState() }
@@ -251,6 +252,7 @@ fun MainShell(
                 conversationId = state.activeConversationId,
                 settings = state.contextSettings,
                 thoughtSoilEnabled = state.thoughtSoil?.autoRefreshEnabled ?: true,
+                dreamApi = dreamApi,
                 onSettingsChange = onSetContextSettings,
                 onSetThoughtSoilEnabled = onSetThoughtSoilEnabled,
                 onOpenIslandLetter = {

@@ -8,6 +8,7 @@ import com.elementeracoast.app.core.remote.RemoteDeskSlip
 import com.elementeracoast.app.core.remote.RemoteFurnitureRun
 import com.elementeracoast.app.core.remote.RemoteNativeChatContext
 import com.elementeracoast.app.core.remote.RemoteNativeToolResult
+import com.elementeracoast.app.core.network.TurnToolPolicy
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CancellationException
@@ -32,7 +33,10 @@ internal sealed interface NativeChatEvent {
         val deskSlip: RemoteDeskSlip,
         val furnitureRuns: List<RemoteFurnitureRun>,
         val requestedReasoningEffort: String? = null,
-        val returnedReasoningEffort: String? = null
+        val returnedReasoningEffort: String? = null,
+        val ordinaryToolCalls: Int = 0,
+        val continueRequested: Boolean = false,
+        val sequenceStopReason: String? = null
     ) : NativeChatEvent
 }
 
@@ -76,7 +80,7 @@ internal fun normalizeNativeInput(obj: JsonObject): JsonObject {
                     }
                     else -> throw CoastApiException(
                         CoastApiErrorKind.Request, "unsupported_native_input",
-                        "此附件格式不被官端 GPT 认可。"
+                        "此附件格式不被当前 ChatGPT 模型接受。"
                     )
                 }
             }
@@ -86,10 +90,10 @@ internal fun normalizeNativeInput(obj: JsonObject): JsonObject {
 
 /** Keep trusted image readback outside the function-call output. */
 internal fun nativeSavedImageContinuation(name:String,result:RemoteNativeToolResult):Pair<Boolean,List<JsonObject>> {
-    if(name!="image_generate"||!result.ok)return false to emptyList()
+    if(name !in setOf("image_generate","sticker_send")||!result.ok)return false to emptyList()
     val receipt=runCatching{Json.parseToJsonElement(result.output).jsonObject}.getOrNull()
     if(receipt?.get("ok")?.jsonPrimitive?.booleanOrNull!=true||receipt["status"]?.jsonPrimitive?.contentOrNull!="saved")return false to emptyList()
-    return true to result.privateContinuation.take(1).map(::normalizeNativeInput)
+    return true to if(name=="image_generate")result.privateContinuation.take(1).map(::normalizeNativeInput)else emptyList()
 }
 
 internal data class NativeCoastToolCall(val callId: String, val name: String)
@@ -101,7 +105,7 @@ internal fun parseNativeCoastToolCall(tool: JsonObject): NativeCoastToolCall {
     val name = rawName.removePrefix("coast.")
     val callId = tool["call_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
     if ((namespace != null && namespace != "coast") || callId.isBlank() || name.isBlank()) {
-        throw CoastApiException(CoastApiErrorKind.Decode, "invalid_tool_call", "官端 GPT 工具调用信息不完整或不属于海岸。")
+        throw CoastApiException(CoastApiErrorKind.Decode, "invalid_tool_call", "ChatGPT 工具调用信息不完整或不属于当前 Coast 工具清单。")
     }
     return NativeCoastToolCall(callId, name)
 }
@@ -247,9 +251,42 @@ internal fun diagnoseNativeInferenceFailure(
     return CoastApiException(
         if (error is java.io.IOException) CoastApiErrorKind.Network else CoastApiErrorKind.Decode,
         "chatgpt_plan_${failure}_${validStage}",
-        "官端 GPT ${description}（阶段=${validStage}；图片数=${imageCount.coerceAtLeast(0)}；请求长度约=${requestCharsK.coerceAtLeast(0)}K字符）。未传输私密错误细节。",
+        "ChatGPT ${description}（阶段=${validStage}；图片数=${imageCount.coerceAtLeast(0)}；请求长度约=${requestCharsK.coerceAtLeast(0)}K字符）。未传输私密错误细节。",
         cause = error
     )
+}
+
+/** A plan route has no enforceable output cap: stop before another request
+ * when a complete upstream usage receipt is absent or the soft budget is spent. */
+internal data class NativePlanSequence(val mayContinue:Boolean,val toolBudget:Int,val tokenBudget:Int){
+    init{require(toolBudget in 0..128 && tokenBudget in 1..1000000)}
+    fun canRequest(usage:NativeChatUsage)=usage.reported&&usage.input>=0&&usage.output>=0&&
+        usage.input<tokenBudget.toLong()&&usage.output<tokenBudget.toLong()-usage.input
+}
+internal fun nativeSequenceUsageComplete(usage:JsonObject?):Boolean {
+    val input=(usage?.get("input_tokens") as? JsonPrimitive)?.takeUnless{it.isString}?.longOrNull
+    val output=(usage?.get("output_tokens") as? JsonPrimitive)?.takeUnless{it.isString}?.longOrNull
+    return input!=null&&output!=null&&input>=0&&output>=0&&input<=Long.MAX_VALUE-output
+}
+internal fun addNativeSequenceUsage(previous:NativeChatUsage,raw:JsonObject?):NativeChatUsage {
+    if(!previous.reported||!nativeSequenceUsageComplete(raw))return previous.copy(reported=false)
+    return runCatching{
+        val value=requireNotNull(raw)
+        val input=value.getValue("input_tokens").jsonPrimitive.long
+        val output=value.getValue("output_tokens").jsonPrimitive.long
+        val cached=((value["input_tokens_details"] as? JsonObject)?.get("cached_tokens") as? JsonPrimitive)?.longOrNull?.coerceIn(0,input)?:0
+        val next=NativeChatUsage(Math.addExact(previous.input,input),Math.addExact(previous.cached,cached),Math.addExact(previous.output,output),true)
+        Math.addExact(next.input,next.output)
+        next
+    }.getOrElse{previous.copy(reported=false)}
+}
+internal fun nativeContinueArgumentsValid(arguments:String):Boolean =
+    runCatching{Json.parseToJsonElement(arguments).jsonObject.isEmpty()}.getOrDefault(false)
+private fun nativeContinueTool()=buildJsonObject{
+    put("type","function");put("name","continue_reply")
+    put("description","仅当确实希望当前回复保存后再独立生成一条时调用。不调用即结束。")
+    putJsonObject("parameters"){put("type","object");putJsonObject("properties"){};put("additionalProperties",false)}
+    put("strict",false)
 }
 
 internal data class NativeChatUsage(
@@ -261,10 +298,11 @@ internal data class NativeChatUsage(
 
 /** All inference is local-to-OpenAI; Coast receives neither OAuth access nor refresh tokens. */
 internal class ChatGptNativeInference(
-    private val account: ChatGptPlanRepository,
-    private val coast: CoastApiClient,
+    private val accessToken: suspend ()->String,
+    private val coast: CoastApiClient?,
     client: OkHttpClient = OkHttpClient()
 ) {
+    constructor(account:ChatGptPlanRepository,coast:CoastApiClient,client:OkHttpClient=OkHttpClient()):this({account.accessTokenForInference()},coast,client)
     private val http = client.newBuilder().readTimeout(120, TimeUnit.SECONDS).build()
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -272,7 +310,9 @@ internal class ChatGptNativeInference(
         model: String,
         request: RemoteChatRequest,
         prepared: RemoteNativeChatContext,
-        reasoningEffort: String? = null
+        reasoningEffort: String? = null,
+        sequence: NativePlanSequence? = null,
+        localTool: ((String,String,String)->RemoteNativeToolResult)? = null
     ): Flow<NativeChatEvent> = callbackFlow {
         val activeCall = AtomicReference<Call?>()
         val job = launch(Dispatchers.IO) {
@@ -280,7 +320,7 @@ internal class ChatGptNativeInference(
             var imageCount = 0
             var requestKiB = 0
             try {
-                val access = account.accessTokenForInference()
+                val access = accessToken()
                 stage = "input_preparation"
                 val voiceToolAvailable = prepared.tools.any { item ->
                     (item as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull == "voice_create"
@@ -297,19 +337,28 @@ internal class ChatGptNativeInference(
                 }
                 imageCount = nativeVisionCount(JsonArray(history))
                 // Evaluate the user's real message, not a rewritten/assembled model context item.
-                val searchEnabled = request.messages.lastOrNull()
+                val searchEnabled = sequence == null && (request.messages.lastOrNull()
                     ?.takeIf { it.role == "user" }
-                    ?.content?.let(::requestsNativeWebSearch) ?: false
+                    ?.content?.let(::requestsNativeWebSearch) ?: false)
                 val searchSources = linkedSetOf<String>()
                 var didSearch = false
                 var returnedReasoningEffort: String? = null
                 val text = StringBuilder()
                 val runs = mutableListOf<RemoteFurnitureRun>()
                 var desk = prepared.deskSlip
-                var usageTotal = NativeChatUsage()
+                var usageTotal = NativeChatUsage(reported=sequence!=null)
                 var callsMade = 0
-
-                for (round in 0..12) {
+                var controlSeen = false
+                var wantsMore = false
+                val normalLimit = minOf(TurnToolPolicy.normalize(request.settings["toolCallLimit"]?.toIntOrNull()), (prepared.limitations?.maxToolsPerTurn ?: 12).coerceIn(1,TurnToolPolicy.MAX_CALLS))
+                val toolLimit = if(sequence==null) normalLimit else minOf(normalLimit,sequence.toolBudget)
+                val maxRounds = toolLimit + if(sequence?.mayContinue==true) 1 else 0
+                for (round in 0..maxRounds) {
+                    val finalOnly = if(sequence==null) TurnToolPolicy.finalOnly(round,callsMade,toolLimit) else round==maxRounds
+                    val exposed = if(sequence==null) prepared.tools else JsonArray(
+                        (if(!finalOnly&&callsMade<toolLimit) prepared.tools else emptyList()) +
+                        (if(!finalOnly&&sequence.mayContinue&&!controlSeen) listOf(nativeContinueTool()) else emptyList())
+                    )
                     val body = buildJsonObject {
                         put("model", model)
                         put("input", JsonArray(history))
@@ -320,18 +369,19 @@ internal class ChatGptNativeInference(
                         })
                         // Preserve stateless reasoning across tool-call continuation on older Responses backends.
                         put("include", buildJsonArray { add("reasoning.encrypted_content") })
-                        if (instructions.isNotBlank()) put("instructions", instructions)
+                        val sequenceNote=if(sequence!=null) "\n本次属于真实连续回复的一条。只有确实需要另一条独立回复才使用 continue_reply；本条仍须正常完成。套餐 token 为软预算。供应商托管搜索在连续回复中暂未开放；若有海岸联网工具可按授权调用，否则不得声称已搜索。" else ""
+                        if (instructions.isNotBlank() || finalOnly || sequence!=null) put("instructions", instructions + sequenceNote + if (finalOnly) "\n本轮工具额度已结束。仅根据已取得的结果正常完成正文，不再调用工具。" else "")
                         // A direct request to search must use search, not merely offer it as optional.
                         // Force only the provider-hosted tool; this never selects Coast write tools.
                         if (searchEnabled && round == 0) put("tool_choice", buildJsonObject {
                             put("type", "web_search")
                         })
-                        if (prepared.tools.isNotEmpty() || searchEnabled) put("tools", buildJsonArray {
-                            if (prepared.tools.isNotEmpty()) add(buildJsonObject {
+                        if (!finalOnly && (exposed.isNotEmpty() || searchEnabled)) put("tools", buildJsonArray {
+                            if (exposed.isNotEmpty()) add(buildJsonObject {
                                 put("type", "namespace")
                                 put("name", "coast")
                                 put("description", "海岸授权工具：记忆、日记、日历、潮中书房、Myraes语音生成和开发工具。语音创建请使用 voice_create，未执行不能声称完成。")
-                                put("tools", JsonArray(prepared.tools.map{ item ->
+                                put("tools", JsonArray(exposed.map{ item ->
                                     val tool=item.jsonObject
                                     if(tool["type"]?.jsonPrimitive?.contentOrNull=="function") JsonObject(tool+("strict" to JsonPrimitive(false))) else tool
                                 }))
@@ -357,7 +407,7 @@ internal class ChatGptNativeInference(
                         if (!response.isSuccessful) throw CoastApiException(
                             CoastApiErrorKind.Model,
                             "chatgpt_plan_http_" + response.code,
-                            (if (round > 0) "官端 GPT 接收工具结果后无法继续（HTTP " else "官端 GPT 未接受请求（HTTP ") +
+                            (if (round > 0) "ChatGPT 接收工具结果后无法继续（HTTP " else "ChatGPT 未接受请求（HTTP ") +
                                 response.code + "）。" + if (searchEnabled && response.code in listOf(400, 403))
                                 "本轮请求包含网页搜索，当前模型或账号可能不支持；可换模型或不请求联网。"
                             else "请检查模型权限或本轮工具调用。",
@@ -380,7 +430,7 @@ internal class ChatGptNativeInference(
                                         val delta = event["delta"]?.jsonPrimitive?.contentOrNull.orEmpty()
                                         text.append(delta)
                                         roundText.append(delta)
-                                        trySend(NativeChatEvent.Delta(delta))
+                                        send(NativeChatEvent.Delta(delta))
                                     }
                                     "response.completed" -> completed = event["response"] as? JsonObject
                                     "response.failed" -> {
@@ -389,7 +439,7 @@ internal class ChatGptNativeInference(
                                         throw CoastApiException(
                                             CoastApiErrorKind.Model,
                                             code.ifBlank { "chatgpt_plan_failed" }.take(80),
-                                            "官端 GPT 返回失败；请检查账户额度或模型权限。"
+                                            "ChatGPT 返回失败；请检查账户额度或模型权限。"
                                         )
                                     }
                                     "response.incomplete" -> throw CoastApiException(
@@ -402,13 +452,13 @@ internal class ChatGptNativeInference(
                     activeCall.set(null)
                     stage = "output_processing"
                     val response = completed ?: throw CoastApiException(
-                        CoastApiErrorKind.Stream, "chatgpt_plan_incomplete", "官端 GPT 回复流提前中断。"
+                        CoastApiErrorKind.Stream, "chatgpt_plan_incomplete", "ChatGPT 回复流提前中断。"
                     )
                     returnedReasoningEffort = (response["reasoning"] as? JsonObject)
                         ?.get("effort")?.jsonPrimitive?.contentOrNull ?: returnedReasoningEffort
                     val usage = response["usage"] as? JsonObject
                     val detail = usage?.get("input_tokens_details") as? JsonObject
-                    usageTotal = usageTotal.copy(
+                    usageTotal = if(sequence!=null)addNativeSequenceUsage(usageTotal,usage) else usageTotal.copy(
                         input = usageTotal.input + (usage?.get("input_tokens")?.jsonPrimitive?.longOrNull ?: 0),
                         cached = usageTotal.cached + (detail?.get("cached_tokens")?.jsonPrimitive?.longOrNull ?: 0),
                         output = usageTotal.output + (usage?.get("output_tokens")?.jsonPrimitive?.longOrNull ?: 0),
@@ -432,11 +482,21 @@ internal class ChatGptNativeInference(
                     val missingText = missingNativeFinalText(roundText.toString(), output.finalText)
                     if (missingText.isNotEmpty()) {
                         text.append(missingText)
-                        trySend(NativeChatEvent.Delta(missingText))
+                        send(NativeChatEvent.Delta(missingText))
                     }
                     val pending = output.toolCalls
-                    if (pending.isEmpty()) {
+                    val budgetStop=sequence!=null&&!sequence.canRequest(usageTotal)
+                    val stopReason=if(budgetStop){
+                        if(!usageTotal.reported)"套餐未报告完整用量；已停止追加回复。"
+                        else "套餐累计软预算已达到；已停止追加回复。"
+                    }else if(sequence!=null&&finalOnly&&pending.isNotEmpty())"本条工具轮次已结束；额外调用未执行。" else null
+                    if (pending.isEmpty() || finalOnly || budgetStop) {
+                        if (pending.isNotEmpty() && sequence==null) {
+                            text.append(TurnToolPolicy.LIMIT_NOTICE)
+                            send(NativeChatEvent.Delta(TurnToolPolicy.LIMIT_NOTICE))
+                        }
                         if (text.isBlank()&&!generatedImageSaved) {
+                            if(stopReason!=null)throw CoastApiException(CoastApiErrorKind.Model,"plan_sequence_budget",stopReason)
                             val detail = when {
                                 output.hasReasoning -> "只有推理输出"
                                 output.items.isNotEmpty() -> "没有可显示的正文或可执行工具"
@@ -450,34 +510,32 @@ internal class ChatGptNativeInference(
                             val status = response["status"]?.jsonPrimitive?.contentOrNull ?: "unknown"
                             throw CoastApiException(
                                 CoastApiErrorKind.Model, "chatgpt_plan_empty",
-                                "官端 GPT $detail。$guidance（状态=$status；工具数=${prepared.tools.size}；流输出项=${streamedItems.size}；类型=${nativeOutputKinds(output)}）"
+                                "ChatGPT $detail。$guidance（状态=$status；工具数=${prepared.tools.size}；流输出项=${streamedItems.size}；类型=${nativeOutputKinds(output)}）"
                             )
                         }
                         if (didSearch) {
-                            trySend(NativeChatEvent.Tool("web_search", "网页搜索", true))
+                            send(NativeChatEvent.Tool("web_search", "网页搜索", true))
                             if (searchSources.isNotEmpty()) {
                                 val references = searchSources.joinToString("\n") { "- $it" }
                                 val supplement = "\n\n搜索来源：\n$references"
                                 text.append(supplement)
-                                trySend(NativeChatEvent.Delta(supplement))
+                                send(NativeChatEvent.Delta(supplement))
                             }
                         }
                         if (searchEnabled && !didSearch) {
-                            trySend(NativeChatEvent.Tool("web_search", "模型未执行本轮请求的网页搜索", false))
+                            send(NativeChatEvent.Tool("web_search", "模型未执行本轮请求的网页搜索", false))
                             val warning = "\n\n提示：本轮虽已向模型提供网页搜索工具，但模型未实际调用，以上内容不属于实时搜索结果。"
                             text.append(warning)
-                            trySend(NativeChatEvent.Delta(warning))
+                            send(NativeChatEvent.Delta(warning))
                         }
-                        if (imageCount > 0) trySend(NativeChatEvent.Tool("vision_input", "图片已递入模型输入 $imageCount 张（不代表模型已识别）", true))
-                        trySend(NativeChatEvent.Completed(
+                        if (imageCount > 0) send(NativeChatEvent.Tool("vision_input", "图片已递入模型输入 $imageCount 张（不代表模型已识别）", true))
+                        send(NativeChatEvent.Completed(
                             text.toString(), usageTotal, desk, runs,
-                            reasoningEffort, returnedReasoningEffort
+                            reasoningEffort, returnedReasoningEffort, callsMade,
+                            sequence?.mayContinue==true && wantsMore && stopReason==null, stopReason
                         ))
                         break
                     }
-                    if (round == 12 || callsMade + pending.size > 12) throw CoastApiException(
-                        CoastApiErrorKind.Model, "tool_limit", "这轮的工具调用超过 12 次。"
-                    )
                     history.addAll(output.items)
                     val privateImages=mutableListOf<JsonObject>()
                     for (tool in pending) {
@@ -485,6 +543,13 @@ internal class ChatGptNativeInference(
                         val requestedTool = parseNativeCoastToolCall(tool)
                         val callId = requestedTool.callId
                         val name = requestedTool.name
+                        if(sequence!=null&&name=="continue_reply"){
+                            val valid=!controlSeen&&sequence.mayContinue&&nativeContinueArgumentsValid(tool["arguments"]?.jsonPrimitive?.contentOrNull.orEmpty())
+                            controlSeen=true
+                            if(valid)wantsMore=true
+                            history.add(nativeCoastToolOutput(requestedTool,if(valid) """{"ok":true,"continue_requested":true}""" else """{"ok":false,"reason":"invalid_or_duplicate_control"}"""))
+                            continue
+                        }
                         val params = buildJsonObject {
                             put("id", callId)
                             put("type", "function")
@@ -493,13 +558,23 @@ internal class ChatGptNativeInference(
                                 put("arguments", tool["arguments"]?.jsonPrimitive?.contentOrNull ?: "{}")
                             })
                         }
-                        val result = coast.executeNativeChatGptTool(request, params, callsMade++)
+                        if (!TurnToolPolicy.canExecute(callsMade, toolLimit)) {
+                            history.add(nativeCoastToolOutput(requestedTool, TurnToolPolicy.LIMIT_RECEIPT))
+                            send(NativeChatEvent.Tool(callId, name, false))
+                            continue
+                        }
+                        val result = if(localTool!=null){
+                            callsMade++
+                            localTool(callId,name,tool["arguments"]?.jsonPrimitive?.contentOrNull ?: "{}")
+                        }else requireNotNull(coast).executeNativeChatGptTool(request, params, callsMade++)
                         runs.addAll(result.furnitureRuns)
-                        desk = result.deskSlip
-                        trySend(NativeChatEvent.Tool(callId, name, result.ok))
+                        // A tool preview is not the original delivered context. Preserve the actual input receipt in a sequence.
+                        if(sequence==null)desk = result.deskSlip
+                        send(NativeChatEvent.Tool(callId, name, result.ok))
                         history.add(nativeCoastToolOutput(requestedTool, result.output))
                         val (imageSaved,images)=nativeSavedImageContinuation(name,result)
                         if(imageSaved){generatedImageSaved=true;privateImages.addAll(images)}
+                        if(sequence!=null&&name=="sticker_send"&&result.ok)generatedImageSaved=true
                     }
                     history.addAll(privateImages)
                     imageCount=nativeVisionCount(JsonArray(history))
