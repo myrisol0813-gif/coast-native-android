@@ -97,11 +97,11 @@ internal fun AssistantMessage(
                     ) {
                         Column(modifier = Modifier.padding(snowLetterInnerPadding(SnowLetterSurfaceRole.AssistantBubble))) {
                             Text(
-                                text = when {
+                                text = remember(segment,isStreamingTail,last) { renderChatMarkdown(when {
                                     segment.isEmpty() && isStreamingTail && last -> "•••"
                                     isStreamingTail && last -> segment + " ▍"
                                     else -> segment
-                                },
+                                }) },
                                 color = MaterialTheme.colorScheme.onSurface,
                                 style = coastReadingMessageStyle(CoastChatTokens.ChatBodyLineHeight)
                             )
