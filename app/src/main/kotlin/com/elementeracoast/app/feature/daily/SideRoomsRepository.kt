@@ -62,6 +62,7 @@ class SideRoomsRepository(private val config: CoastApiConfig, private val client
         }
 
     suspend fun calendar(month: String): JsonObject = request("/api/calendar/entries?month=${encode(month)}")
+    suspend fun allCalendar(): JsonObject = request("/api/calendar/entries?all=1")
     private var sidebarMigrated = false
     suspend fun pinnedCalendar(today: String): JsonObject {
         if (config.localTransport == null && !sidebarMigrated) {
