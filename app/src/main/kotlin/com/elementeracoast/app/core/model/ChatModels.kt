@@ -9,7 +9,8 @@ data class ChatAttachment(
     val mime: String = "application/octet-stream",
     val size: Long = 0L,
     val storageKey: String = "",
-    val createdAt: String = ""
+    val createdAt: String = "",
+    val isSticker: Boolean = false
 )
 
 data class FurnitureItem(
@@ -49,7 +50,8 @@ data class ChatMessage(
     val attachments: List<ChatAttachment> = emptyList(),
     val furnitureRuns: List<FurnitureRun> = emptyList(),
     val deskReceipt: TurnDeskReceipt? = null,
-    val stickerDisplaySize: Int = 144
+    val stickerDisplaySize: Int = 144,
+    val replyGroupTail: Boolean = true
 ) {
     fun normalizedVariants(): List<String> = variants.ifEmpty { listOf(text) }
 }

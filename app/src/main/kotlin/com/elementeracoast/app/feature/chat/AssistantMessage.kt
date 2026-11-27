@@ -120,15 +120,15 @@ internal fun AssistantMessage(
             }
             if(message.attachments.isNotEmpty()){
                 Spacer(Modifier.height(6.dp))
-                MessageAttachmentList(conversationId=conversationId,attachments=message.attachments,previewSource=attachmentPreviewSource)
+                MessageAttachmentList(conversationId=conversationId,attachments=message.attachments,previewSource=attachmentPreviewSource,stickerSize=message.stickerDisplaySize)
             }
             Spacer(Modifier.height(CoastChatTokens.MessageActionTopGap))
             MessageActionRow(modifier = Modifier.fillMaxWidth()) {
                 MessageActionButton(Icons.Default.ContentCopy, "复制", onClick = onCopy)
                 MessageActionButton(Icons.Default.Mic, "生成语音", enabled = !isStreamingTail && !message.remoteVariantId.isNullOrBlank(), onClick = onVoice)
-                MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
+                if(message.replyGroupTail) MessageActionButton(Icons.Default.Refresh, "重新生成", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Regenerate(message.id)) })
                 MessageActionButton(Icons.Default.FavoriteBorder, "收藏", active = message.favorite, onClick = { onAction(MessageAction.ToggleFavorite(message.id)) })
-                MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
+                if(message.replyGroupTail) MessageActionButton(Icons.Default.DeleteOutline, "删除", enabled = !isStreamingTail, onClick = { onAction(MessageAction.Delete(message.id)) })
                 if (metadataTraceState != null) {
                     Spacer(Modifier.weight(1f))
                     ModelMetadataTraceChip(state = metadataTraceState)
@@ -143,7 +143,7 @@ internal fun AssistantMessage(
                 Spacer(Modifier.height(CoastChatTokens.MetadataRowGap))
                 ModelMetadataTracePanel(state = metadataTraceState, modifier = Modifier.fillMaxWidth())
             }
-            if (message.variantCount > 1) {
+            if (message.replyGroupTail && message.variantCount > 1) {
                 Spacer(Modifier.height(4.dp))
                 Row(modifier = Modifier.align(Alignment.End)) {
                     VariantControl(
