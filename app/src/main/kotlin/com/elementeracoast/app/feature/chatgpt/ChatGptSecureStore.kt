@@ -65,13 +65,13 @@ class ChatGptSecureStore(context: Context, private val localMode: Boolean = fals
     internal fun wakeConnectionEpoch():String?=preferences.getString(WAKE_CONNECTION_EPOCH,null)
     internal fun invalidateWakeConnection(){check(preferences.edit().remove(WAKE_CONNECTION_EPOCH).commit())}
 
-    fun save(value: ChatGptConnection, newAuthorization:Boolean=false) {
+    fun save(value: ChatGptConnection, freshGrant:Boolean=false) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.iv + cipher.doFinal(json.encodeToString(value).toByteArray(Charsets.UTF_8))
         check(preferences.edit().apply{
             putString(CREDENTIALS, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            if(newAuthorization||wakeConnectionEpoch()==null)putString(WAKE_CONNECTION_EPOCH,UUID.randomUUID().toString())
+            if(freshGrant||wakeConnectionEpoch()==null)putString(WAKE_CONNECTION_EPOCH,UUID.randomUUID().toString())
         }.commit())
     }
 

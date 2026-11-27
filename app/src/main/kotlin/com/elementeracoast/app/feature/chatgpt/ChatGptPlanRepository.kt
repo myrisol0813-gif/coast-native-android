@@ -150,7 +150,7 @@ class ChatGptPlanRepository(
                 expiresAtEpochSeconds = System.currentTimeMillis() / 1000 +
                     (response["expires_in"]?.jsonPrimitive?.longOrNull ?: 3600L)
             )
-            withContext(Dispatchers.IO) { store.save(value,newAuthorization=true) }
+            withContext(Dispatchers.IO) { store.save(value,freshGrant=true) }
             value
         } catch (_: SocketTimeoutException) {
             throw IllegalStateException("ChatGPT 授权超时，请回海岸重试。")
