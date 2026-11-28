@@ -246,7 +246,7 @@ internal class LocalDreamExecutor(
                     val selectedImage=RemoteCacheStore(store,strictReads=true).profile()?.currentImageModel.orEmpty()
                     val dreamImage=if(e.allowImage&&e.imageLimit>0&&imageProvider!=null&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled==true)imageFactory(store,c,selectedImage,imageProvider).takeIf{it.configured()}else null
                     val visionBudget=if((e.allowImageReadback&&dreamImage!=null||e.allowHistoryImageRead)&&initial!=null)modelBudget(initial.first,initial.second,e.outputLimit)else null
-                    val historyVision=LocalDreamToolPolicy.allowed(c,"dream_read_history_image")&&visionBudget?.vision==true
+                    val historyVision=LocalDreamToolPolicy.allowed(c,"dream_read_history_image")&&(if(plan!=null)plan.vision==true else visionBudget?.vision==true)
                     val allowed=tools(c)+commonTools+listOfNotNull(dreamImage?.let{tool("image_generate","可选：生成并保存独立活动图像，使用已授权生图供应商额度。只发送必要提示。若已单独授权且支持视觉，下一请求可收到系统转交原图；未收到像素不要假称看见。",mapOf("prompt" to "string"))})+if(historyVision)listOf(tool("dream_read_history_image","读取真实历史图片原件，单件及后续请求合计最多8 MiB；准备不等于已接收。",linkedMapOf("start" to "integer","message_id" to "string","attachment_id" to "string")))else emptyList()
                     val historyImageRefs=mutableMapOf<String,Pair<JsonObject,DreamImageReadback>>()
                     val pendingImages=mutableListOf<DreamImageReadback>()
