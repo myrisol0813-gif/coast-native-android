@@ -14,6 +14,8 @@ internal object LocalDreamToolPolicy{
             "independent_web_search","independent_web_read"->e.allowWeb
             "library_books","library_read","library_notes"->e.allowLibrary
             "memory_search"->e.allowMemory
+            "list_daily_moments","list_daily_diaries"->e.allowDailyRead
+            "worldbook_list"->e.allowWorldbookRead
             "cross_window_search","cross_window_read_recent","cross_window_keyword_search","cross_window_read_messages"->e.allowCrossWindow
             "dream_readback"->e.allowDreamReadback
             "calendar_list"->e.allowCalendar
