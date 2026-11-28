@@ -148,7 +148,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
             if(isPlan&&request.action=="save"&&previous.enabled&&dreamPlan?.requestLimit(cid,previous.grantRevision(),previous.modelId)?.let{it!=request.planRequestLimit}==true)return failure(r,409,"dream_reauthorization_required","修改套餐请求次数须重新授权。")
             val saved=if(planArm){
                 val route=dreamPlan
-                if(!ready||route==null||!request.confirmExecution||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..129)return failure(r,409,"dream_plan_not_available","套餐自主唤醒未开放，或缺少独立软预算确认。")
+                if(!ready||route==null||!request.confirmExecution||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646)return failure(r,409,"dream_plan_not_available","套餐自主唤醒未开放，或缺少独立软预算确认。")
                 val lease=LocalDreamRuntime.acquire()?:return failure(r,409,"dream_tide_busy","当前有活动或聊天正在执行。")
                 try{
                     val nextRevision=UUID.randomUUID().toString()

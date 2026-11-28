@@ -201,7 +201,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
             finally{busy=false}
         }
     }
-    ModalBottomSheet(onDismissRequest=onDismiss,sheetState=sheetState){
+    ModalBottomSheet(onDismissRequest=onDismiss,sheetState=sheetState,containerColor=com.elementeracoast.app.ui.theme.snowLetterSheetContainerColor()){
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=16.dp).padding(bottom=28.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
             Text("梦醒潮",style=MaterialTheme.typography.titleLarge)
             Text("仅本窗口 · 独立于普通聊天",style=MaterialTheme.typography.bodySmall)
@@ -213,8 +213,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
             if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
             if(notice.isNotBlank())Text(notice,style=MaterialTheme.typography.bodySmall)
             if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-            if(tab==0&&(localMode||response.planExecutionAvailable)) DreamNotificationControls(cid,localMode)
             if(tab==0&&loaded){
+                DreamSection("当前状态"){
                 Text(when{
                     !response.settings.enabled->"未授权"
                     response.settings.running->"活动中"
@@ -234,7 +234,9 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     else Text(if(schedule==null)"额外预约状态未确认" else "暂无有效额外预约",style=MaterialTheme.typography.bodySmall)
                     if(schedule?.eligibleKind!=null)Text("当前有可认领时段，不代表精确执行保证。",style=MaterialTheme.typography.bodySmall)
                 }
-                if(response.settings.enabled)Button(onClick={save("disarm")},enabled=!busy){Text("关闭唤醒授权")}
+                if(response.settings.enabled)TextButton(onClick={save("disarm")},enabled=!busy){Text("关闭唤醒授权")}
+                }
+                DreamSection("绑定模型与定时"){
                 DreamField("绑定模型 ID",model,{model=it.take(180)},!busy)
                 if(planDraft){
                     Text(if(canArmSelected)"套餐调用使用当前本机账号的共享额度。没有供应商强制输出 token 上限；额度不足会暂停已授权窗口，须明确重新授权。" else "套餐模型：当前构建仅保存草稿，不启用后台调用。",style=MaterialTheme.typography.bodySmall)
@@ -254,7 +256,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 }
                 DreamSwitch("允许模型自主预约额外唤醒",cfg.allowExtra,!busy){cfg=cfg.copy(allowExtra=it)}
                 DreamField("每日额外次数上限",extraText,{extraText=it},!busy)
-                Text("独立预算与邀请",style=MaterialTheme.typography.titleMedium)
+                }
+                DreamSection("独立预算与邀请"){
                 Text("预算可自行填写；整数范围 1–2147483646，次数允许 0 表示禁止相应操作。实际输出受累计剩余预算、供应商能力与上下文约束；套餐输出为建议值。单次读取正文最多 60000 字符，过大请分页。",style=MaterialTheme.typography.bodySmall)
                 DreamField("单次累计 token 预算",tokenText,{tokenText=it},!busy)
                 DreamField(if(planDraft)"每次请求建议输出（软限制）" else "每次请求输出上限",outputText,{outputText=it},!busy)
@@ -265,6 +268,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 OutlinedTextField(execution.invitation,{execution=execution.copy(invitation=it)},label={Text("唤醒邀请词（最多16000字符）")},isError=execution.invitation.length>16000,modifier=Modifier.fillMaxWidth(),minLines=4,enabled=!busy)
                 Text("可以什么也不做。输入 token 为估算，实际费用以供应商为准。",style=MaterialTheme.typography.bodySmall)
                 if(!localMode&&planDraft)Text("手机套餐协议：单次回传最多 2 MiB；单次模型响应最多 128 个函数调用，单个工具参数/返回最多 60000 字符。在线端暂不递送手机步数、应用使用数据及自主生图像素，已保存的原图仍可查看。",style=MaterialTheme.typography.bodySmall)
+                }
+                DreamSection("上下文与阅读"){ 
                 DreamSwitch("当前时间",execution.includeTime,!busy){execution=execution.copy(includeTime=it)}
                 DreamSwitch("上次活动与间隔",execution.includePrevious,!busy){execution=execution.copy(includePrevious=it)}
                 DreamSwitch("小笺与回笺",execution.includeReplies,!busy){execution=execution.copy(includeReplies=it)}
@@ -292,7 +297,9 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("未来日历（需窗口现实权限）",execution.includeCalendar,!busy){execution=execution.copy(includeCalendar=it)}
                 DreamSwitch("步数（仅本机且已授权）",execution.includeSteps,!busy){execution=execution.copy(includeSteps=it)}
                 DreamSwitch("应用使用情况（仅本机且已授权）",execution.includeAppUsage,!busy){execution=execution.copy(includeAppUsage=it)}
-                Text("通用工具（同时遵循现有窗口权限）",style=MaterialTheme.typography.titleMedium)
+                }
+                DreamSection("通用工具"){
+                Text("同时遵循现有窗口权限",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 DreamSwitch("独立联网",execution.allowWeb,!busy){execution=execution.copy(allowWeb=it)}
                 DreamSwitch("书房阅读",execution.allowLibrary,!busy){execution=execution.copy(allowLibrary=it)}
                 DreamSwitch("按需检索正式记忆",execution.allowMemory,!busy){execution=execution.copy(allowMemory=it)}
@@ -309,9 +316,13 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("评论与点赞朋友圈（只改变自己的点赞）",execution.allowDailyInteract,!busy){execution=execution.copy(allowDailyInteract=it)}
                 DreamSwitch("新增日历事项",execution.allowCalendarWrite,!busy){execution=execution.copy(allowCalendarWrite=it)}
                 DreamSwitch("修改或删除本窗口自己的日历",execution.allowCalendarEdit,!busy){execution=execution.copy(allowCalendarEdit=it)}
+                }
+                DreamSection("媒体与原件"){
                 DreamSwitch("自主语音（独立供应商费用）",execution.allowVoice,!busy){execution=execution.copy(allowVoice=it)}
                 DreamSwitch("自主生图（独立供应商费用）",execution.allowImage,!busy){execution=execution.copy(allowImage=it)}
                 DreamSwitch("允许将本次自主生图原件转交支持视觉的模型（计入推理预算）",execution.allowImageReadback,!busy){execution=execution.copy(allowImageReadback=it)}
+                }
+                DreamSection("保存与授权"){
                 Text("已授权时保存不会撤销授权。修改模型、预算或权限须重新授权；仅修改定时不需要。",style=MaterialTheme.typography.bodySmall)
                 Button(onClick={save("save")},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(response.settings.enabled)"保存设置（保留授权）" else "保存草稿（不启用）")}
                 if(canArmSelected){
@@ -319,6 +330,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     if(planDraft)DreamSwitch("理解套餐 token 为软预算，不是供应商硬上限",softConsent,!busy){softConsent=it}
                     Button(onClick={save("arm")},enabled=!busy&&consent&&(!planDraft||softConsent),modifier=Modifier.fillMaxWidth()){Text(if(response.settings.enabled)"保存并重新授权" else "保存并授权唤醒")}
                 }
+                }
+                DreamNotificationControls(cid,localMode)
             }else if(tab==1){
                 if(localMode&&!canArm)Text("本机自动执行尚未开放；已归档的历史仍可阅读。",style=MaterialTheme.typography.bodySmall)
                 if(notePage.items.isEmpty()&&!busy)Text("还没有小笺。")
@@ -327,7 +340,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     var body by remember{mutableStateOf("")}
                     var retryId by remember{mutableStateOf("")}
                     var retryBody by remember{mutableStateOf("")}
-                    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp){
+                    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackElevation=1.dp){
                         Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                             Text(stamp(note.createdAt)+" · "+note.modelId,style=MaterialTheme.typography.bodySmall)
                             Text(note.body)
@@ -355,7 +368,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 }
                 if(localMode&&!canArm)Text("本机自动执行尚未开放；已归档的历史仍可阅读。",style=MaterialTheme.typography.bodySmall)
                 if(activityPage.items.isEmpty()&&!busy)Text("还没有潮痕。")
-                activityPage.items.forEach{r->com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp){
+                activityPage.items.forEach{r->com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackElevation=1.dp){
                     Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
                         Text(stamp(r.startedAt)+" · "+if(r.kind=="daily")"固定唤醒" else "额外唤醒")
                         Text(status(r.status)+" · "+r.modelId,style=MaterialTheme.typography.bodySmall)
@@ -403,8 +416,17 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
     }
 }
 @Composable
+private fun DreamSection(title:String,content:@Composable ColumnScope.()->Unit){
+    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackElevation=1.dp){
+        Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+            Text(title,style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurface)
+            content()
+        }
+    }
+}
+@Composable
 private fun DreamField(label:String,value:String,change:(String)->Unit,enabled:Boolean,modifier:Modifier=Modifier.fillMaxWidth()){
-    OutlinedTextField(value,change,label={Text(label)},modifier=modifier,singleLine=true,enabled=enabled)
+    OutlinedTextField(value,change,label={Text(label)},modifier=modifier,singleLine=true,enabled=enabled,shape=MaterialTheme.shapes.medium,colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.35f),focusedBorderColor=MaterialTheme.colorScheme.primary.copy(alpha=.75f)))
 }
 @Composable
 private fun DreamSwitch(label:String,checked:Boolean,enabled:Boolean,change:(Boolean)->Unit){

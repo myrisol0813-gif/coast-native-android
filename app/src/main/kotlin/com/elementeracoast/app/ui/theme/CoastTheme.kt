@@ -5,6 +5,9 @@ import android.content.Context
 import android.graphics.Typeface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -23,6 +26,7 @@ private const val ZHUQUE_FONT_RESOURCE = "zhuque_fangsong_regular"
 private const val NANO_OLD_SONG_RESOURCE = "nano_old_song_a_regular"
 private const val CHILL_HUO_SONG_RESOURCE = "chill_huo_song_regular"
 private val CoastSans = FontFamily.SansSerif
+private val CoastShapes = Shapes(extraSmall=RoundedCornerShape(8.dp),small=RoundedCornerShape(12.dp),medium=RoundedCornerShape(18.dp),large=RoundedCornerShape(22.dp),extraLarge=RoundedCornerShape(28.dp))
 private val CoastTypography = Typography(
     headlineMedium = TextStyle(fontFamily = CoastSans, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp),
     titleLarge = TextStyle(fontFamily = CoastSans, fontSize = 20.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
@@ -107,7 +111,7 @@ fun CoastTheme(
         MaterialTheme(
             colorScheme = colors,
             typography = CoastTypography,
-            shapes = if (preset == CoastThemePreset.CreamPaper) CreamPaperStyle.Shapes else MaterialTheme.shapes,
+            shapes = if (preset == CoastThemePreset.CreamPaper) CreamPaperStyle.Shapes else CoastShapes,
             content = content
         )
     }
