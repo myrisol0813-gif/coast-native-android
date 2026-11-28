@@ -145,7 +145,7 @@ internal class LocalDreamExecutor(
                     val at=runCatching{Instant.parse(v.createdAt).toEpochMilli()}.getOrNull()
                     if(at==null||at<=requireNotNull(since)||at>c.startedAt)return@mapNotNull null
                 }
-                buildJsonObject{put("role",role);put("id",v.id);put("content",v.content);put("created_at",v.createdAt);if(autonomous){put("generation_source","dream_tide");put("wake_activity_id",requireNotNull(t.wakeActivityId))}}
+                buildJsonObject{put("role",role);put("id",v.id);put("content",v.content);put("created_at",v.createdAt);if(c.config.execution?.includeHistoryAttachments==true&&v.attachments.isNotEmpty())put("attachments",JsonArray(v.attachments.map{att->buildJsonObject{put("id",att.id);put("type",att.type);put("name",att.name);put("mime",att.mime);put("size",att.size);put("delivery","metadata_only")}}));if(autonomous){put("generation_source","dream_tide");put("wake_activity_id",requireNotNull(t.wakeActivityId))}}
             }
             if(messages.isEmpty())null else buildJsonObject{put("index",index);put("turn_id",t.id);put("messages",JsonArray(messages))}
         }
