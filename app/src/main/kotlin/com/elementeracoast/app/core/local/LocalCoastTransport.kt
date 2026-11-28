@@ -212,6 +212,11 @@ class LocalCoastTransport(private val store: LocalPersistence,
                     val c=RemoteCacheStore(s,strictReads=true)
                     val old=c.history(cid)?:RemoteHistory(conversationId=cid)
                     require(!LocalReplyRunStore(s).active(cid)&&!LocalDreamLedger(s).active(cid)){"当前窗口正在执行活动。"}
+                    val allowWakeDelete=r.header("X-Coast-Delete-Revision")==old.updatedAt
+                    for(t in old.turns.filter{it.turnType=="dream_tide"}){
+                        val next=input.turns.firstOrNull{it.id==t.id}
+                        require(if(next==null)allowWakeDelete else next.turnType=="dream_tide"&&next.wakeActivityId==t.wakeActivityId&&t.assistant.variantsByUserVariant["0"].orEmpty().all{v->next.assistant.variantsByUserVariant["0"].orEmpty().any{it.id==v.id&&it.content==v.content&&it.generationSource==v.generationSource}}){"历史中有新到的自主消息，请刷新。"}
+                    }
                     LocalReplyRunStore.protect(old,input,r.header("X-Coast-Delete-Revision"))
                     val next=LocalImageRecovery.protect(old,input,r.header("X-Coast-Delete-Revision")).copy(conversationId=cid,updatedAt=now())
                     val originals=LocalAttachmentStore(s)
