@@ -22,6 +22,7 @@ internal object LocalDreamToolPolicy{
             "vault_search","vault_read"->e.allowCollection
             "library_write"->e.allowLibraryWrite
             "create_moment","create_diary"->e.allowDailyWrite
+            "moment_comment","moment_like"->e.allowDailyInteract
             "calendar_create"->e.allowCalendarWrite
             "voice_create"->e.allowVoice&&e.voiceLimit>0
             "image_generate"->e.allowImage&&e.imageLimit>0
