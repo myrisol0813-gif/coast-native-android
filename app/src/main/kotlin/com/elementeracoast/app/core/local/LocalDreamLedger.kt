@@ -156,6 +156,16 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val row=buildJsonObject{put("claim_id",c.id);put("step_index",index);put("status","claimed");put("receipt_json",JsonNull);put("started_at",now);put("finished_at",JsonNull)}
         JsonObject(h+("steps" to JsonArray(rows+row)))
     }
+    fun reserveFirstWithDogtalk(c:Claim,d:LocalDogtalkStore.WakeDelivery,now:Long):Boolean=store.atomic{s->
+        if(c.config.execution?.includeDogtalk!=true||d.cid!=c.cid||!LocalDreamLedger(s).reserveStep(c,0,now))return@atomic false
+        LocalDogtalkStore(s).snapshotWake(d,c.id,now)
+        true
+    }
+    fun confirmFirstDogtalk(c:Claim,d:LocalDogtalkStore.WakeDelivery,now:Long):JsonObject?=store.atomic{s->
+        val h=LocalDreamArchive(s).runtimeHistory(c.cid)
+        if(!authorized(s,c,h)||c.config.execution?.includeDogtalk!=true||d.cid!=c.cid||h.rows("steps").none{it.str("claim_id")==c.id&&it.str("step_index")=="0"&&it.str("status")=="completed"})return@atomic null
+        LocalDogtalkStore(s).confirmWake(d,c.id,now)
+    }
     fun recordStep(c:Claim,index:Int,success:Boolean,receipt:JsonObject,now:Long)=mutate(c,false){h->
         val rows=h.rows("steps");val old=rows.singleOrNull{it.str("claim_id")==c.id&&it.str("step_index")==index.toString()&&it.str("status")=="claimed"}?:return@mutate null
         val row=JsonObject(old+mapOf("status" to JsonPrimitive(if(success)"completed"else "failed"),"receipt_json" to JsonPrimitive(receipt.toString()),"finished_at" to JsonPrimitive(now)))
