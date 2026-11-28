@@ -22,10 +22,11 @@ internal object LocalDreamToolPolicy{
             "dream_readback"->e.allowDreamReadback
             "calendar_list"->e.allowCalendar
             "vault_search","vault_read"->e.allowCollection
-            "library_write"->e.allowLibraryWrite
+            "library_write"->e.allowLibraryWrite||e.allowLibraryEdit
             "create_moment","create_diary"->e.allowDailyWrite
             "moment_comment","moment_like"->e.allowDailyInteract
             "calendar_create"->e.allowCalendarWrite
+            "calendar_update","calendar_delete"->e.allowCalendarEdit
             "voice_create"->e.allowVoice&&e.voiceLimit>0
             "image_generate"->e.allowImage&&e.imageLimit>0
             else->false
