@@ -178,6 +178,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
         if(action=="arm"&&(!canArmSelected||!consent||planDraft&&!softConsent))return
         val planLimit=planLimitText.toIntOrNull()
         if(action=="arm"&&planDraft&&(planLimit==null||planLimit !in 1..2147483646)){error="请填写 1–2147483646 的套餐请求次数上限。";return}
+        if(action=="save"&&planDraft&&response.settings.enabled&&response.planRequestLimit!=null&&planLimit!=response.planRequestLimit){error="修改套餐请求次数须保存并重新授权。";return}
         val daily=cfg.dailyTime.trim();val qs=quietStart.trim();val qe=quietEnd.trim()
         if(action!="disarm"){
             val clock=Regex("^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
@@ -311,7 +312,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("自主语音（独立供应商费用）",execution.allowVoice,!busy){execution=execution.copy(allowVoice=it)}
                 DreamSwitch("自主生图（独立供应商费用）",execution.allowImage,!busy){execution=execution.copy(allowImage=it)}
                 DreamSwitch("允许将本次自主生图原件转交支持视觉的模型（计入推理预算）",execution.allowImageReadback,!busy){execution=execution.copy(allowImageReadback=it)}
-                Text("已授权时保存不会撤销授权。修改模型、预算或权限须重新授权，套餐定时修改也须重新授权。",style=MaterialTheme.typography.bodySmall)
+                Text("已授权时保存不会撤销授权。修改模型、预算或权限须重新授权；仅修改定时不需要。",style=MaterialTheme.typography.bodySmall)
                 Button(onClick={save("save")},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(response.settings.enabled)"保存设置（保留授权）" else "保存草稿（不启用）")}
                 if(canArmSelected){
                     DreamSwitch(if(planDraft)"确认允许按设置自动使用本机套餐额度（媒体可能另计费用）" else "确认按上述设置进行模型调用并产生相应费用",consent,!busy){consent=it}

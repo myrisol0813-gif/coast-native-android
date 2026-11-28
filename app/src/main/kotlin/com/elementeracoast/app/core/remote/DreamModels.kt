@@ -34,8 +34,10 @@ data class DreamConfig(
 @Serializable
 data class DreamSettings(
     val revision:String?=null,val enabled:Boolean=false,val config:DreamConfig?=null,
-    val modelId:String?=null,val armedAt:Long?=null,val extraAt:Long?=null,val running:Boolean=false,val extraId:String?=null
-)
+    val modelId:String?=null,val armedAt:Long?=null,val extraAt:Long?=null,val running:Boolean=false,val extraId:String?=null,val authorizationRevision:String?=null
+){
+    fun grantRevision():String?=authorizationRevision?:revision
+}
 
 @Serializable
 data class DreamScheduleView(val dailyStatus:String="disabled",val extraStatus:String="none",val extraAt:Long?=null,val eligibleKind:String?=null)

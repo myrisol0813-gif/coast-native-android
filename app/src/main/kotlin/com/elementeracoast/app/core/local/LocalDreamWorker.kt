@@ -66,7 +66,7 @@ class LocalDreamWorker(context:Context,params:WorkerParameters):CoroutineWorker(
                 val a=ledger.settings(w.id)
                 val history=LocalDreamArchive(store).runtimeHistory(w.id)["runs"]!!.jsonArray.map{it.jsonObject}
                 val used=history.map{it.getValue("slot_key").jsonPrimitive.content}.toSet()
-                if(LocalDreamSchedule.candidate(a,used,now)==null||a.revision==null||a.modelId==null||a.modelId.startsWith("chatgpt-plan:")&&plan?.status(w.id,a.revision,a.modelId)!="authorized")null
+                if(LocalDreamSchedule.candidate(a,used,now)==null||a.revision==null||a.modelId==null||a.modelId.startsWith("chatgpt-plan:")&&plan?.status(w.id,a.grantRevision(),a.modelId)!="authorized")null
                 else Triple(w.id,a,history.maxOfOrNull{it.getValue("started_at").jsonPrimitive.long}?:0L)
             }.sortedBy{it.third}
             // One active window per worker tick. A bounded tick cannot turn

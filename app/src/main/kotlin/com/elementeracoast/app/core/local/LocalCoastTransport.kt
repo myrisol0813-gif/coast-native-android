@@ -123,7 +123,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
             val ledger=LocalDreamLedger(store)
             val previous=ledger.settings(cid)
             val ready=BuildConfig.LOCAL_DREAM_EXECUTION_ENABLED&&dreamCanArm!=null
-            fun payload(settings:DreamSettings)=element(DreamSettingsResponse.serializer(),DreamSettingsResponse(ok=true,settings=settings,executionAvailable=ready,schedulerConfigured=ready,planExecutionAvailable=ready&&dreamPlan!=null,planStatus=if(settings.modelId?.startsWith("chatgpt-plan:")==true)dreamPlan?.status(cid,settings.revision,settings.modelId)else null,planRequestLimit=dreamPlan?.requestLimit(cid,settings.revision,settings.modelId),schedule=ledger.scheduleView(cid))).jsonObject
+            fun payload(settings:DreamSettings)=element(DreamSettingsResponse.serializer(),DreamSettingsResponse(ok=true,settings=settings,executionAvailable=ready,schedulerConfigured=ready,planExecutionAvailable=ready&&dreamPlan!=null,planStatus=if(settings.modelId?.startsWith("chatgpt-plan:")==true)dreamPlan?.status(cid,settings.grantRevision(),settings.modelId)else null,planRequestLimit=dreamPlan?.requestLimit(cid,settings.grantRevision(),settings.modelId),schedule=ledger.scheduleView(cid))).jsonObject
             if(method=="GET"){
                 if(path=="/api/chat/dream-tide")return response(r,200,payload(previous))
                 val offset=r.url.queryParameter("offset")?.toIntOrNull()?:0
@@ -145,6 +145,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
             if(!b.containsKey("revision")||request.revision!=previous.revision)return failure(r,409,"dream_tide_conflict","设置已改变，请刷新。")
             val isPlan=request.modelId?.startsWith("chatgpt-plan:")==true
             val planArm=isPlan&&request.action=="arm"
+            if(isPlan&&request.action=="save"&&previous.enabled&&dreamPlan?.requestLimit(cid,previous.grantRevision(),previous.modelId)?.let{it!=request.planRequestLimit}==true)return failure(r,409,"dream_reauthorization_required","修改套餐请求次数须重新授权。")
             val saved=if(planArm){
                 val route=dreamPlan
                 if(!ready||route==null||!request.confirmExecution||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..129)return failure(r,409,"dream_plan_not_available","套餐自主唤醒未开放，或缺少独立软预算确认。")

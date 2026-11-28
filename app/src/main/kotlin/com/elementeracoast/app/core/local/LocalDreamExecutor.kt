@@ -202,7 +202,7 @@ internal class LocalDreamExecutor(
     suspend fun run(cid:String,revision:String,modelId:String,now:Long=clock()):String{
         if(!workspaceActive())return "disabled"
         val isPlan=NativeDreamPlanProtocol.slug(modelId)!=null
-        val plan=if(isPlan)preparePlan(cid,revision,modelId)?:return "model_unavailable" else null
+        val plan=if(isPlan){val settings=ledger.settings(cid);if(!settings.enabled||settings.revision!=revision||settings.modelId!=modelId)return "disabled";preparePlan(cid,settings.grantRevision()?:return "model_unavailable",modelId)?:return "model_unavailable"}else null
         val initial=if(isPlan)null else (resolve(modelId)?:return "model_unavailable")
         if(plan!=null&&!plan.authorized())return "model_unavailable"
         val c=ledger.claim(cid,revision,modelId,now)?:return "not_due"

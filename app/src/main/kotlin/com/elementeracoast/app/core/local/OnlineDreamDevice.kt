@@ -43,9 +43,9 @@ internal class OnlineDreamDevice private constructor(private val context:Context
     fun preferredModel():String=ChatGptSecureStore(context,false).preferredModel()?.let{NativeDreamPlanProtocol.PREFIX+it}.orEmpty()
     fun status(cid:String,value:DreamSettingsResponse):DreamSettingsResponse{
         val a=value.settings
-        val r=registrations().firstOrNull{it.cid==cid&&it.revision==a.revision&&it.model==a.modelId}
-        val state=if(r==null)"not_authorized" else plan.status(cid,a.revision,a.modelId)
-        return value.copy(planExecutionAvailable=value.planExecutionAvailable&&BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED,planStatus=state,planRequestLimit=plan.requestLimit(cid,a.revision,a.modelId))
+        val r=registrations().firstOrNull{it.cid==cid&&it.revision==a.grantRevision()&&it.model==a.modelId}
+        val state=if(r==null)"not_authorized" else plan.status(cid,a.grantRevision(),a.modelId)
+        return value.copy(planExecutionAvailable=value.planExecutionAvailable&&BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED,planStatus=state,planRequestLimit=plan.requestLimit(cid,a.grantRevision(),a.modelId))
     }
     suspend fun save(api:CoastApiClient,value:DreamSettingsRequest):DreamSettingsResponse=withContext(Dispatchers.IO){
         val cid=value.conversationId
@@ -61,7 +61,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         val deviceKey=key()
         val saved=api.saveDreamSettings(value.copy(deviceKey=deviceKey))
         if(!saved.ok)return@withContext saved
-        val revision=requireNotNull(saved.settings.revision)
+        val revision=requireNotNull(saved.settings.grantRevision())
         // The server revision is authoritative. No provider request until
         // the independent device account grant has been verified and saved.
         try{
@@ -99,7 +99,8 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         val remote=try{api.dreamSettings(r.cid)}catch(e:CoastApiException){
             if(e.status==404){removeIfCurrent(r);return false};throw e
         }
-        if(!remote.settings.enabled||remote.settings.revision!=r.revision||remote.settings.modelId!=r.model){removeIfCurrent(r);return false}
+        if(!remote.settings.enabled||remote.settings.grantRevision()!=r.revision||remote.settings.modelId!=r.model){removeIfCurrent(r);return false}
+        val configRevision=remote.settings.revision?:return false
         if(!remote.planExecutionAvailable){diagnostic(r,"check","preflight_failed","server_gate_disabled");return false}
         if(plan.status(r.cid,r.revision,r.model)!="authorized"){diagnostic(r,"check","preflight_failed","plan_not_authorized");return false}
         diagnostic(r,"check","catalog_check")
@@ -107,7 +108,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         if(!stillRegistered(r)||!binding.authorized())return false
         var claimId:String?=null
         suspend fun action(name:String,body:JsonObject=JsonObject(emptyMap())):JsonObject=api.dreamDeviceAction(buildJsonObject{
-            put("conversation_id",r.cid);put("revision",r.revision);put("modelId",r.model);put("deviceKey",r.key);put("action",name)
+            put("conversation_id",r.cid);put("revision",configRevision);put("modelId",r.model);put("deviceKey",r.key);put("action",name)
             claimId?.let{put("claim_id",it)};body.forEach{(k,v)->put(k,v)}
         })
         fun JsonObject.ok()=get("ok")?.jsonPrimitive?.booleanOrNull==true

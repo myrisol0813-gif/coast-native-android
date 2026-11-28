@@ -82,7 +82,7 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         if(old.revision!=request.revision)return@readConsistent null
         val running=active(LocalDreamArchive(s).runtimeHistory(cid))!=null
         if(request.action=="disarm"){
-            val next=old.copy(enabled=false,revision=UUID.randomUUID().toString(),armedAt=null,extraAt=null,extraId=null)
+            val next=old.copy(enabled=false,revision=UUID.randomUUID().toString(),armedAt=null,extraAt=null,extraId=null,authorizationRevision=null)
             save(s,cid,next);return@readConsistent next.copy(running=running)
         }
         if(running||request.action !in setOf("save","arm"))return@readConsistent null
@@ -99,7 +99,7 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
             val prior=requireNotNull(old.config)
             require(old.modelId==model&&prior.execution==cfg.execution&&prior.allowExtra==cfg.allowExtra){"已有唤醒授权；修改模型、预算或权限请保存并重新授权，原预约未改变。"}
             if(prior.copy(scheduleEpoch=null)==cfg.copy(scheduleEpoch=null))return@readConsistent old
-            require(!plan){"套餐定时修改请保存并重新授权；原预约未改变。"}
+            // A schedule-only edit keeps the existing device grant identity.
         }
         val arm=request.action=="arm"||activeSave
         if(request.action=="arm"&&(!enableAllowed||!request.confirmExecution||(if(plan)planRevision==null||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646 else !model.startsWith("local:")||'/' !in model)))return@readConsistent null
@@ -120,8 +120,8 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val runs=LocalDreamArchive(s).runtimeHistory(cid).rows("runs")
         val keepExtra=sameBinding&&cfg.allowExtra&&e.extraPerDay>0&&extra!=null&&extra>now&&extra>=(old.armedAt?:now)&&extraId!=null&&!quiet&&
             runs.none{it.str("slot_key")=="extra:"+extraId}&&runs.count{it.str("kind")=="extra"&&it.str("local_day")==LocalDreamSchedule.day(extra,cfg.timeZone)}<e.extraPerDay
-        val next=DreamSettings(revision=if(arm&&plan)requireNotNull(planRevision)else UUID.randomUUID().toString(),enabled=arm,config=LocalDreamSchedule.withScheduleIdentity(cfg,old.config),modelId=model,armedAt=armedAt,
-            extraAt=extra.takeIf{keepExtra},extraId=extraId.takeIf{keepExtra})
+        val next=DreamSettings(revision=if(request.action=="arm"&&plan)requireNotNull(planRevision)else UUID.randomUUID().toString(),enabled=arm,config=LocalDreamSchedule.withScheduleIdentity(cfg,old.config),modelId=model,armedAt=armedAt,
+            extraAt=extra.takeIf{keepExtra},extraId=extraId.takeIf{keepExtra},authorizationRevision=if(arm&&plan){if(activeSave)old.grantRevision() else planRevision}else null)
         save(s,cid,next);next
     }
     private fun authorized(s:LocalPersistence,c:Claim,h:JsonObject):Boolean{
