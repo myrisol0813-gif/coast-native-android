@@ -69,7 +69,8 @@ internal fun TurnDeskStatusStrip(
 @Composable
 internal fun TurnDeskBottomSheet(
     receipt: TurnDeskReceipt,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    historical:Boolean=false
 ) {
     var expanded by remember(receipt) { mutableStateOf<Set<Int>>(emptySet()) }
     ModalBottomSheet(
@@ -83,7 +84,7 @@ internal fun TurnDeskBottomSheet(
                 .padding(horizontal = 20.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            Text("本轮桌面", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(if(historical)"历史桌面" else "本轮桌面", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Text(
                 receipt.comfort.ifBlank { "这张回执只描述本轮真正递给模型的上下文。" },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
