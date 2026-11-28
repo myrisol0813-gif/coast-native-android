@@ -11,6 +11,7 @@ internal object LocalDreamToolPolicy{
             "dream_read_history_file"->e.readHistory&&e.includeHistoryAttachments&&e.allowHistoryFileRead
             "dream_write_note"->e.writeNote
             "dream_send_message"->e.allowMessage
+            "dream_sticker_search"->e.allowMessage&&e.allowStickerSend
             "dream_memory_candidate"->e.allowMemoryCandidate
             "dream_schedule_extra"->c.config.allowExtra&&e.extraPerDay>0
             "independent_web_search","independent_web_read"->e.allowWeb

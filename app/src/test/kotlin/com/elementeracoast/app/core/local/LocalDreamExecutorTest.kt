@@ -73,6 +73,32 @@ class LocalDreamExecutorTest {
         assertEquals("not_due",engine.run(cid,settings.revision!!,model,at))
         assertEquals(3,requests)
     }
+    @Test fun wakeStickerCatalogueAndRepeatedPureStickerDelivery()=runBlocking{
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val h=cache.history(cid)!!
+        cache.putHistory(cid,h.copy(contextSettings=h.contextSettings.copy(stickerSendEnabled=true,localModelToolsEnabled=true,localModelWriteEnabled=true)))
+        val bytes=ByteArray(24);byteArrayOf(137.toByte(),80,78,71,13,10,26,10).copyInto(bytes)
+        val library=LocalStickerLibrary(store)
+        val sticker=library.upload("fixture.png","image/png","fixture happy",bytes)
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowStickerSend=true,tokenBudget=40000,toolBudget=6))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+            requests++
+            assertTrue(tools.toString().contains("dream_sticker_search"))
+            when(requests){
+                1->response(call("search","dream_sticker_search",buildJsonObject{put("q","fixture")}))
+                2->{assertTrue(messages.toString().contains(sticker.id));response(call("send","dream_send_message",buildJsonObject{put("body","");put("sticker_ids",JsonArray(listOf(JsonPrimitive(sticker.id),JsonPrimitive(sticker.id))))}))}
+                3->{library.update(sticker.id,"owner",enabled=false);response(call("off","dream_send_message",buildJsonObject{put("body","");put("sticker_ids",JsonArray(listOf(JsonPrimitive(sticker.id))))}))}
+                else->response()
+            }
+        },clock={at})
+        assertEquals("completed",engine.run(cid,arm.revision!!,model,at))
+        val msg=cache.history(cid)!!.turns.filter{it.turnType=="dream_tide"}.single().assistant.variantsByUserVariant.getValue("0").single()
+        assertEquals("",msg.content);assertEquals(2,msg.attachments.size);assertNotEquals(msg.attachments[0].id,msg.attachments[1].id)
+        val originals=LocalAttachmentStore(store)
+        msg.attachments.forEach{a->assertEquals(sticker.id,a.stickerDelivery?.stickerId);assertArrayEquals(bytes,originals.bytes(originals.entries().single{it.metadata.getValue("id").jsonPrimitive.content==a.id}))}
+    }
     @Test fun localApiWakeOrganizesTheActualSentMessageWithinBudget()=runBlocking{
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})

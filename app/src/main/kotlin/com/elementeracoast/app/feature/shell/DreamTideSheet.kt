@@ -252,6 +252,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("允许自主选读窗口历史",execution.readHistory,!busy){execution=execution.copy(readHistory=it)}
                 DreamSwitch("允许写小笺",execution.writeNote,!busy){execution=execution.copy(writeNote=it)}
                 DreamSwitch("允许在当前窗口主动发送正式消息（计入工具预算）",execution.allowMessage,!busy){execution=execution.copy(allowMessage=it)}
+                DreamSwitch("查找并发送现有表情包（需窗口表情包开关与正式消息授权，每条图片合计最多12张）",execution.allowStickerSend,!busy){execution=execution.copy(allowStickerSend=it)}
                 Text("每条正文最多12000字符。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("当前窗口思维壤（沿用窗口开关，最多1800字符）",execution.includeSoil,!busy){execution=execution.copy(includeSoil=it)}
                 DreamSwitch("自动召回正式记忆（活动邀请为检索意图）",execution.includeRecall,!busy){execution=execution.copy(includeRecall=it)}

@@ -135,6 +135,24 @@ internal class LocalStickerLibrary(private val store:LocalPersistence){
             put("next_cursor",if(rows.size>40)JsonPrimitive(cursor+40)else JsonNull)
         }
     }
+    // Called only by the active wake ledger within its existing transaction.
+    // Resolve every source before publishing copies; source originals stay intact.
+    internal fun copyForDreamMessage(cid:String,tid:String,mid:String,ids:List<String>,now:Long):List<RemoteAttachment>{
+        if(ids.isEmpty())return emptyList()
+        val h=requireNotNull(RemoteCacheStore(store,strictReads=true).history(cid))
+        require(h.contextSettings.stickerSendEnabled&&h.contextSettings.localModelToolsEnabled&&h.contextSettings.localModelWriteEnabled)
+        require(ids.size<=12&&ids.all{ID.matches(it)&&it.startsWith("sticker_")})
+        val catalogue=entries(store)
+        val sources=ids.map{id->val e=catalogue.single{it.id==id&&it.enabled};e to original(store,e.conversationId,e.attachmentId)}
+        return sources.map{(e,source)->
+            val (row,data)=source
+            val id="att_"+UUID.randomUUID()
+            val name=row.metadata.str("name");val mime=row.metadata.str("mime")
+            val meta=buildJsonObject{put("id",id);put("conversation_id",cid);put("turn_id",tid);put("kind","image");put("name",name);put("mime",mime);put("size",data.size);put("created_at",now);put("updated_at",now)}
+            LocalAttachmentStore(store).publish(LocalAttachmentStore.Original(meta,ArchiveV2Chunks.digest(data)),data)
+            RemoteAttachment(id=id,type="image",name=name,mime=mime,size=data.size.toLong(),storageKey="chat-attachment:"+id,createdAt=Instant.ofEpochMilli(now).toString(),stickerDelivery=RemoteStickerDelivery(mid,e.id))
+        }
+    }
     fun deliver(cid:String,tid:String,uid:String,mid:String,stickerId:String,allowSend:Boolean=false,sequenceId:String?=null):Delivery=store.atomic{s->
         require(allowSend&&listOf(cid,tid,uid,mid,stickerId).all(ID::matches))
         require(LocalReplyRunStore(s).allowsMedia(cid,tid,uid,mid,sequenceId)){"原回复任务已失去媒体权限。"}

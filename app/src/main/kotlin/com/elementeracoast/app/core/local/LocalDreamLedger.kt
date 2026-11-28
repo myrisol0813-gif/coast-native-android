@@ -196,8 +196,8 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     }
     // The active claim and exact tool reservation must still exist at the
     // durable write. No synthetic user message or new inference is created.
-    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList()):String?=store.atomic{s->
-        if((body.isBlank()&&imageIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size>12||imageIds.distinct().size!=imageIds.size)return@atomic null
+    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList(),stickerIds:List<String> = emptyList()):String?=store.atomic{s->
+        if((body.isBlank()&&imageIds.isEmpty()&&stickerIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size+stickerIds.size>12||imageIds.distinct().size!=imageIds.size)return@atomic null
         val h=LocalDreamArchive(s).runtimeHistory(c.cid)
         if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
             it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("tool_name")=="dream_send_message"&&it.str("status")=="claimed"
@@ -217,7 +217,9 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
                 imageId=="att_dream_"+c.id+"_"+event.str("step_index")+"_"+event.str("call_index")&&
                 event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==imageId
         }})return@atomic null
-        val attachments=LocalAttachmentStore(s).bindDreamImages(c.cid,c.id,tid,imageIds,now)?:return@atomic null
+        if(stickerIds.isNotEmpty()&&(c.config.execution?.allowStickerSend!=true||!history.contextSettings.stickerSendEnabled||!history.contextSettings.localModelToolsEnabled||!history.contextSettings.localModelWriteEnabled))return@atomic null
+        val images=LocalAttachmentStore(s).bindDreamImages(c.cid,c.id,tid,imageIds,now)?:return@atomic null
+        val attachments=images+LocalStickerLibrary(s).copyForDreamMessage(c.cid,tid,mid,stickerIds,now)
         val boundary=events.indexOfLast{it.str("tool_name")=="dream_send_message"&&it.str("status")=="completed"}
         val furniture=events.drop(boundary+1).mapNotNull{event->
             if(event.str("status") !in setOf("completed","failed"))return@mapNotNull null

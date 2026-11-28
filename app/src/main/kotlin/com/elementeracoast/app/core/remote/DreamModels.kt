@@ -21,7 +21,7 @@ data class DreamExecutionConfig(
     val allowCollection:Boolean=false,val allowLibraryWrite:Boolean=false,
     val allowDailyWrite:Boolean=false,val allowCalendarWrite:Boolean=false,val allowVoice:Boolean=false,val allowImage:Boolean=false,
     val voiceLimit:Int=1,val imageLimit:Int=1,val allowMemoryCandidate:Boolean=false,val allowImageReadback:Boolean=false,
-    val allowMessage:Boolean=false,val includeRecentChat:Boolean=false,val includeHistoryAttachments:Boolean=false,val allowHistoryFileRead:Boolean=false,val allowHistoryImageRead:Boolean=false,val includeSoil:Boolean=false,val includeRecall:Boolean=false,val includeWorldbook:Boolean=false,val allowCrossWindow:Boolean=false,val allowDreamReadback:Boolean=false,val includeDogtalk:Boolean=false,val allowDailyRead:Boolean=false,val allowWorldbookRead:Boolean=false,val allowDailyInteract:Boolean=false,val allowSelfPortraitProposal:Boolean=false,val allowUserPortraitProposal:Boolean=false,val allowLibraryEdit:Boolean=false,val allowCalendarEdit:Boolean=false
+    val allowMessage:Boolean=false,val allowStickerSend:Boolean=false,val includeRecentChat:Boolean=false,val includeHistoryAttachments:Boolean=false,val allowHistoryFileRead:Boolean=false,val allowHistoryImageRead:Boolean=false,val includeSoil:Boolean=false,val includeRecall:Boolean=false,val includeWorldbook:Boolean=false,val allowCrossWindow:Boolean=false,val allowDreamReadback:Boolean=false,val includeDogtalk:Boolean=false,val allowDailyRead:Boolean=false,val allowWorldbookRead:Boolean=false,val allowDailyInteract:Boolean=false,val allowSelfPortraitProposal:Boolean=false,val allowUserPortraitProposal:Boolean=false,val allowLibraryEdit:Boolean=false,val allowCalendarEdit:Boolean=false
 )
 
 @Serializable
