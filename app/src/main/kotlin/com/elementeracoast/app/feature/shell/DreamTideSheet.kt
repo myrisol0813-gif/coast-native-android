@@ -32,6 +32,8 @@ private fun JsonElement?.field(key:String):String?=((this as? JsonObject)?.get(k
 @Composable
 internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,api:CoastApiClient,initialTab:Int=0,onDismiss:()->Unit){
     val scope=rememberCoroutineScope()
+    val context=androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val onlineDevice=remember(context,localMode){if(localMode)null else com.elementeracoast.app.core.local.OnlineDreamDevice.get(context)}
     var tab by remember(cid,initialTab){mutableStateOf(initialTab.coerceIn(0,2))}
     var loaded by remember(cid){mutableStateOf(false)}
     var busy by remember(cid){mutableStateOf(false)}
@@ -40,7 +42,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
     var response by remember(cid){mutableStateOf(DreamSettingsResponse())}
     var cfg by remember(cid){mutableStateOf(DreamConfig(timeZone=ZoneId.systemDefault().id))}
     var execution by remember(cid){mutableStateOf(DreamExecutionConfig())}
-    var model by remember(cid){mutableStateOf(selectedModel)}
+    var model by remember(cid){mutableStateOf(selectedModel.ifBlank{onlineDevice?.preferredModel().orEmpty()})}
     var quiet by remember(cid){mutableStateOf(false)}
     var quietStart by remember(cid){mutableStateOf("23:00")}
     var quietEnd by remember(cid){mutableStateOf("07:00")}
@@ -60,15 +62,15 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
     var offset by remember(cid){mutableStateOf(0)}
     val sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)
     fun hydrate(value:DreamSettingsResponse){
-        response=value
+        response=onlineDevice?.status(cid,value)?:value
         cfg=value.settings.config?:DreamConfig(timeZone=ZoneId.systemDefault().id)
         execution=cfg.execution?:DreamExecutionConfig()
-        model=value.settings.modelId?:selectedModel
+        model=value.settings.modelId?:selectedModel.ifBlank{onlineDevice?.preferredModel().orEmpty()}
         quiet=cfg.quietHours!=null
         quietStart=cfg.quietHours?.start?:"23:00";quietEnd=cfg.quietHours?.end?:"07:00"
         tokenText=execution.tokenBudget.toString();outputText=execution.outputLimit.toString()
         toolsText=execution.toolBudget.toString();readText=execution.readTurns.toString();extraText=execution.extraPerDay.toString();voiceLimitText=execution.voiceLimit.toString();imageLimitText=execution.imageLimit.toString()
-        planLimitText=(value.planRequestLimit?:5).toString()
+        planLimitText=(response.planRequestLimit?:5).toString()
         consent=false;softConsent=false;loaded=true
     }
     suspend fun load(){
@@ -86,7 +88,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
     previewId?.let{id->DreamMediaPreview(api,cid,id){previewId=null}}
     val canArm=response.executionAvailable&&response.schedulerConfigured
     val planDraft=model.startsWith("chatgpt-plan:")
-    val canArmSelected=canArm&&(!planDraft||localMode&&response.planExecutionAvailable)
+    val canArmSelected=if(planDraft)response.planExecutionAvailable&&(!localMode||canArm) else canArm
     fun save(action:String){
         if(busy||!loaded)return
         val e=if(action=="disarm")null else {
@@ -115,7 +117,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
         busy=true;error="";notice=""
         scope.launch{
             try{
-                val saved=api.saveDreamSettings(request)
+                val saved=onlineDevice?.save(api,request)?:api.saveDreamSettings(request)
                 if(!saved.ok)error="保存未确认。"
                 else{
                     hydrate(api.dreamSettings(cid))
@@ -137,7 +139,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
             if(error.isNotBlank())Text(error,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
             if(notice.isNotBlank())Text(notice,style=MaterialTheme.typography.bodySmall)
             if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
-            if(tab==0&&localMode) DreamNotificationControls(cid)
+            if(tab==0&&(localMode||response.planExecutionAvailable)) DreamNotificationControls(cid,localMode)
             if(tab==0&&loaded){
                 Text(when{
                     !response.settings.enabled->"未授权"
@@ -146,7 +148,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     response.settings.modelId?.startsWith("chatgpt-plan:")==true&&response.planStatus!="authorized"->"套餐活动暂停或待重新授权"
                     else->"已授权"
                 })
-                Text(if(localMode)if(canArm)"本机按系统后台调度尝试唤醒。仅向绑定供应商请求；强停、关机、断网或省电限制可能延迟或中断。" else "本机目前仅支持保存配置，尚未开放自动执行。不会访问云端。" else if(canArm)"服务端已配置调度，授权后才会请求模型。" else "服务端尚未开通调度，可先保存设置。",style=MaterialTheme.typography.bodySmall)
+                Text(if(localMode)if(canArm)"本机按系统后台调度尝试唤醒。仅向绑定供应商请求；强停、关机、断网或省电限制可能延迟或中断。" else "本机目前仅支持保存配置，尚未开放自动执行。不会访问云端。" else if(planDraft&&response.planExecutionAvailable)"在线资料由海岸保存；套餐唤醒由这台手机调度和推理。强停、关机、断网或省电限制可能延迟或中断；无需云端套餐凭据。" else if(canArm)"服务端已配置调度，授权后才会请求模型。" else "此模型路径尚未开通调度，可先保存设置。",style=MaterialTheme.typography.bodySmall)
                 response.settings.extraAt?.let{Text("下一次额外预约："+stamp(it))}
                 if(response.settings.enabled)Button(onClick={save("disarm")},enabled=!busy){Text("关闭唤醒授权")}
                 DreamField("绑定模型 ID",model,{model=it.take(180)},!busy)
