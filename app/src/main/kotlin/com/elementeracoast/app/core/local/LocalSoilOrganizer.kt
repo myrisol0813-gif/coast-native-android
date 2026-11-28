@@ -110,7 +110,8 @@ internal object LocalSoilRun {
     data class Turn(val id: String, val user: RemoteVariant?, val assistant: RemoteVariant,val messages:List<RemoteVariant> = emptyList(),val wakeActivityId:String?=null)
     data class Prepared(
         val cid: String, val model: String, val row: JsonObject, val history: List<RemoteTurn>,
-        val turns: List<Turn>, val portraitRoots: Map<String, JsonObject?>, val prompt: String
+        val turns: List<Turn>, val portraitRoots: Map<String, JsonObject?>, val prompt: String,
+        val allowedPortraits:Set<String> = setOf("user_portrait","self_portrait")
     )
     private fun JsonObject.str(k: String) = get(k)?.jsonPrimitive?.contentOrNull.orEmpty()
     private fun JsonObject.enabled(k: String) = get(k)?.jsonPrimitive?.intOrNull == 1
@@ -139,13 +140,14 @@ internal object LocalSoilRun {
             (wake!=null&&a.generationSource!="dream_tide") ||
             a.finishReason in setOf("cancelled", "error") || !a.errorDetail.isNullOrBlank()) null else Turn(t.id,u,a,group.takeIf{a.replySequence!=null}.orEmpty(),wake)
     }
-    fun prepare(store: LocalPersistence, cid: String, model: String,sequenceId:String?=null): Prepared? = store.readConsistent { s ->
+    fun prepare(store: LocalPersistence, cid: String, model: String,sequenceId:String?=null,expectedAssistantId:String?=null,wakePortraits:Set<String>?=null): Prepared? = store.readConsistent { s ->
         val row = LocalSoilStore(s).current(cid) ?: return@readConsistent null
         if (!row.enabled("auto_refresh_enabled") || row.enabled("manual_locked")) return@readConsistent null
         val history = RemoteCacheStore(s, strictReads = true).history(cid)?.turns ?: return@readConsistent null
         val all = active(history)
         val latest = all.lastOrNull() ?: return@readConsistent null
         if(latest.assistant.replySequence?.id!=sequenceId)return@readConsistent null
+        if(expectedAssistantId!=null&&(latest.assistant.id!=expectedAssistantId||latest.wakeActivityId==null))return@readConsistent null
         require(latest.assistant.modelId == model) { "整理模型与本轮实际模型不一致。" }
         if (row.str("source_assistant_id") == latest.assistant.id) return@readConsistent null
         val cursor = all.indexOfFirst { it.id == row.str("organized_through_turn_id") }
@@ -180,16 +182,17 @@ internal object LocalSoilRun {
         val inputTurns=(includedMissed+listOfNotNull(previous)+latest).distinctBy{it.id}
         val input=JsonObject(context()+mapOf("portraits" to buildJsonObject {
             for((module,root) in portraits){
-                val body=root?.str("body").orEmpty()
+                val permitted=wakePortraits==null||module in wakePortraits
+                val body=if(permitted)root?.str("body").orEmpty()else ""
                 put(if(module=="user_portrait")"user" else "self",buildJsonObject {
-                    put("auto_organize_enabled",(root==null || root.enabled("write_enabled")) && body.length<=MAX_PORTRAIT)
+                    put("auto_organize_enabled",permitted&&(root==null || root.enabled("write_enabled")) && body.length<=MAX_PORTRAIT)
                     put("current_body",body.take(MAX_PORTRAIT))
                 })
             }
         }))
         val template=if(inputTurns.any{it.messages.isNotEmpty()})LocalSoilPrompt.text.replace("整理输入结构：\n","若有 assistant_messages，按 index 阅读所有独立回复；assistant 仅为末条索引及摘录。truncated=true 表示摘录已裁短，不要推测省略内容。\n\n整理输入结构：\n")else LocalSoilPrompt.text
         val prompt = template + input.toString()
-        Prepared(cid, model, row, history, inputTurns, portraits, prompt)
+        Prepared(cid, model, row, history, inputTurns, portraits, prompt,wakePortraits?:modules.toSet())
     }
     private data class Proposal(val update: Boolean, val body: String, val reason: String, val excerpt: String)
     private data class Candidate(val title: String, val content: String, val refs: JsonArray, val excerpt: String)
@@ -222,7 +225,7 @@ internal object LocalSoilRun {
         }
         val portraits = modules.associateWith { module ->
             val o=obj[module]?.jsonObject?:return@associateWith Proposal(false,"","","")
-            val enabled=p.portraitRoots[module]?.let { it.enabled("write_enabled") && it.str("body").length<=MAX_PORTRAIT } ?: true
+            val enabled=module in p.allowedPortraits&&(p.portraitRoots[module]?.let { it.enabled("write_enabled") && it.str("body").length<=MAX_PORTRAIT } ?: true)
             val flag=o.getValue("should_update").jsonPrimitive
             require(!flag.isString)
             val update=flag.boolean
