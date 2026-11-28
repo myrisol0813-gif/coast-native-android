@@ -383,6 +383,7 @@ internal class LocalDreamExecutor(
                                 val count=(result["turns"] as? JsonArray)?.size
                                 val ok=result["ok"]?.jsonPrimitive?.booleanOrNull==true||count!=null&&result["reason"]==null
                                 check(ledger.recordTool(c,step,index,ok,count,clock(),result["record_id"]?.jsonPrimitive?.contentOrNull,furniture))
+                                if(ok&&name=="dream_send_message")result["record_id"]?.jsonPrimitive?.contentOrNull?.let{notify("message:"+it)}
                                 activities.add(buildJsonObject{put("kind",name);put("ok",ok);count?.let{put("count",it)}})
                             }
                             results.add(buildJsonObject{put("role","tool");put("tool_call_id",call.str("id"));put("name",name);put("content",result.toString())})

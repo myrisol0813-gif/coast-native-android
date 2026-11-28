@@ -122,6 +122,10 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         val claim=requireNotNull(claimId)
         fun notice(kind:String,body:String?=null){LocalDreamNotifications.post(context,r.cid,claim,kind,body,localMode=false)}
         notice("start")
+        suspend fun notifyPersistedMessages(){
+            val history=try{api.getHistory(r.cid)}catch(e:CancellationException){throw e}catch(_:Exception){return}
+            history.turns.filter{it.turnType=="dream_tide"&&it.wakeActivityId==claim}.flatMap{it.assistant.variantsByUserVariant.values.flatten()}.filter{it.generationSource=="dream_tide"}.forEach{CoastMessageNotifications.postWake(context,r.cid,it,false)}
+        }
         var completed=false;var reason="plan_incomplete";var noteNotified=false
         var phase="device_received";var stepIndex:Int?=null;var httpStatus:Int?=null
         fun mark(value:String){phase=value;diagnostic(r,"attempt",phase,step=stepIndex,claim=claim)}
@@ -195,6 +199,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         pendingImages=(response["images"] as? JsonArray).orEmpty().map{it.jsonObject}
                         check(pendingImages.isEmpty()||binding.vision==true&&pendingImages.sumOf{it.getValue("bytes").jsonPrimitive.long}<=8L*1024*1024)
                         usedTools+=calls.size.toLong()
+                        if(results.any{it.str("name")=="dream_send_message"})notifyPersistedMessages()
                         if(!noteNotified&&results.any{it.str("name")=="dream_write_note"}){
                             val n=try{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}catch(e:CancellationException){throw e}catch(_:Exception){null}
                             if(n!=null){notice("note",n.body);noteNotified=true}
@@ -248,6 +253,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                 // Read back the persisted note even if the last tool response
                 // was interrupted; never send a notification for unsaved text.
                 if(!noteNotified){val n=runCatching{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}.getOrNull();if(n!=null)notice("note",n.body)}
+                notifyPersistedMessages()
                 if(settled?.ok()==true&&settled.str("status")!="completed")notice("failure")
             }
         }

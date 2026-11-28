@@ -52,7 +52,11 @@ class LocalDreamWorker(context:Context,params:WorkerParameters):CoroutineWorker(
                         ?.firstOrNull{it["claim_id"]?.jsonPrimitive?.contentOrNull==claim}
                         ?.get("body")?.jsonPrimitive?.contentOrNull
                 }.getOrNull()else null
-                LocalDreamNotifications.post(applicationContext,cid,claim,kind,body)
+                if(kind.startsWith("message:")){
+                    val mid=kind.removePrefix("message:")
+                    val message=RemoteCacheStore(store,strictReads=true).history(cid)?.turns?.firstOrNull{it.wakeActivityId==claim&&it.turnType=="dream_tide"&&it.assistant.variantsByUserVariant.values.flatten().any{v->v.id==mid}}?.assistant?.variantsByUserVariant?.values?.flatten()?.firstOrNull{it.id==mid&&it.generationSource=="dream_tide"}
+                    if(message!=null)CoastMessageNotifications.postWake(applicationContext,cid,message,true)
+                }else LocalDreamNotifications.post(applicationContext,cid,claim,kind,body)
             })
             val windows=RemoteCacheStore(store,strictReads=true).conversations().filter{it.roomType=="main"&&it.source=="coast"&&it.deletedAt==null}
             val now=System.currentTimeMillis()
