@@ -196,8 +196,8 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     }
     // The active claim and exact tool reservation must still exist at the
     // durable write. No synthetic user message or new inference is created.
-    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long):String?=store.atomic{s->
-        if(body.isBlank()||body.length>12000||step<0||index<0)return@atomic null
+    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList()):String?=store.atomic{s->
+        if(body.isBlank()||body.length>12000||step<0||index<0||imageIds.size>12||imageIds.distinct().size!=imageIds.size)return@atomic null
         val h=LocalDreamArchive(s).runtimeHistory(c.cid)
         if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
             it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("tool_name")=="dream_send_message"&&it.str("status")=="claimed"
@@ -212,6 +212,12 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
             val st=it.getValue("step_index").jsonPrimitive.int;val ix=it.getValue("call_index").jsonPrimitive.int
             st<step||st==step&&ix<index
         }.sortedWith(compareBy({it.getValue("step_index").jsonPrimitive.int},{it.getValue("call_index").jsonPrimitive.int}))
+        if(imageIds.any{imageId->events.none{event->
+            event.str("tool_name")=="image_generate"&&event.str("status")=="completed"&&
+                imageId=="att_dream_"+c.id+"_"+event.str("step_index")+"_"+event.str("call_index")&&
+                event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==imageId
+        }})return@atomic null
+        val attachments=LocalAttachmentStore(s).bindDreamImages(c.cid,c.id,tid,imageIds,now)?:return@atomic null
         val boundary=events.indexOfLast{it.str("tool_name")=="dream_send_message"&&it.str("status")=="completed"}
         val furniture=events.drop(boundary+1).mapNotNull{event->
             if(event.str("status") !in setOf("completed","failed"))return@mapNotNull null
@@ -219,7 +225,7 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
             val item=Json.parseToJsonElement(raw).jsonObject["furniture"]?:return@mapNotNull null
             json.decodeFromJsonElement(RemoteFurnitureRun.serializer(),item).takeIf{it.id=="dream:"+c.id+":"+event.str("step_index")+":"+event.str("call_index")}
         }.take(16)
-        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture)
+        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments)
         val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
         cache.putHistory(c.cid,history.copy(updatedAt=stamp,turns=history.turns+turn))
         cache.putConversations(cache.conversations().map{if(it.id==c.cid)it.copy(updatedAt=stamp)else it})
