@@ -248,6 +248,13 @@ fun CoastThemePalette.toColorScheme(): ColorScheme {
         onBackground = textPrimary,
         surface = surface,
         onSurface = textPrimary,
+        // Material 3 Card defaults use surface-container roles; inherit the selected paper palette.
+        surfaceTint = primary,
+        surfaceContainerLowest = surface,
+        surfaceContainerLow = surface,
+        surfaceContainer = androidx.compose.ui.graphics.lerp(surface, card, .35f),
+        surfaceContainerHigh = androidx.compose.ui.graphics.lerp(surface, card, .65f),
+        surfaceContainerHighest = card,
         surfaceVariant = card,
         onSurfaceVariant = textSecondary,
         outline = border,

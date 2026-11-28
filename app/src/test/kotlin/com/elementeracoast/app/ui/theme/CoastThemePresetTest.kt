@@ -44,6 +44,19 @@ class CoastThemePresetTest {
         assertEquals(CoastThemePreset.CoastDefault, CoastThemePreset.fromStored("unknown"))
     }
 
+    @Test fun materialCardsInheritEverySelectedPalette() {
+        CoastThemePreset.entries.forEach { preset ->
+            val p = preset.palette()
+            val colors = p.toColorScheme()
+            assertEquals(p.surface, colors.surfaceContainerLow)
+            assertEquals(p.card, colors.surfaceContainerHighest)
+            assertEquals(p.primary, colors.surfaceTint)
+            assertEquals(p.textPrimary, colors.onSurface)
+            assertEquals(androidx.compose.ui.graphics.lerp(p.surface,p.card,.35f), colors.surfaceContainer)
+            assertEquals(androidx.compose.ui.graphics.lerp(p.surface,p.card,.65f), colors.surfaceContainerHigh)
+        }
+    }
+
     @Test fun palettesExposeRequiredTokensAndAvoidFlatWhiteOrBlack() {
         CoastThemePreset.entries.forEach { preset ->
             val palette = preset.palette()
