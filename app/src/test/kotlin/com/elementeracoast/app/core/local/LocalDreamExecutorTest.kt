@@ -448,6 +448,18 @@ class LocalDreamExecutorTest {
         val edited=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(dailyTime="10:00"),model),false,at)!!
         assertTrue(edited.enabled);assertEquals("10:00",edited.config!!.dailyTime);assertNotEquals(armed.revision,edited.revision)
     }
+    @Test fun scheduleDisplayDistinguishesDueQuietConsumedAndExpired(){
+        val (_,armed)=fixture()
+        val extra=armed.copy(extraAt=at-60000,extraId="fixture")
+        val daily=LocalDreamSchedule.view(extra,emptySet(),0,at)
+        assertEquals("due",daily.dailyStatus);assertEquals("due",daily.extraStatus);assertEquals("daily",daily.eligibleKind)
+        val used=setOf("daily:2026-11-27")
+        assertEquals("extra",LocalDreamSchedule.view(extra,used,0,at).eligibleKind)
+        assertEquals("quiet",LocalDreamSchedule.view(extra.copy(config=cfg.copy(quietHours=DreamQuietHours("00:00","00:00"))),used,0,at).extraStatus)
+        assertNull(LocalDreamSchedule.view(extra.copy(running=true),used,0,at).eligibleKind)
+        assertNull(LocalDreamSchedule.view(extra,used,1,at).extraAt)
+        assertNull(LocalDreamSchedule.view(extra,used,0,at+86400000).extraAt)
+    }
     @Test fun scheduleQuietAndAlreadyConsumedSlots(){
         val (_,a)=fixture()
         assertEquals("daily:2026-11-27",LocalDreamSchedule.candidate(a,emptySet(),at)?.key)
