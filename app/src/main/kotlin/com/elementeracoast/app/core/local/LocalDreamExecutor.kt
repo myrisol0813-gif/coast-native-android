@@ -196,9 +196,9 @@ internal class LocalDreamExecutor(
                         val f=t.getValue("function").jsonObject
                         if(f.str("name")!="library_write")t else {
                             val p=f.getValue("parameters").jsonObject;val props=p.getValue("properties").jsonObject
-                            val action=buildJsonObject{put("type","string");put("enum",JsonArray(listOf(JsonPrimitive("create"))))}
+                            val action=buildJsonObject{put("type","string");put("enum",JsonArray(((if(e.allowLibraryWrite)listOf("create")else emptyList())+(if(e.allowLibraryEdit)listOf("edit","delete")else emptyList())).map{JsonPrimitive(it)}))}
                             val parameters=JsonObject(p+("properties" to JsonObject(props+("action" to action))))
-                            val function=JsonObject(f+mapOf("description" to JsonPrimitive("可选：创建自己的书房笔记，不修改或删除既有笔记。"),"parameters" to parameters))
+                            val function=JsonObject(f+mapOf("description" to JsonPrimitive("可选：按授权创建、修改或删除本窗口自己的书房笔记。"),"parameters" to parameters))
                             JsonObject(t+("function" to function))
                         }
                     }
@@ -314,7 +314,7 @@ internal class LocalDreamExecutor(
                                         name in commonNames&&common!=null->{
                                             val out=common.execute(c.id+":"+step+":"+index,name,fn.str("arguments"))
                                             furniture=out.furnitureRuns.singleOrNull()
-                                            buildJsonObject{put("ok",out.ok);val data=Json.parseToJsonElement(out.output);put("data",data);if(name in setOf("library_write","create_moment","create_diary","calendar_create","voice_create","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")&&out.ok)(data as? JsonObject)?.get("id")?.let{put("record_id",it)}}
+                                            buildJsonObject{put("ok",out.ok);val data=Json.parseToJsonElement(out.output);put("data",data);if(name in setOf("library_write","create_moment","create_diary","calendar_create","calendar_update","calendar_delete","voice_create","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")&&out.ok)(data as? JsonObject)?.get("id")?.let{put("record_id",it)}}
                                         }
                                         else->result
                                     }
