@@ -94,16 +94,18 @@ internal class LocalDreamExecutor(
         if(mode=="since_previous"&&since==null)return buildJsonObject{put("total",0);put("turns",JsonArray(emptyList()));put("reason","no_previous_wake")}
         val h=RemoteCacheStore(store,strictReads=true).history(c.cid)?:error("missing window")
         val rows=h.turns.mapIndexedNotNull{index,t->
-            val u=t.user.variants.getOrNull(t.user.active)?.takeUnless{it.hidden}?:return@mapIndexedNotNull null
+            val autonomous=t.turnType=="dream_tide"&&t.user.variants.isEmpty()&&!t.wakeActivityId.isNullOrBlank()
+            val u=t.user.variants.getOrNull(t.user.active)?.takeUnless{it.hidden}
+            if(!autonomous&&u==null)return@mapIndexedNotNull null
             val key=t.user.active.toString();val list=t.assistant.variantsByUserVariant[key].orEmpty()
             val selected=list.getOrNull(t.assistant.activeByUserVariant[key]?:list.lastIndex)
             val assistants=selected?.replySequence?.id?.let{id->list.filter{it.replySequence?.id==id}.sortedBy{it.replySequence?.index}}?:listOfNotNull(selected)
-            val messages=(listOf("user" to u)+assistants.filterNot{it.hidden}.map{"assistant" to it}).mapNotNull{(role,v)->
+            val messages=(listOfNotNull(u?.let{"user" to it})+assistants.filterNot{it.hidden}.map{"assistant" to it}).mapNotNull{(role,v)->
                 if(mode=="since_previous"){
                     val at=runCatching{Instant.parse(v.createdAt).toEpochMilli()}.getOrNull()
                     if(at==null||at<=requireNotNull(since)||at>c.startedAt)return@mapNotNull null
                 }
-                buildJsonObject{put("role",role);put("id",v.id);put("content",v.content);put("created_at",v.createdAt)}
+                buildJsonObject{put("role",role);put("id",v.id);put("content",v.content);put("created_at",v.createdAt);if(autonomous){put("generation_source","dream_tide");put("wake_activity_id",requireNotNull(t.wakeActivityId))}}
             }
             if(messages.isEmpty())null else buildJsonObject{put("index",index);put("turn_id",t.id);put("messages",JsonArray(messages))}
         }
