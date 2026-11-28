@@ -73,6 +73,27 @@ class LocalDreamExecutorTest {
         assertEquals("not_due",engine.run(cid,settings.revision!!,model,at))
         assertEquals(3,requests)
     }
+    @Test fun furnitureReceiptsAttachOnceToEachFormalWakeMessage(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowLibrary=true,toolBudget=5))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        for(step in 0..1){
+            assertTrue(ledger.reserveStep(claim,step,at))
+            assertTrue(ledger.recordStep(claim,step,true,buildJsonObject{},at))
+            assertTrue(ledger.reserveTool(claim,step,0,"library_books",at))
+            assertTrue(ledger.recordTool(claim,step,0,true,null,at,furniture=RemoteFurnitureRun("original-audit-"+step,"library.books","翻阅书架")))
+            assertTrue(ledger.reserveTool(claim,step,1,"dream_send_message",at))
+            val id=ledger.sendMessage(claim,step,1,"message "+step,at)!!
+            assertTrue(ledger.recordTool(claim,step,1,true,null,at,id))
+        }
+        val messages=RemoteCacheStore(store).history(cid)!!.turns.filter{it.turnType=="dream_tide"}.map{it.assistant.variantsByUserVariant.getValue("0").single()}
+        assertEquals(2,messages.size)
+        assertEquals(listOf("library.books","library.books"),messages.map{it.furnitureRuns.single().toolKey})
+        assertNotEquals(messages[0].furnitureRuns.single().id,messages[1].furnitureRuns.single().id)
+        assertEquals("dream:"+claim.id+":0:0",messages[0].furnitureRuns.single().id)
+        assertEquals("dream:"+claim.id+":1:0",messages[1].furnitureRuns.single().id)
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
