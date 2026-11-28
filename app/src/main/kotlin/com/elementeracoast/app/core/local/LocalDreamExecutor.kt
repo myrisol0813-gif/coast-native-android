@@ -307,27 +307,32 @@ internal class LocalDreamExecutor(
                     }
                     if(status=="completed"&&lastMessageId!=null){
                         fun soilStatus(state:String,why:String?=null){soilResult=buildJsonObject{put("status",state);why?.let{put("reason",it)}}}
-                        if(plan!=null)soilStatus("skipped","plan_soil_route_pending")
-                        else try{
+                        try{
                             checkAuthorization()
                             val scope=buildSet{if(e.includeUserPortrait)add("user_portrait");if(e.includeSelfPortrait)add("self_portrait")}
                             val prepared=LocalSoilRun.prepare(store,cid,modelId,expectedAssistantId=lastMessageId,wakePortraits=scope)
                             val step=(stepIndex?:-1)+1
                             if(prepared==null)soilStatus("skipped","disabled_locked_or_already_organized")
-                            else if(!known||step>e.toolBudget)soilStatus("skipped","soil_request_budget")
+                            else if(!known||step>e.toolBudget||plan!=null&&step>=plan.grant.requestLimit)soilStatus("skipped","soil_request_budget")
                             else {
-                                val selected=resolve(modelId)
-                                if(selected==null||selected!=initial)soilStatus("skipped","model_configuration_changed")
+                                val selected=if(plan==null)resolve(modelId)else null
+                                if(plan==null&&(selected==null||selected!=initial))soilStatus("skipped","model_configuration_changed")
                                 else {
                                     val wire=JsonArray(listOf(msg("user",prepared.prompt)))
                                     val estimate=LocalContextPolicy.estimate(wire.toString())+256
                                     val cap=minOf(e.outputLimit.toLong(),3200L,e.tokenBudget.toLong()-total-estimate).toInt()
-                                    val limit=modelBudget(selected.first,selected.second,e.outputLimit)?.wireLimit
+                                    val limit=selected?.let{modelBudget(it.first,it.second,e.outputLimit)?.wireLimit}
                                     if(cap<1||limit!=null&&estimate>limit)soilStatus("skipped","soil_token_budget")
                                     else {
                                         checkAuthorization();check(ledger.reserveStep(c,step,clock()))
                                         stepIndex=step;mark("soil_organize")
-                                        val raw=try{checkAuthorization();invoke(selected.first,selected.second,wire,JsonArray(emptyList()),cap)}
+                                        val raw=try{
+                                            checkAuthorization()
+                                            if(plan!=null){
+                                                val body=NativeDreamPlanProtocol.body(plan.grant.model,prepared.prompt+"\n只返回完整整理 JSON；建议输出不超过 "+cap+" token。",listOf(buildJsonObject{put("role","developer");put("content","整理已经发送的正式自主消息，不是人类新发言。")}),JsonArray(emptyList()),e.tokenBudget.toLong()-total-estimate)
+                                                plan.send(body,emptySet()){authorized()}.normalized
+                                            }else {val provider=requireNotNull(selected);invoke(provider.first,provider.second,wire,JsonArray(emptyList()),cap)}
+                                        }
                                         catch(ex:Exception){known=false;costKnown=false
                                             withContext(NonCancellable){ledger.recordStep(c,step,false,buildJsonObject{put("purpose","soil");put("usage",JsonNull);put("cost",JsonNull);put("error_type",WakeDiagnostic.reason(ex))},clock())}
                                             throw ex
