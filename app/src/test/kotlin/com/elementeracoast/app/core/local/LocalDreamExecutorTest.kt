@@ -73,6 +73,32 @@ class LocalDreamExecutorTest {
         assertEquals("not_due",engine.run(cid,settings.revision!!,model,at))
         assertEquals(3,requests)
     }
+    @Test fun localApiWakeOrganizesTheActualSentMessageWithinBudget()=runBlocking{
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+        LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,tokenBudget=22000,toolBudget=5))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+            requests++
+            when(requests){
+                1->response(call("send","dream_send_message",buildJsonObject{put("body","wake soil source")}))
+                2->response()
+                else->{
+                    assertTrue(tools.isEmpty());assertTrue(messages.toString().contains("wake soil source"))
+                    buildJsonObject{
+                        put("model","fixture/model");putJsonObject("usage"){put("total_tokens",120);put("prompt_tokens",100);put("completion_tokens",20);put("cost",0.002)}
+                        putJsonArray("choices"){add(buildJsonObject{put("finish_reason","stop");putJsonObject("message"){put("content","""{"current_text":"wake soil","afterthoughts":[]}""")}})}
+                    }
+                }
+            }
+        },clock={at})
+        assertEquals("completed",engine.run(cid,arm.revision!!,model,at));assertEquals(3,requests)
+        val message=RemoteCacheStore(store).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
+        val soil=LocalSoilStore(store).read()
+        assertEquals(message.id,soil.history.last().getValue("assistant_message_id").jsonPrimitive.content)
+        assertEquals("wake soil",soil.current.single().getValue("current_text").jsonPrimitive.content)
+    }
     @Test fun furnitureReceiptsAttachOnceToEachFormalWakeMessage(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowLibrary=true,toolBudget=5))
