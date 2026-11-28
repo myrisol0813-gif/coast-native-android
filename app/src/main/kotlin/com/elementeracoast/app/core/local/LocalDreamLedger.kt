@@ -168,6 +168,26 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val row=JsonObject(old+mapOf("status" to JsonPrimitive(if(ok)"completed"else "failed"),"receipt_json" to JsonPrimitive(receipt.toString()),"finished_at" to JsonPrimitive(now)))
         JsonObject(h+("tools" to JsonArray(rows.map{if(it==old)row else it})))
     }
+    // The active claim and exact tool reservation must still exist at the
+    // durable write. No synthetic user message or new inference is created.
+    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long):String?=store.atomic{s->
+        if(body.isBlank()||body.length>12000||step<0||index<0)return@atomic null
+        val h=LocalDreamArchive(s).runtimeHistory(c.cid)
+        if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
+            it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("tool_name")=="dream_send_message"&&it.str("status")=="claimed"
+        })return@atomic null
+        val cache=RemoteCacheStore(s,strictReads=true)
+        val history=cache.history(c.cid)?:return@atomic null
+        val tid="turn_dream_"+c.id+"_"+step+"_"+index
+        val mid="msg_dream_"+c.id+"_"+step+"_"+index
+        if(history.turns.size>=400||history.turns.any{it.id==tid||(it.user.variants+it.assistant.variantsByUserVariant.values.flatten()).any{v->v.id==mid}})return@atomic null
+        val stamp=Instant.ofEpochMilli(now).toString()
+        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide")
+        val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
+        cache.putHistory(c.cid,history.copy(updatedAt=stamp,turns=history.turns+turn))
+        cache.putConversations(cache.conversations().map{if(it.id==c.cid)it.copy(updatedAt=stamp)else it})
+        mid
+    }
     fun note(c:Claim,body:String,now:Long)=mutate(c){h->
         if(c.config.execution?.writeNote!=true||body.isBlank()||body.length>16000||h.rows("notes").any{it.str("claim_id")==c.id})return@mutate null
         val row=buildJsonObject{put("claim_id",c.id);put("conversation_id",c.cid);put("model_id",c.model);put("body",body);put("created_at",now)}
