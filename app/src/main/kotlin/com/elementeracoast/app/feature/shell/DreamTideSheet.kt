@@ -244,6 +244,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("当前时间",execution.includeTime,!busy){execution=execution.copy(includeTime=it)}
                 DreamSwitch("上次活动与间隔",execution.includePrevious,!busy){execution=execution.copy(includePrevious=it)}
                 DreamSwitch("小笺与回笺",execution.includeReplies,!busy){execution=execution.copy(includeReplies=it)}
+                DreamSwitch("自动携带近期正式聊天",execution.includeRecentChat,!busy){execution=execution.copy(includeRecentChat=it)}
+                Text("按阅读轮数上限，最多60000字符，超出整轮省略。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("允许自主选读窗口历史",execution.readHistory,!busy){execution=execution.copy(readHistory=it)}
                 DreamSwitch("允许写小笺",execution.writeNote,!busy){execution=execution.copy(writeNote=it)}
                 DreamSwitch("允许在当前窗口主动发送正式消息（计入工具预算）",execution.allowMessage,!busy){execution=execution.copy(allowMessage=it)}
