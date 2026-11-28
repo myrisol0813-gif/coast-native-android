@@ -120,6 +120,15 @@ class LocalDreamExecutorTest {
         assertEquals("dream:"+claim.id+":0:0",messages[0].furnitureRuns.single().id)
         assertEquals("dream:"+claim.id+":1:0",messages[1].furnitureRuns.single().id)
     }
+    @Test fun sharedComfortTrimsWholeAutonomousHistoryWithoutFakeUser(){
+        val old=buildJsonObject{put("turn_id","old");put("body","旧".repeat(2200)+"old-tail")}
+        val recent=buildJsonObject{put("turn_id","new");put("body","new-wake")}
+        val result=LocalContextPolicy.assemble("whole-core","whole-portrait","","",emptyList(),emptyList(),"","","","",emptyList(),1800,basePrompt="自主活动，不是人类新发言",autonomousHistory=listOf(old,recent),autonomousHistoryTotal=5)
+        val message=result.messages.single()
+        assertEquals("system",message.role);assertTrue(message.content.contains("whole-core"))
+        assertTrue(message.content.contains("whole-portrait"));assertFalse(message.content.contains("old-tail"))
+        assertTrue(message.content.contains("new-wake"));assertEquals(4,result.omittedAutonomousTurns)
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
