@@ -145,6 +145,7 @@ internal class LocalDreamExecutor(
         val e=requireNotNull(c.config.execution);var status="failed";var reason="incomplete"
         var total=0L;var cost=0.0;var known=true;var costKnown=!isPlan;var calls=0;var proposed:Long?=null
         val activities=mutableListOf<JsonElement>()
+        var lastMessageId:String?=null;var soilResult:JsonObject?=null
         var cancelled:CancellationException?=null
         var phase="context";var stepIndex:Int?=null;var httpStatus:Int?=null
         var inputEstimate:Long?=null;var remainingBudget:Long?=null
@@ -263,7 +264,7 @@ internal class LocalDreamExecutor(
                                         }
                                         name=="dream_send_message"&&args?.keys==setOf("body")->buildJsonObject{
                                             val id=ledger.sendMessage(c,step,index,args.str("body"),clock())
-                                            put("ok",id!=null);id?.let{put("record_id",it)}
+                                            put("ok",id!=null);id?.let{put("record_id",it);lastMessageId=it}
                                         }
                                         name=="dream_write_note"&&args?.keys==setOf("body")->buildJsonObject{
                                             val written=ledger.note(c,args.str("body"),clock())
@@ -304,6 +305,52 @@ internal class LocalDreamExecutor(
                         if(planSession!=null)planResults=results.map{it.jsonObject}
                         mark("step_recorded")
                     }
+                    if(status=="completed"&&lastMessageId!=null){
+                        fun soilStatus(state:String,why:String?=null){soilResult=buildJsonObject{put("status",state);why?.let{put("reason",it)}}}
+                        if(plan!=null)soilStatus("skipped","plan_soil_route_pending")
+                        else try{
+                            checkAuthorization()
+                            val scope=buildSet{if(e.includeUserPortrait)add("user_portrait");if(e.includeSelfPortrait)add("self_portrait")}
+                            val prepared=LocalSoilRun.prepare(store,cid,modelId,expectedAssistantId=lastMessageId,wakePortraits=scope)
+                            val step=(stepIndex?:-1)+1
+                            if(prepared==null)soilStatus("skipped","disabled_locked_or_already_organized")
+                            else if(!known||step>e.toolBudget)soilStatus("skipped","soil_request_budget")
+                            else {
+                                val selected=resolve(modelId)
+                                if(selected==null||selected!=initial)soilStatus("skipped","model_configuration_changed")
+                                else {
+                                    val wire=JsonArray(listOf(msg("user",prepared.prompt)))
+                                    val estimate=LocalContextPolicy.estimate(wire.toString())+256
+                                    val cap=minOf(e.outputLimit.toLong(),3200L,e.tokenBudget.toLong()-total-estimate).toInt()
+                                    val limit=modelBudget(selected.first,selected.second,e.outputLimit)?.wireLimit
+                                    if(cap<1||limit!=null&&estimate>limit)soilStatus("skipped","soil_token_budget")
+                                    else {
+                                        checkAuthorization();check(ledger.reserveStep(c,step,clock()))
+                                        stepIndex=step;mark("soil_organize")
+                                        val raw=try{checkAuthorization();invoke(selected.first,selected.second,wire,JsonArray(emptyList()),cap)}
+                                        catch(ex:Exception){known=false;costKnown=false
+                                            withContext(NonCancellable){ledger.recordStep(c,step,false,buildJsonObject{put("purpose","soil");put("usage",JsonNull);put("cost",JsonNull);put("error_type",WakeDiagnostic.reason(ex))},clock())}
+                                            throw ex
+                                        }
+                                        val usage=raw["usage"] as? JsonObject
+                                        val used=usage?.get("total_tokens")?.jsonPrimitive?.longOrNull?.takeIf{it>=0&&it<=1000000000}
+                                        if(used==null)known=false else total+=used
+                                        val billed=usage?.get("cost")?.jsonPrimitive?.doubleOrNull?.takeIf{it.isFinite()&&it>=0}
+                                        if(billed==null)costKnown=false else cost+=billed
+                                        val choice=raw.arr("choices").firstOrNull() as? JsonObject
+                                        val response=choice?.get("message") as? JsonObject
+                                        val ok=used!=null&&total<=e.tokenBudget&&choice?.str("finish_reason")=="stop"&&response!=null&&response.arr("tool_calls").isEmpty()
+                                        check(ledger.recordStep(c,step,ok,buildJsonObject{
+                                            put("purpose","soil");put("usage",if(used==null)JsonNull else buildJsonObject{put("total_tokens",used);for(k in listOf("prompt_tokens","completion_tokens"))usage?.get(k)?.jsonPrimitive?.longOrNull?.takeIf{it>=0}?.let{put(k,it)}})
+                                            put("cost",billed?.let(::JsonPrimitive)?:JsonNull);put("finish_reason",choice?.str("finish_reason").orEmpty())
+                                        },clock()))
+                                        if(!ok)soilStatus("failed","soil_result_unconfirmed")
+                                        else {checkAuthorization();LocalSoilRun.commit(store,prepared,requireNotNull(response).str("content"));soilStatus("completed")}
+                                    }
+                                }
+                            }
+                        }catch(ex:CancellationException){throw ex}catch(ex:Exception){soilStatus("failed",WakeDiagnostic.reason(ex))}
+                    }
                 }finally{watch.cancelAndJoin()}
             }
         }catch(ex:CancellationException){status="cancelled";reason="cancelled";cancelled=ex}
@@ -318,7 +365,7 @@ internal class LocalDreamExecutor(
             put("reason",reason);put("phase",phase);stepIndex?.let{put("step",it)};httpStatus?.let{put("http_status",it)}
             put("confirmed_tokens",total);inputEstimate?.let{put("estimated_input_tokens",it)};remainingBudget?.let{put("estimated_remaining_tokens",it)}
             putJsonObject("limits"){put("token_budget",e.tokenBudget);put("tool_budget",e.toolBudget);plan?.grant?.requestLimit?.let{put("request_limit",it)}}
-            put("activities",JsonArray(activities));put("tool_calls",calls)
+            put("activities",JsonArray(activities));put("tool_calls",calls);soilResult?.let{put("soil",it)}
             put("total_tokens",if(known)JsonPrimitive(total)else JsonNull);put("reported_cost",if(costKnown)JsonPrimitive(cost)else JsonNull)
             proposed?.let{put("proposed_extra_at",it)};put("accounting",if(isPlan)"ChatGPT plan usage; soft token budget; no USD inference cost reported; separate media cost not included" else "chat provider reported; separate media cost not included; input estimate is not a hard billing guarantee")
         }
