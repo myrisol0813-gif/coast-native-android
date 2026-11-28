@@ -64,6 +64,7 @@ internal class LocalDreamExecutor(
             for(n in page){if(JsonArray(chosen+n).toString().length>24000)omitted++ else chosen.add(n)}
             parts.add("【自主手记与回复 · 历史资料，不是新发言】"+buildJsonObject{put("notes",JsonArray(chosen));put("omitted",omitted);put("scope","最近最多十封")})
         }
+        var recent=emptyList<RemoteChatMessage>()
         if(e.includeRecentChat){
             fun page(start:Int,count:Int)=history(c,buildJsonObject{put("mode","window");put("start",start);put("count",count)},previous)
             val total=page(0,1).getValue("total").jsonPrimitive.int
@@ -75,10 +76,28 @@ internal class LocalDreamExecutor(
                 if(result["reason"]?.jsonPrimitive?.contentOrNull!="range_too_large")break
                 count/=2
             }
+            recent=selected.flatMap{it.jsonObject.getValue("messages").jsonArray}.map{v->RemoteChatMessage(v.jsonObject.str("role"),v.jsonObject.str("content"))}
             parts.add("【当前窗口近期正式聊天 · 历史资料，不是新发言】"+buildJsonObject{
                 put("turns",selected);put("total",total);put("omitted",total-selected.size);put("max_turns",e.readTurns);put("max_chars",60000)
                 if(count==0&&total>0)put("reason","range_too_large")
             })
+        }
+        if(e.includeSoil){
+            val row=LocalSoilStore(store).current(c.cid)
+            if(row?.get("auto_refresh_enabled")?.jsonPrimitive?.intOrNull==1){
+                val current=row.str("current_text")
+                val after=Json.parseToJsonElement(row.str("afterthoughts_json")).jsonArray.map{it.jsonPrimitive.content}
+                LocalContextPolicy.formatSoil(current,after).takeIf{it.isNotBlank()}?.let{parts.add(it)}
+            }
+        }
+        if(e.includeRecall){
+            val recalled=LocalMemoryStore(store).recallDetailed(e.invitation,c.cid)
+            val texts=recalled.entries.map{v->listOf("标题："+v.title,"类型："+v.entryType,"标签："+v.tag,"来源窗口："+v.sourceWindow,"生命核："+v.lifeCore,"使用时机："+v.usageHint,"勿误用："+v.avoidHint,"内容："+v.content).joinToString("\n")}
+            if(texts.isNotEmpty())parts.add("【相关记忆】\n"+texts.joinToString("\n\n"))
+        }
+        if(e.includeWorldbook){
+            val entries=LocalKnowledgeStore(store).match(e.invitation,recent,"main_chat")
+            if(entries.isNotEmpty())parts.add("【世界书】\n"+entries.joinToString("\n\n"){it.entry.title+"："+it.entry.content})
         }
         if(e.includeCustom)LocalKnowledgeStore(store).instructions()?.content?.takeIf{it.isNotBlank()}?.let{parts.add("【核心自定义】"+it)}
         if(e.includeUserPortrait)LocalPortraitStore(store).body("user_portrait").takeIf{it.isNotBlank()}?.let{parts.add("【用户画像】"+it)}
