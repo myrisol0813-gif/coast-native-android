@@ -51,7 +51,7 @@ internal fun DreamNotificationControls(cid:String,localMode:Boolean=true){
                 TextButton(onClick={status=if(Notices.post(app,cid,"test","test",localMode=localMode))"已提交测试通知，请查看通知栏。" else "未能发送，请检查系统通知权限和类别设置。"}){Text("测试通知")}
             }
             if(status.isNotBlank())Text(status,style=MaterialTheme.typography.bodySmall)
-            Text("是否响铃、震动、显示顶部横幅及锁屏通知由 Android、手机厂商设置和勿扰模式决定。测试不会请求模型。在线正式消息可由后台定期读取，约15分钟一次，系统可能延迟。小笺和活动状态目前仍由执行设备通知；不是实时远程推送。",style=MaterialTheme.typography.bodySmall)
+            Text("是否响铃、震动、显示顶部横幅及锁屏通知由 Android、手机厂商设置和勿扰模式决定。测试不会请求模型。在线 API 活动的正式消息、小笺和活动状态由后台定期读取，约15分钟一次，系统可能延迟；不是实时远程推送。套餐与本机活动由执行设备直接通知。",style=MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -16,7 +16,7 @@ class OnlineArrivalWorker(context:Context,params:WorkerParameters):CoroutineWork
         val c=applicationContext
         val auth=AndroidKeystoreAuthStore(c)
         val session=auth.load()?.takeUnless{it.isExpired()}?:return@withContext Result.success()
-        fun active()=!NativeWorkspace.localSelected(c)&&CoastMessageNotifications.enabled(c)&&auth.load()?.cookieHeader==session.cookieHeader
+        fun active()=!NativeWorkspace.localSelected(c)&&subscribed(c)&&auth.load()?.cookieHeader==session.cookieHeader
         if(!active())return@withContext Result.success()
         val prefs=prefs(c)
         val cfg=CoastApiConfig(BuildConfig.COAST_API_BASE_URL)
@@ -39,10 +39,19 @@ class OnlineArrivalWorker(context:Context,params:WorkerParameters):CoroutineWork
                         if(!active())return@withContext Result.success()
                         check(item.seq>seen&&item.seq<=page.cursor)
                         val cid=item.conversationId
-                        if(!histories.containsKey(cid))histories[cid]=try{api.getHistory(cid)}catch(e:CoastApiException){if(e.status==404)null else throw e}
-                        val variant=histories[cid]?.turns?.firstOrNull{it.id==item.turnId&&it.turnType=="dream_tide"}?.assistant?.variantsByUserVariant?.values?.flatten()?.firstOrNull{it.id==item.messageId&&it.generationSource=="dream_tide"}
-                        if(!active())return@withContext Result.success()
-                        if(variant!=null)CoastMessageNotifications.postWake(c,cid,variant,false)
+                        when(item.kind){
+                            "message"->if(CoastMessageNotifications.enabled(c)){
+                                if(!histories.containsKey(cid))histories[cid]=try{api.getHistory(cid)}catch(e:CoastApiException){if(e.status==404)null else throw e}
+                                val variant=histories[cid]?.turns?.firstOrNull{it.id==item.turnId&&it.turnType=="dream_tide"}?.assistant?.variantsByUserVariant?.values?.flatten()?.firstOrNull{it.id==item.messageId&&it.generationSource=="dream_tide"}
+                                if(!active())return@withContext Result.success()
+                                if(variant!=null)CoastMessageNotifications.postWake(c,cid,variant,false)
+                            }
+                            "note","start","failure"->if(LocalDreamNotifications.enabled(c,item.kind)){
+                                val body=if(item.kind=="note"&&CoastMessageNotifications.preview(c)!="none")api.dreamNoticeBody(item.messageId) else null
+                                if(!active())return@withContext Result.success()
+                                LocalDreamNotifications.post(c,cid,item.turnId,item.kind,body,localMode=false)
+                            }
+                        }
                         check(prefs.edit().putLong(CURSOR,item.seq).commit())
                         seen=item.seq
                     }
@@ -61,11 +70,12 @@ class OnlineArrivalWorker(context:Context,params:WorkerParameters):CoroutineWork
         private const val JOB="coast-online-arrival-notices"
         private const val CURSOR="cursor"
         private fun prefs(c:Context)=c.getSharedPreferences("coast_online_arrivals_v1",Context.MODE_PRIVATE)
+        private fun subscribed(c:Context)=CoastMessageNotifications.enabled(c)||listOf(LocalDreamNotifications.NOTE,LocalDreamNotifications.START,LocalDreamNotifications.FAILURE).any{LocalDreamNotifications.enabled(c,it)}
         fun sync(context:Context){
             val c=context.applicationContext
             val manager=WorkManager.getInstance(c)
             val session=AndroidKeystoreAuthStore(c).load()?.takeUnless{it.isExpired()}
-            if(NativeWorkspace.localSelected(c)||!CoastMessageNotifications.enabled(c)||session==null){
+            if(NativeWorkspace.localSelected(c)||!subscribed(c)||session==null){
                 manager.cancelUniqueWork(JOB)
                 prefs(c).edit().remove(CURSOR).apply()
                 return

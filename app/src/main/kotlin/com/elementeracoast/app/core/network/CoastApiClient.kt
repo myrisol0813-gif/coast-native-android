@@ -422,6 +422,8 @@ class CoastApiClient(
     internal suspend fun releaseNativeSingleChat(conversationId:String,claimId:String):Boolean =
         nativeSingleAction(conversationId,"release",claimId)["ok"]?.jsonPrimitive?.contentOrNull=="true"
 
+    suspend fun dreamNoticeBody(id:String):String?=jsonRequestElement(Request.Builder().url(config.url("/api/chat/dream-tide/arrivals?note_id="+encodeQuery(id))).get().build()).jsonObject["body"]?.jsonPrimitive?.contentOrNull
+
     suspend fun dreamArrivals(after:Long?):com.elementeracoast.app.core.remote.DreamArrivalPage {
         require(config.localTransport==null){"本机模式不访问在线通知记录。"}
         val path="/api/chat/dream-tide/arrivals"+(after?.let{"?after="+it}?:"")
