@@ -148,6 +148,30 @@ class LocalDreamExecutorTest {
         val closed=LocalToolSession.openAutonomous(store,claim)?.completionsTools.orEmpty().map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}
         assertTrue(closed.none{it in names})
     }
+    @Test fun autonomousDogtalkDeliveryKeepsChangedOrFailedDraft()=runBlocking{
+        for(mode in listOf("off","private","success","failed","changed")){
+            val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+            val dog=LocalDogtalkStore(store)
+            fun draft(body:String,readMode:String)=dog.save(buildJsonObject{put("room_scope","conversation");put("conversation_id",cid);put("body",body);put("read_mode",readMode)})
+            draft("dogtalk-original",if(mode=="private")"keep_private"else "read_now")
+            val updated=cfg.copy(execution=cfg.execution!!.copy(includeDogtalk=mode!="off",tokenBudget=22000))
+            val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+            val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,_,_->
+                assertEquals(mode !in listOf("off","private"),messages.toString().contains("dogtalk-original"))
+                if(mode=="changed")draft("dogtalk-new-edit","read_now")
+                if(mode=="failed")error("provider failed")
+                response()
+            },clock={at})
+            engine.run(cid,arm.revision!!,model,at)
+            val live=dog.public("conversation",cid)
+            assertEquals(if(mode in listOf("private","success"))"keep_private"else "read_now",live.getValue("read_mode").jsonPrimitive.content)
+            if(mode=="changed")assertEquals("dogtalk-new-edit",live.getValue("body").jsonPrimitive.content)
+            val snapshots=dog.read().filter{it.module=="dogtalk_snapshots"}
+            assertEquals(if(mode in listOf("off","private"))0 else 1,snapshots.size)
+            if(snapshots.isNotEmpty())assertEquals("dream_tide",snapshots.single().data.getValue("source_type").jsonPrimitive.content)
+            assertEquals(1,RemoteCacheStore(store).history(cid)!!.turns.size)
+        }
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
