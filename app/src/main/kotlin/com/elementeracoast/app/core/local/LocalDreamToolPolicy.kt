@@ -7,6 +7,7 @@ internal object LocalDreamToolPolicy{
         val e=c.config.execution?:return false
         return when(name){
             "dream_read_history"->e.readHistory
+            "dream_read_history_file"->e.readHistory&&e.includeHistoryAttachments&&e.allowHistoryFileRead
             "dream_write_note"->e.writeNote
             "dream_send_message"->e.allowMessage
             "dream_memory_candidate"->e.allowMemoryCandidate
