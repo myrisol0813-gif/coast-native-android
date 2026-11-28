@@ -121,6 +121,22 @@ class LocalDreamExecutorTest {
         assertEquals("",msg.content);assertEquals(listOf(voiceId),msg.voiceIds)
         val records=LocalSideRecords(store);val clip=records.audio(voiceId)!!
         assertEquals(turn.id,clip.data.getValue("turn_id").jsonPrimitive.content);assertEquals(sent,clip.data.getValue("message_id").jsonPrimitive.content);assertArrayEquals(mp3,records.bytes(clip))
+        assertTrue(ledger.recordTool(claim,0,2,false,null,at))
+        assertTrue(ledger.finish(claim,"completed",buildJsonObject{},null,at))
+        val dir=java.nio.file.Files.createTempDirectory("bound-voice-archive").toFile()
+        try{
+            val zip=java.io.File(dir,"voice.zip");val app="com.elementeracoast.source"
+            val manifest=ArchiveV2Local.export(store,app,zip);val stage=ArchiveV2Stage(dir,"voice");ArchiveV2ZipReader.stage(zip,stage)
+            val dst=MemoryLocalPersistence();ArchiveV2Local.restore(manifest,stage,setOf("chat","voice"),app,dst,true)
+            val restored=RemoteCacheStore(dst).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
+            assertEquals(msg.id,restored.id);assertEquals(listOf(voiceId),restored.voiceIds)
+            val side=LocalSideRecords(dst);assertArrayEquals(mp3,side.bytes(side.audio(voiceId)!!));assertFalse(LocalDreamLedger(dst).settings(cid).enabled)
+            val html=java.io.ByteArrayOutputStream();assertTrue(com.elementeracoast.app.feature.wolf.OfflineV2HtmlArchive.write(zip,html).isEmpty())
+            val entries=mutableMapOf<String,ByteArray>()
+            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(html.toByteArray())).use{z->while(true){val e=z.nextEntry?:break;entries[e.name]=z.readBytes()}}
+            val page=entries.filterKeys{it.endsWith(".html")}.values.map{it.decodeToString()}.first{it.contains("自主消息 · ")}
+            assertTrue(page.contains("<audio controls"));assertFalse(page.contains("<h2>本窗口语音</h2>"));assertTrue(entries.filterKeys{it.endsWith(".mp3")}.values.any{it.contentEquals(mp3)})
+        }finally{dir.deleteRecursively()}
     }
     @Test fun localApiWakeOrganizesTheActualSentMessageWithinBudget()=runBlocking{
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)

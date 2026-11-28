@@ -98,11 +98,16 @@ internal object OfflineV2HtmlArchive {
                         item.row.module=="chat"->{
                             val conv=data["conversation"].obj()
                             val history=(data["history"]?:data["history_json"]).let { if(it is JsonPrimitive)Json.parseToJsonElement(it.content).obj() else it.obj() }
+                            val renderedVoices=mutableSetOf<String>()
                             fun variant(v:JsonObject,role:String,label:String)=buildString{
-                                append("<article class=\"$role\"><small>"+esc(label)+" · "+esc(v.s("id"))+" · "+esc(time(v.s("created_at")))+"</small><p>"+esc(if(role=="assistant")ReplySegments.plain(v.s("content")) else v.s("content"))+"</p>")
+                                append("<article class=\"$role\"><small>"+esc(if(v.s("generation_source")=="dream_tide")"自主消息 · "+v.s("model_id") else label)+" · "+esc(v.s("id"))+" · "+esc(time(v.s("created_at")))+"</small><p>"+esc(if(role=="assistant")ReplySegments.plain(v.s("content")) else v.s("content"))+"</p>")
                                 for(a in v["attachments"].arr()){
                                     val ref=a.obj();val m=attachments[conv.s("id")+":"+ref.s("id")]
                                     if(m!=null)append(media(m)) else {append("<p>原件未归档："+esc(ref.s("name"))+"</p>");warnings.add("聊天附件未匹配："+ref.s("id"))}
+                                }
+                                for(ref in v["voice_ids"].arr()){
+                                    val id=ref.jsonPrimitive.content;val m=voices[conv.s("id")+":"+id]
+                                    if(m!=null){renderedVoices.add(id);append(media(m))}else{append("<p>语音原件未归档："+esc(id)+"</p>");warnings.add("聊天语音未匹配："+id)}
                                 }
                                 v["desk_slip"]?.takeIf{it!=JsonNull}?.let{append("<details><summary>历史桌面</summary><pre>"+esc(it.toString())+"</pre></details>")}
                                 if(v["usage"]!=null||v["model_echo"]!=null)append("<details><summary>模型回波与用量</summary><pre>"+esc(JsonObject(v.filterKeys{it in setOf("usage","model_echo")}).toString())+"</pre></details>")
@@ -138,7 +143,7 @@ internal object OfflineV2HtmlArchive {
                                     }
                                     append("</section>")
                                 }
-                                val linked=files.filter{it.kind=="voice"&&it.data.s("conversation_id")==conv.s("id")}
+                                val linked=files.filter{it.kind=="voice"&&it.data.s("conversation_id")==conv.s("id")&&it.data.s("id") !in renderedVoices}
                                 if(linked.isNotEmpty())append("<section><h2>本窗口语音</h2>"+linked.joinToString(""){v->mediaByRecord[key(v)].orEmpty().joinToString(""){media(it)}}+"</section>")
                             }
                         }
