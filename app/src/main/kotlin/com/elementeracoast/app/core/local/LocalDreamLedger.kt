@@ -197,7 +197,7 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     // The active claim and exact tool reservation must still exist at the
     // durable write. No synthetic user message or new inference is created.
     fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList()):String?=store.atomic{s->
-        if(body.isBlank()||body.length>12000||step<0||index<0||imageIds.size>12||imageIds.distinct().size!=imageIds.size)return@atomic null
+        if((body.isBlank()&&imageIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size>12||imageIds.distinct().size!=imageIds.size)return@atomic null
         val h=LocalDreamArchive(s).runtimeHistory(c.cid)
         if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
             it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("tool_name")=="dream_send_message"&&it.str("status")=="claimed"

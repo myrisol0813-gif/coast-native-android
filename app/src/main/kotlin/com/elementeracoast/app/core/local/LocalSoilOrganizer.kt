@@ -136,7 +136,7 @@ internal object LocalSoilRun {
         val selected=t.assistant.activeByUserVariant[key]?:0
         val group=com.elementeracoast.app.feature.chat.ReplySequence.selectedGroup(list,selected)
         val a=group.lastOrNull()?:return@mapNotNull null
-        if (u?.hidden==true || u?.inputType == "landing_letter" || a.hidden || a.content.isBlank() ||
+        if (u?.hidden==true || u?.inputType == "landing_letter" || a.hidden || (a.content.isBlank()&&(wake==null||a.attachments.isEmpty())) ||
             (wake!=null&&a.generationSource!="dream_tide") ||
             a.finishReason in setOf("cancelled", "error") || !a.errorDetail.isNullOrBlank()) null else Turn(t.id,u,a,group.takeIf{a.replySequence!=null}.orEmpty(),wake)
     }
@@ -159,7 +159,12 @@ internal object LocalSoilRun {
             put("turn_id",t.id)
             t.wakeActivityId?.let{put("generation_source","dream_tide");put("wake_activity_id",it)}
             put("user",t.user?.let{u->buildJsonObject { put("message_id",u.id);put("content",clip(u.content,limit)) }}?:JsonNull)
-            put("assistant",buildJsonObject { put("message_id",t.assistant.id);put("content",clip(t.assistant.content,if(t.messages.isEmpty())limit else limit/2)) })
+            put("assistant",buildJsonObject {
+                put("message_id",t.assistant.id);put("content",clip(t.assistant.content,if(t.messages.isEmpty())limit else limit/2))
+                if(t.wakeActivityId!=null&&t.assistant.attachments.isNotEmpty())put("attachments",JsonArray(t.assistant.attachments.map{a->buildJsonObject{
+                    put("id",a.id);put("type",a.type);put("name",a.name);put("mime",a.mime);put("size",a.size);put("delivery","metadata_only")
+                }}))
+            })
             if(t.messages.isNotEmpty())put("assistant_messages",JsonArray(t.messages.mapIndexed{index,message->buildJsonObject{
                 val text=clip(message.content,(limit/(2*t.messages.size)).coerceAtLeast(1))
                 put("message_id",message.id);put("index",index);put("content",text);put("truncated",text.length<message.content.length)
