@@ -60,11 +60,11 @@ fun previewSearchVariant(history: RemoteHistory, hit: ChatSearchHit): RemoteHist
             }
             MessageRole.Assistant -> {
                 val matched = turn.assistant.variantsByUserVariant.entries.firstNotNullOfOrNull { (key, variants) ->
-                    val index = variants.indexOfFirst { it.id == hit.messageId }
+                    val index = variants.indexOfFirst { it.id == hit.messageId && !it.hidden }
                     val userIndex = key.toIntOrNull()
+                    val autonomous = turn.turnType == "dream_tide" && turn.user.variants.isEmpty() && userIndex == 0 && !turn.wakeActivityId.isNullOrBlank()
                     if (index >= 0 && userIndex != null &&
-                        userIndex in turn.user.variants.indices &&
-                        !turn.user.variants[userIndex].hidden) userIndex to index else null
+                        (autonomous || (userIndex in turn.user.variants.indices && !turn.user.variants[userIndex].hidden))) userIndex to index else null
                 } ?: return@map turn
                 found = true
                 val (userIndex, assistantIndex) = matched
