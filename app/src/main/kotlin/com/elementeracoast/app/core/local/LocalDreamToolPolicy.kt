@@ -14,6 +14,8 @@ internal object LocalDreamToolPolicy{
             "independent_web_search","independent_web_read"->e.allowWeb
             "library_books","library_read","library_notes"->e.allowLibrary
             "memory_search"->e.allowMemory
+            "global_excerpt_propose"->e.allowSelfPortraitProposal&&e.includeSelfPortrait
+            "user_portrait_propose"->e.allowUserPortraitProposal&&e.includeUserPortrait
             "list_daily_moments","list_daily_diaries"->e.allowDailyRead
             "worldbook_list"->e.allowWorldbookRead
             "cross_window_search","cross_window_read_recent","cross_window_keyword_search","cross_window_read_messages"->e.allowCrossWindow
