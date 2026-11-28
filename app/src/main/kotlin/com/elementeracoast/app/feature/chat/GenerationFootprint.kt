@@ -17,7 +17,7 @@ internal fun GenerationFootprint(
     modifier: Modifier = Modifier
 ) {
     val model = message.modelId ?: return
-    val source = message.generationSource?.takeIf { it.isNotBlank() }
+    val source = message.generationSource?.takeIf { it.isNotBlank() }?.let { if (it == "dream_tide") "梦醒" else it }
     Text(
         text = if (source == null) model else "$model · $source",
         modifier = modifier
