@@ -77,6 +77,10 @@ internal class LocalToolSession private constructor(
             add(Spec("moment_comment","daily.moment_comment","评论碳硅圈","以模型身份评论指定动态。",schema(mapOf("moment_id" to string(),"text" to string(2000)),listOf("moment_id","text"))))
             add(Spec("moment_like","daily.moment_like","点赞碳硅圈","仅改变模型自己的点赞。",schema(mapOf("moment_id" to string(),"liked" to buildJsonObject{put("type","boolean")}),listOf("moment_id","liked"))))
             add(Spec("calendar_create","calendar.create","写日历","新增日程、随记或纪念日，不修改或删除既有事项。随记 kind=note；纪念日提供 anniversary（date 为起始日期，kind 为 event）。",schema(mapOf("date" to string(10),"title" to string(120),"body" to string(4000),"kind" to buildJsonObject{put("type","string");put("enum",JsonArray(listOf("event","note").map(::JsonPrimitive)))},"recurrence" to buildJsonObject{put("type","string");put("enum",JsonArray(listOf("none","yearly").map(::JsonPrimitive)))},"anniversary" to schema(mapOf("startDay" to string(10),"mode" to buildJsonObject{put("type","string");put("enum",JsonArray(listOf("elapsed","milestone","yearly").map(::JsonPrimitive)))},"targetDays" to integer(1,109938),"pinned" to buildJsonObject{put("type","boolean")}),listOf("startDay","mode","pinned"))),listOf("date","title"))))
+            if(autonomousClaim!=null){
+                add(Spec("calendar_update","calendar.update","修改自己的日历","仅可凭真实 ID 修改本窗口模型自己的记录，只提供需要变更的字段。",schema(mapOf("id" to string(),"day" to string(10),"title" to string(120),"body" to string(4000),"kind" to string(10),"recurrence" to string(10)),listOf("id"))))
+                add(Spec("calendar_delete","calendar.delete","删除自己的日历","仅可删除本窗口模型自己的记录。",schema(mapOf("id" to string()),listOf("id"))))
+            }
             add(Spec("library_write","library.write","写书房笔记","action=create/edit/delete；创建批注 annotation、读后感 reflection 或划线 highlight。章节、段落从0开始；划线需指定 UTF-16 start_offset（含）与 end_offset（不含），不填正文；修改或删除仅限自己的笔记 id。",schema(mapOf("action" to string(8),"id" to string(),"book_id" to string(),"kind" to string(16),"body" to string(4000),"chapter_index" to integer(0,100000),"paragraph_index" to integer(0,100000),"start_offset" to integer(0,100000),"end_offset" to integer(0,100000)),listOf("action"))))
             add(Spec("memory_write_candidate","memory.write_candidate","放入待确认袋","提出记忆或种子候选，由屋主确认，不直接写入正式记忆。",schema(mapOf("title" to string(120),"content" to string(2000),"destination" to string(8)),listOf("title","content","destination"))))
         }
@@ -312,7 +316,7 @@ internal class LocalToolSession private constructor(
             val input=parseInput(spec,arguments)
             store.atomic{s->
                 if(!allowedNow(s,spec))throw LocalToolFailure("permission_revoked","当前窗口写入权限已关闭或窗口已变化。")
-                if(autonomousClaim!=null){require(LocalDreamLedger(s).toolClaimed(autonomousClaim,callId,spec.name));require(spec.name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")||spec.name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")}
+                if(autonomousClaim!=null){require(LocalDreamLedger(s).toolClaimed(autonomousClaim,callId,spec.name));val e=requireNotNull(autonomousClaim.config.execution);require(spec.name in setOf("create_moment","create_diary","calendar_create","calendar_update","calendar_delete","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")||spec.name=="library_write"&&when(input["action"]?.jsonPrimitive?.content){"create"->e.allowLibraryWrite;"edit","delete"->e.allowLibraryEdit;else->false})}
                 val value=LocalToolWrites(s,cid,if(autonomousClaim==null)turn else null,modelId,if(autonomousClaim==null)auditId else "dream:"+callId).execute(spec.name,input)
                 if(estimated+estimate(arguments)+estimate(value.toString())+32>toolBudget)throw LocalToolFailure("budget_exceeded","本轮工具预算不足，未保存。")
                 auditWrite(s,auditId,spec.key,start,true)
@@ -441,12 +445,12 @@ internal class LocalToolSession private constructor(
     private fun JsonObject.filterMetadata()=JsonObject(filterKeys{it !in setOf("reading_logs","progress")})
     companion object {
         const val MAX_CALLS=com.elementeracoast.app.core.network.TurnToolPolicy.MAX_CALLS
-        private val WRITE_NAMES=setOf("image_generate","voice_create","create_moment","create_diary","moment_comment","moment_like","calendar_create","library_write","memory_write_candidate","global_excerpt_propose","user_portrait_propose")
+        private val WRITE_NAMES=setOf("image_generate","voice_create","create_moment","create_diary","moment_comment","moment_like","calendar_create","calendar_update","calendar_delete","library_write","memory_write_candidate","global_excerpt_propose","user_portrait_propose")
         fun openAutonomous(store:LocalPersistence,claim:LocalDreamLedger.Claim,web:LocalIndependentWeb?=null,voice:LocalVoiceProvider?=null):LocalToolSession?{
             val h=RemoteCacheStore(store,strictReads=true).history(claim.cid)?:return null
             val e=requireNotNull(claim.config.execution)
             val read=h.contextSettings.localModelToolsEnabled
-            val write=h.contextSettings.localModelWriteEnabled&&(e.allowLibraryWrite||e.allowDailyWrite||e.allowDailyInteract||e.allowCalendarWrite||e.allowVoice||e.allowSelfPortraitProposal||e.allowUserPortraitProposal)
+            val write=h.contextSettings.localModelWriteEnabled&&(e.allowLibraryWrite||e.allowLibraryEdit||e.allowCalendarEdit||e.allowDailyWrite||e.allowDailyInteract||e.allowCalendarWrite||e.allowVoice||e.allowSelfPortraitProposal||e.allowUserPortraitProposal)
             val cross=e.allowCrossWindow&&h.contextSettings.crossWindowAuto
             if(!read&&!write&&!cross)return null
             val session=LocalToolSession(store,claim.cid,"",null,cross,read,write,claim.model,
