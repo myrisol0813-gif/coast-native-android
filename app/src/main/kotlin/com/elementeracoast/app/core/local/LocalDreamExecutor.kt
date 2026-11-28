@@ -282,6 +282,7 @@ internal class LocalDreamExecutor(
                             withContext(NonCancellable){ledger.recordStep(c,step,false,buildJsonObject{put("error_type",WakeDiagnostic.reason(ex));WakeDiagnostic.http(ex)?.let{put("http_status",it)};put("usage",JsonNull);put("cost",JsonNull);if(images.isNotEmpty())put("image_readback_unconfirmed",JsonArray(images.map{JsonPrimitive(it.id)}))},clock())}}
                             throw ex
                         }
+                        historyImageRefs.clear()
                         mark("response_received")
                         val usage=raw["usage"] as? JsonObject
                         val reported=usage?.get("total_tokens")?.jsonPrimitive?.longOrNull?.takeIf{it>=0&&it<=1000000000}
