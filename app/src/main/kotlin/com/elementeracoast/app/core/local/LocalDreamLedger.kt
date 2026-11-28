@@ -178,9 +178,9 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val row=buildJsonObject{put("claim_id",c.id);put("step_index",step);put("call_index",index);put("tool_name",name);put("status","claimed");put("receipt_json",JsonNull);put("started_at",now);put("finished_at",JsonNull)}
         JsonObject(h+("tools" to JsonArray(rows+row)))
     }
-    fun recordTool(c:Claim,step:Int,index:Int,ok:Boolean,count:Int?,now:Long,recordId:String?=null)=mutate(c,false){h->
+    fun recordTool(c:Claim,step:Int,index:Int,ok:Boolean,count:Int?,now:Long,recordId:String?=null,furniture:RemoteFurnitureRun?=null)=mutate(c,false){h->
         val rows=h.rows("tools");val old=rows.singleOrNull{it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("status")=="claimed"}?:return@mutate null
-        val receipt=buildJsonObject{put("ok",ok);count?.let{put("count",it)};recordId?.takeIf{it.matches(Regex("[A-Za-z0-9_.:-]{1,160}"))}?.let{put("record_id",it)}}
+        val receipt=buildJsonObject{put("ok",ok);furniture?.let{put("furniture",json.encodeToJsonElement(RemoteFurnitureRun.serializer(),it.copy(id="dream:"+c.id+":"+step+":"+index)))};count?.let{put("count",it)};recordId?.takeIf{it.matches(Regex("[A-Za-z0-9_.:-]{1,160}"))}?.let{put("record_id",it)}}
         val row=JsonObject(old+mapOf("status" to JsonPrimitive(if(ok)"completed"else "failed"),"receipt_json" to JsonPrimitive(receipt.toString()),"finished_at" to JsonPrimitive(now)))
         JsonObject(h+("tools" to JsonArray(rows.map{if(it==old)row else it})))
     }
@@ -198,7 +198,18 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val mid="msg_dream_"+c.id+"_"+step+"_"+index
         if(history.turns.size>=400||history.turns.any{it.id==tid||(it.user.variants+it.assistant.variantsByUserVariant.values.flatten()).any{v->v.id==mid}})return@atomic null
         val stamp=Instant.ofEpochMilli(now).toString()
-        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide")
+        val events=h.rows("tools").filter{it.str("claim_id")==c.id}.filter{
+            val st=it.getValue("step_index").jsonPrimitive.int;val ix=it.getValue("call_index").jsonPrimitive.int
+            st<step||st==step&&ix<index
+        }.sortedWith(compareBy({it.getValue("step_index").jsonPrimitive.int},{it.getValue("call_index").jsonPrimitive.int}))
+        val boundary=events.indexOfLast{it.str("tool_name")=="dream_send_message"&&it.str("status")=="completed"}
+        val furniture=events.drop(boundary+1).mapNotNull{event->
+            if(event.str("status") !in setOf("completed","failed"))return@mapNotNull null
+            val raw=event["receipt_json"]?.jsonPrimitive?.contentOrNull?:return@mapNotNull null
+            val item=Json.parseToJsonElement(raw).jsonObject["furniture"]?:return@mapNotNull null
+            json.decodeFromJsonElement(RemoteFurnitureRun.serializer(),item).takeIf{it.id=="dream:"+c.id+":"+event.str("step_index")+":"+event.str("call_index")}
+        }.take(16)
+        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture)
         val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
         cache.putHistory(c.cid,history.copy(updatedAt=stamp,turns=history.turns+turn))
         cache.putConversations(cache.conversations().map{if(it.id==c.cid)it.copy(updatedAt=stamp)else it})
