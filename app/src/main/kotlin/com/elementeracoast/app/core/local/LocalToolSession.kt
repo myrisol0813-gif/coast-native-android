@@ -68,9 +68,9 @@ internal class LocalToolSession private constructor(
         if(writeAllowed){
             if(image!=null)add(Spec("image_generate","image.generate","绘制图片","自行决定是否绘制一张图，使用已选生图模型、正常API计费。本轮至多一次；只发送必要绘图提示。收到原件像素才可声称看见。",schema(mapOf("prompt" to string(4000)),listOf("prompt"))))
             if(voice?.configured()==true) add(Spec("voice_create","voice.create","留下语音","把自己写的一小段文字念成真实MP3，普通聊天保存在当前轮次，自主活动保存在该次活动下。使用已授权的独立ElevenLabs额度，遵守当前活动的语音尝试上限；只发送待朗读文字。",schema(mapOf("text" to string(2400)),listOf("text"))))
-            if(base.thinkingSoil.enabled && LocalPortraitStore(store).read("self_portrait")?.root?.get("write_enabled")?.jsonPrimitive?.int != 0)
+            if((if(autonomousClaim==null)base.thinkingSoil.enabled else LocalSoilStore(store).current(cid)?.get("auto_refresh_enabled")?.jsonPrimitive?.intOrNull==1) && LocalPortraitStore(store).read("self_portrait")?.root?.get("write_enabled")?.jsonPrimitive?.int != 0)
                 add(Spec("global_excerpt_propose","memory.global_excerpt_propose","提出自我画像修改稿","仅在自动整理和画像写入均开启时提出整篇完整修改稿，说明长期价值；只进入待确认区，不覆盖正式正文。本机单次工具参数最多12000字符；不要提交截断的正文。",schema(mapOf("proposed_body" to string(10000),"reason" to string(4000),"change_kind" to string(40)),listOf("proposed_body","reason"))))
-            if(base.thinkingSoil.enabled && LocalPortraitStore(store).read("user_portrait")?.root?.get("write_enabled")?.jsonPrimitive?.int != 0)
+            if((if(autonomousClaim==null)base.thinkingSoil.enabled else LocalSoilStore(store).current(cid)?.get("auto_refresh_enabled")?.jsonPrimitive?.intOrNull==1) && LocalPortraitStore(store).read("user_portrait")?.root?.get("write_enabled")?.jsonPrimitive?.int != 0)
                 add(Spec("user_portrait_propose","memory.user_portrait_propose","提出用户画像修改稿","仅在自动整理和画像写入均开启时提出整篇完整修改稿，说明长期价值；只进入待确认区，不覆盖正式正文。本机单次工具参数最多12000字符；不要提交截断的正文。",schema(mapOf("proposed_body" to string(10000),"reason" to string(4000),"change_kind" to string(40)),listOf("proposed_body","reason"))))
             add(Spec("create_moment","daily.create_moment","写碳硅圈","以模型身份新增正式动态。",schema(mapOf("date" to string(10),"text" to string(4000)),listOf("date","text"))))
             add(Spec("create_diary","daily.create_diary","写日记","以模型身份新增日记。",schema(mapOf("date" to string(10),"text" to string(6000),"weather" to string(80),"mood" to string(80),"tags" to array(string(80),12)),listOf("date","text"))))
@@ -127,7 +127,7 @@ internal class LocalToolSession private constructor(
         val cache=RemoteCacheStore(s,strictReads=true)
         val h=cache.history(cid)?:return false
         if(autonomousClaim!=null)return LocalDreamLedger(s).authorized(autonomousClaim)&&LocalDreamToolPolicy.allowed(autonomousClaim,spec.name)&&
-            (when{spec.key.startsWith("cross_window.")->crossAllowed&&h.contextSettings.crossWindowAuto;spec.name=="dream_readback"->readAllowed&&h.contextSettings.dreamReadbackEnabled&&h.contextSettings.localModelToolsEnabled;spec.name in WRITE_NAMES->h.contextSettings.localModelWriteEnabled;else->h.contextSettings.localModelToolsEnabled})
+            (when{spec.key.startsWith("cross_window.")->crossAllowed&&h.contextSettings.crossWindowAuto;spec.name=="dream_readback"->readAllowed&&h.contextSettings.dreamReadbackEnabled&&h.contextSettings.localModelToolsEnabled;spec.name in setOf("global_excerpt_propose","user_portrait_propose")->h.contextSettings.localModelWriteEnabled&&LocalSoilStore(s).current(cid)?.get("auto_refresh_enabled")?.jsonPrimitive?.intOrNull==1&&LocalPortraitStore(s).read(if(spec.name=="user_portrait_propose")"user_portrait" else "self_portrait")?.root?.get("write_enabled")?.jsonPrimitive?.int!=0;spec.name in WRITE_NAMES->h.contextSettings.localModelWriteEnabled;else->h.contextSettings.localModelToolsEnabled})
         val origin=sourceTurn?:return false
         val now=h.turns.firstOrNull{it.id==turn}?:return false
         if(sequenceId!=null&&!LocalReplyRunStore(s).allowsMedia(cid,turn,requireNotNull(sourceTurn).let{it.user.variants[it.user.active].id},groupMessageId.orEmpty(),sequenceId))return false
@@ -312,7 +312,7 @@ internal class LocalToolSession private constructor(
             val input=parseInput(spec,arguments)
             store.atomic{s->
                 if(!allowedNow(s,spec))throw LocalToolFailure("permission_revoked","当前窗口写入权限已关闭或窗口已变化。")
-                if(autonomousClaim!=null)require(spec.name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like")||spec.name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
+                if(autonomousClaim!=null){require(LocalDreamLedger(s).toolClaimed(autonomousClaim,callId,spec.name));require(spec.name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")||spec.name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")}
                 val value=LocalToolWrites(s,cid,if(autonomousClaim==null)turn else null,modelId,if(autonomousClaim==null)auditId else "dream:"+callId).execute(spec.name,input)
                 if(estimated+estimate(arguments)+estimate(value.toString())+32>toolBudget)throw LocalToolFailure("budget_exceeded","本轮工具预算不足，未保存。")
                 auditWrite(s,auditId,spec.key,start,true)
@@ -446,7 +446,7 @@ internal class LocalToolSession private constructor(
             val h=RemoteCacheStore(store,strictReads=true).history(claim.cid)?:return null
             val e=requireNotNull(claim.config.execution)
             val read=h.contextSettings.localModelToolsEnabled
-            val write=h.contextSettings.localModelWriteEnabled&&(e.allowLibraryWrite||e.allowDailyWrite||e.allowDailyInteract||e.allowCalendarWrite||e.allowVoice)
+            val write=h.contextSettings.localModelWriteEnabled&&(e.allowLibraryWrite||e.allowDailyWrite||e.allowDailyInteract||e.allowCalendarWrite||e.allowVoice||e.allowSelfPortraitProposal||e.allowUserPortraitProposal)
             val cross=e.allowCrossWindow&&h.contextSettings.crossWindowAuto
             if(!read&&!write&&!cross)return null
             val session=LocalToolSession(store,claim.cid,"",null,cross,read,write,claim.model,
