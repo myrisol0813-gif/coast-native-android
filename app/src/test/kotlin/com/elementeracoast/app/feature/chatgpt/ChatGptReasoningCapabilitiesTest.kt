@@ -19,4 +19,12 @@ class ChatGptReasoningCapabilitiesTest {
         ).jsonObject
         assertEquals(emptyList<String>(), decodeChatGptReasoningEfforts(generic))
     }
+    @Test fun visionIsAvailableOnlyWhenExplicitlyAdvertised() {
+        fun decode(value:String)=decodeChatGptVision(Json.parseToJsonElement(value).jsonObject)
+        assertEquals(true,decode("""{"slug":"fixture","input_modalities":["text","image"]}"""))
+        assertEquals(false,decode("""{"slug":"fixture","input_modalities":["text"]}"""))
+        assertEquals(true,decode("""{"slug":"fixture","architecture":{"input_modalities":["image"]}}"""))
+        assertEquals(null,decode("""{"slug":"gpt-6.2-sol"}"""))
+        assertEquals(null,decode("""{"input_modalities":[]}"""))
+    }
 }

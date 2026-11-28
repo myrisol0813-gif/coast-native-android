@@ -27,7 +27,7 @@ internal object LocalDreamNotifications {
     private fun prefs(c:Context)=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
     private fun channel(kind:String)="coast_dream_${kind}_v1"
     fun enabled(c:Context,kind:String)=prefs(c).getBoolean(kind,kind!=START)
-    fun setEnabled(c:Context,kind:String,value:Boolean){prefs(c).edit().putBoolean(kind,value).apply()}
+    fun setEnabled(c:Context,kind:String,value:Boolean){prefs(c).edit().putBoolean(kind,value).apply();OnlineArrivalWorker.sync(c)}
     fun permitted(c:Context)= (Build.VERSION.SDK_INT<33||c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED)&&manager(c).areNotificationsEnabled()
     fun ensure(c:Context){
         val audio=AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build()

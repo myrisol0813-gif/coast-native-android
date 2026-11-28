@@ -43,9 +43,9 @@ internal class OnlineDreamDevice private constructor(private val context:Context
     fun preferredModel():String=ChatGptSecureStore(context,false).preferredModel()?.let{NativeDreamPlanProtocol.PREFIX+it}.orEmpty()
     fun status(cid:String,value:DreamSettingsResponse):DreamSettingsResponse{
         val a=value.settings
-        val r=registrations().firstOrNull{it.cid==cid&&it.revision==a.revision&&it.model==a.modelId}
-        val state=if(r==null)"not_authorized" else plan.status(cid,a.revision,a.modelId)
-        return value.copy(planExecutionAvailable=value.planExecutionAvailable&&BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED,planStatus=state,planRequestLimit=plan.requestLimit(cid,a.revision,a.modelId))
+        val r=registrations().firstOrNull{it.cid==cid&&it.revision==a.grantRevision()&&it.model==a.modelId}
+        val state=if(r==null)"not_authorized" else plan.status(cid,a.grantRevision(),a.modelId)
+        return value.copy(planExecutionAvailable=value.planExecutionAvailable&&BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED,planStatus=state,planRequestLimit=plan.requestLimit(cid,a.grantRevision(),a.modelId))
     }
     suspend fun save(api:CoastApiClient,value:DreamSettingsRequest):DreamSettingsResponse=withContext(Dispatchers.IO){
         val cid=value.conversationId
@@ -53,7 +53,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         if(value.action=="disarm"){remove(cid);OnlineDreamWorker.sync(context);return@withContext api.saveDreamSettings(value)}
         if(value.action!="arm"||NativeDreamPlanProtocol.slug(value.modelId.orEmpty())==null){
             val result=api.saveDreamSettings(value)
-            if(result.ok){remove(cid);OnlineDreamWorker.sync(context)}
+            if(result.ok){if(!result.settings.enabled||NativeDreamPlanProtocol.slug(result.settings.modelId.orEmpty())==null)remove(cid);OnlineDreamWorker.sync(context)}
             return@withContext result
         }
         check(active()&&value.confirmExecution&&value.confirmPlanSoftBudget){"当前设备未连接在线海岸或未确认套餐授权。"}
@@ -61,7 +61,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         val deviceKey=key()
         val saved=api.saveDreamSettings(value.copy(deviceKey=deviceKey))
         if(!saved.ok)return@withContext saved
-        val revision=requireNotNull(saved.settings.revision)
+        val revision=requireNotNull(saved.settings.grantRevision())
         // The server revision is authoritative. No provider request until
         // the independent device account grant has been verified and saved.
         try{
@@ -99,7 +99,8 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         val remote=try{api.dreamSettings(r.cid)}catch(e:CoastApiException){
             if(e.status==404){removeIfCurrent(r);return false};throw e
         }
-        if(!remote.settings.enabled||remote.settings.revision!=r.revision||remote.settings.modelId!=r.model){removeIfCurrent(r);return false}
+        if(!remote.settings.enabled||remote.settings.grantRevision()!=r.revision||remote.settings.modelId!=r.model){removeIfCurrent(r);return false}
+        val configRevision=remote.settings.revision?:return false
         if(!remote.planExecutionAvailable){diagnostic(r,"check","preflight_failed","server_gate_disabled");return false}
         if(plan.status(r.cid,r.revision,r.model)!="authorized"){diagnostic(r,"check","preflight_failed","plan_not_authorized");return false}
         diagnostic(r,"check","catalog_check")
@@ -107,12 +108,12 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         if(!stillRegistered(r)||!binding.authorized())return false
         var claimId:String?=null
         suspend fun action(name:String,body:JsonObject=JsonObject(emptyMap())):JsonObject=api.dreamDeviceAction(buildJsonObject{
-            put("conversation_id",r.cid);put("revision",r.revision);put("modelId",r.model);put("deviceKey",r.key);put("action",name)
+            put("conversation_id",r.cid);put("revision",configRevision);put("modelId",r.model);put("deviceKey",r.key);put("action",name)
             claimId?.let{put("claim_id",it)};body.forEach{(k,v)->put(k,v)}
         })
         fun JsonObject.ok()=get("ok")?.jsonPrimitive?.booleanOrNull==true
         diagnostic(r,"check","claim_request")
-        val admitted=try{action("claim")}catch(e:CancellationException){throw e}catch(e:Exception){
+        val admitted=try{action("claim",buildJsonObject{put("history_vision",binding.vision==true)})}catch(e:CancellationException){throw e}catch(e:Exception){
             diagnostic(r,"attempt","claim_response_unconfirmed",WakeDiagnostic.reason(e),http=WakeDiagnostic.http(e));return false
         }
         if(!admitted.ok()){diagnostic(r,"check","claim_not_admitted",admitted.str("reason"));return false}
@@ -122,12 +123,25 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         val claim=requireNotNull(claimId)
         fun notice(kind:String,body:String?=null){LocalDreamNotifications.post(context,r.cid,claim,kind,body,localMode=false)}
         notice("start")
+        suspend fun notifyPersistedMessages(){
+            val history=try{api.getHistory(r.cid)}catch(e:CancellationException){throw e}catch(_:Exception){return}
+            history.turns.filter{it.turnType=="dream_tide"&&it.wakeActivityId==claim}.flatMap{it.assistant.variantsByUserVariant.values.flatten()}.filter{it.generationSource=="dream_tide"}.forEach{CoastMessageNotifications.postWake(context,r.cid,it,false)}
+        }
         var completed=false;var reason="plan_incomplete";var noteNotified=false
         var phase="device_received";var stepIndex:Int?=null;var httpStatus:Int?=null
         fun mark(value:String){phase=value;diagnostic(r,"attempt",phase,step=stepIndex,claim=claim)}
         var inFlight:Int?=null
+        var soilInFlight:Int?=null
         var cancellation:CancellationException?=null
-        suspend fun authorized()=stillRegistered(r)&&binding.authorized()&&action("heartbeat").ok()
+        suspend fun authorized():Boolean{
+            if(!stillRegistered(r))throw NativeDreamPlanFailure("device_registration_ended")
+            if(!binding.authorized())throw NativeDreamPlanFailure("plan_binding_ended")
+            val reply=try{action("heartbeat")}catch(e:CancellationException){throw e}catch(e:Exception){
+                throw NativeDreamPlanFailure("heartbeat_"+WakeDiagnostic.reason(e),WakeDiagnostic.http(e))
+            }
+            if(!reply.ok())throw NativeDreamPlanFailure("heartbeat_"+WakeDiagnostic.code(reply.str("reason").ifBlank{"rejected"}))
+            return true
+        }
         try{
             mark("device_received")
             // New servers acknowledge delivery. Older servers may not support
@@ -141,13 +155,17 @@ internal class OnlineDreamDevice private constructor(private val context:Context
             val instructions=admitted.getValue("instructions").jsonPrimitive.content
             val session=NativeDreamPlanSession(binding.grant,instructions,e.tokenBudget,e.outputLimit){body,tools->binding.send(body,tools){authorized()}}
             var results=emptyList<JsonObject>()
+            var pendingImages=emptyList<JsonObject>()
             var usedTools=0L
             coroutineScope{
-                val running=currentCoroutineContext()[Job]!!
+                // A failed heartbeat is an execution failure, not an Android
+                // cancellation or a successful heartbeat that was stopped at cleanup.
+                // Structured concurrency propagates its typed cause and cancels any
+                // in-flight request. Never retry a potentially billable request.
                 val heartbeat=launch{
                     while(isActive){
                         delay(15000)
-                        if(!runCatching{authorized()}.getOrDefault(false)){running.cancel(CancellationException("wake authorization ended"));break}
+                        authorized()
                     }
                 }
                 try{
@@ -156,10 +174,14 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         if(!session.canContinue()){reason="plan_step_or_soft_budget_limit";break}
                         stepIndex=i;mark("request_prepare")
                         val tools=if(usedTools>=e.toolBudget||i==e.toolBudget||i+1>=limit)JsonArray(emptyList())else offered
-                        val step=session.step(i,tools,results,reserve={
+                        val images=pendingImages;pendingImages=emptyList()
+                        val imageIds=JsonArray(images.map{it.getValue("id")})
+                        check(images.isEmpty()||binding.vision==true)
+                        val step=session.step(i,tools,results,images.map{it.getValue("message").jsonObject},reserve={
                             mark("request_reserved")
-                            val reply=action("reserve",buildJsonObject{put("step",i)})
+                            val reply=action("reserve",buildJsonObject{put("step",i);if(images.isNotEmpty())put("image_ids",imageIds)})
                             if(!reply.ok())throw NativeDreamPlanFailure("reserve_"+WakeDiagnostic.code(reply.str("reason")))
+                            if(images.isNotEmpty())check(reply["image_ids"]==imageIds)
                             inFlight=i;mark("provider_wait")
                             true
                         },authorize={authorized()})
@@ -175,27 +197,64 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         })
                         if(!response.ok())throw NativeDreamPlanFailure("step_"+WakeDiagnostic.code(response.str("reason")))
                         results=response.getValue("results").jsonArray.map{it.jsonObject}
+                        pendingImages=(response["images"] as? JsonArray).orEmpty().map{it.jsonObject}
+                        check(pendingImages.isEmpty()||binding.vision==true&&pendingImages.sumOf{it.getValue("bytes").jsonPrimitive.long}<=8L*1024*1024)
                         usedTools+=calls.size.toLong()
+                        if(results.any{it.str("name")=="dream_send_message"})notifyPersistedMessages()
                         if(!noteNotified&&results.any{it.str("name")=="dream_write_note"}){
-                            val n=runCatching{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}.getOrNull()
+                            val n=try{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}catch(e:CancellationException){throw e}catch(_:Exception){null}
                             if(n!=null){notice("note",n.body);noteNotified=true}
                         }
                         if(finish=="stop"){completed=true;reason="ended";break}
                         if(response["canContinue"]?.jsonPrimitive?.booleanOrNull!=true){reason="plan_step_or_soft_budget_limit";break}
                     }
+                    if(completed){
+                        try{
+                            val prepared=action("soil_prepare")
+                            if(prepared.ok()&&prepared["skipped"]?.jsonPrimitive?.booleanOrNull!=true){
+                                val index=prepared.getValue("step").jsonPrimitive.int
+                                soilInFlight=index
+                                stepIndex=index
+                                val remaining=prepared.getValue("remaining").jsonPrimitive.long
+                                val hint=prepared.getValue("outputHint").jsonPrimitive.int
+                                val prompt=prepared.getValue("prompt").jsonPrimitive.content
+                                check(index in 0 until limit&&index<=e.toolBudget&&remaining>0&&hint>0)
+                                check(authorized())
+                                mark("provider_wait")
+                                val body=NativeDreamPlanProtocol.body(binding.grant.model,prompt+"\n只返回完整整理 JSON；建议输出不超过 "+hint+" token。",listOf(buildJsonObject{put("role","developer");put("content","整理已经发送的正式自主消息，不是人类新发言。")}),JsonArray(emptyList()),remaining)
+                                val raw=binding.send(body,emptySet()){authorized()}.normalized
+                                val choice=raw.getValue("choices").jsonArray.first().jsonObject
+                                val message=choice.getValue("message").jsonObject
+                                val text=message.str("content")
+                                val max=prepared.getValue("max_result_chars").jsonPrimitive.int
+                                val finish=if(choice.str("finish_reason")=="stop"&&text.length<=max)"stop" else "failed"
+                                soilInFlight=null
+                                mark("step_delivery")
+                                val settled=action("soil_commit",buildJsonObject{
+                                    put("step",index);put("finish",finish);put("usage",raw["usage"]?:JsonNull)
+                                    if(finish=="stop")put("result_text",text)
+                                })
+                                if(!settled.ok())diagnostic(r,"attempt","soil_settlement_unconfirmed",settled.str("reason"),index,claim)
+                            }
+                        }catch(ex:CancellationException){throw ex}catch(ex:Exception){
+                            diagnostic(r,"attempt","soil_unconfirmed",WakeDiagnostic.reason(ex),stepIndex,claim,WakeDiagnostic.http(ex))
+                        }
+                    }
                 }finally{heartbeat.cancelAndJoin()}
             }
-        }catch(e:CancellationException){cancellation=e;reason="authorization_or_task_ended"}
+        }catch(e:CancellationException){cancellation=e;reason="device_task_cancelled"}
         catch(e:Exception){reason=WakeDiagnostic.reason(e);httpStatus=WakeDiagnostic.http(e)}
         finally{
             withContext(NonCancellable){
                 diagnostic(r,"attempt",phase,reason,stepIndex,claim,httpStatus)
                 inFlight?.let{i->runCatching{action("step",buildJsonObject{put("step",i);put("finish","failed");put("reason",reason);httpStatus?.let{put("http_status",it)};put("usage",JsonNull);put("calls",JsonArray(emptyList()))})}}
+                soilInFlight?.let{i->runCatching{action("soil_commit",buildJsonObject{put("step",i);put("finish","failed");put("usage",JsonNull)})}}
                 val settled=runCatching{action("finish",buildJsonObject{put("completed",completed);put("reason",reason);put("phase",phase)})}.getOrNull()
                 if(settled?.ok()!=true)diagnostic(r,"check","finish_unconfirmed",settled?.str("reason")?:"finish_response_unconfirmed",stepIndex,claim)
                 // Read back the persisted note even if the last tool response
                 // was interrupted; never send a notification for unsaved text.
                 if(!noteNotified){val n=runCatching{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}.getOrNull();if(n!=null)notice("note",n.body)}
+                notifyPersistedMessages()
                 if(settled?.ok()==true&&settled.str("status")!="completed")notice("failure")
             }
         }

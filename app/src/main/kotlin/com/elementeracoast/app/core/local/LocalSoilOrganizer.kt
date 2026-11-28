@@ -107,10 +107,11 @@ internal object LocalSoilRun {
     private const val MAX_PORTRAIT = 12000
     private val modules = listOf("user_portrait", "self_portrait")
     private val textFields = setOf("current_text", "afterthoughts", "memory_candidates", "seed_candidates", "user_portrait", "self_portrait")
-    data class Turn(val id: String, val user: RemoteVariant, val assistant: RemoteVariant,val messages:List<RemoteVariant> = emptyList())
+    data class Turn(val id: String, val user: RemoteVariant?, val assistant: RemoteVariant,val messages:List<RemoteVariant> = emptyList(),val wakeActivityId:String?=null)
     data class Prepared(
         val cid: String, val model: String, val row: JsonObject, val history: List<RemoteTurn>,
-        val turns: List<Turn>, val portraitRoots: Map<String, JsonObject?>, val prompt: String
+        val turns: List<Turn>, val portraitRoots: Map<String, JsonObject?>, val prompt: String,
+        val allowedPortraits:Set<String> = setOf("user_portrait","self_portrait")
     )
     private fun JsonObject.str(k: String) = get(k)?.jsonPrimitive?.contentOrNull.orEmpty()
     private fun JsonObject.enabled(k: String) = get(k)?.jsonPrimitive?.intOrNull == 1
@@ -128,21 +129,25 @@ internal object LocalSoilRun {
     }
     private fun active(history: List<RemoteTurn>): List<Turn> = history.mapNotNull { t ->
         val key = t.user.active.toString()
-        val u = t.user.variants.getOrNull(t.user.active) ?: return@mapNotNull null
+        val u = t.user.variants.getOrNull(t.user.active)
+        val wake=t.wakeActivityId?.takeIf{t.turnType=="dream_tide"&&t.user.variants.isEmpty()&&it.isNotBlank()}
+        if(u==null&&wake==null)return@mapNotNull null
         val list=t.assistant.variantsByUserVariant[key].orEmpty()
         val selected=t.assistant.activeByUserVariant[key]?:0
         val group=com.elementeracoast.app.feature.chat.ReplySequence.selectedGroup(list,selected)
         val a=group.lastOrNull()?:return@mapNotNull null
-        if (u.hidden || u.inputType == "landing_letter" || a.hidden || a.content.isBlank() ||
-            a.finishReason in setOf("cancelled", "error") || !a.errorDetail.isNullOrBlank()) null else Turn(t.id,u,a,group.takeIf{a.replySequence!=null}.orEmpty())
+        if (u?.hidden==true || u?.inputType == "landing_letter" || a.hidden || (a.content.isBlank()&&(wake==null||(a.attachments.isEmpty()&&a.voiceIds.isEmpty()))) ||
+            (wake!=null&&a.generationSource!="dream_tide") ||
+            a.finishReason in setOf("cancelled", "error") || !a.errorDetail.isNullOrBlank()) null else Turn(t.id,u,a,group.takeIf{a.replySequence!=null}.orEmpty(),wake)
     }
-    fun prepare(store: LocalPersistence, cid: String, model: String,sequenceId:String?=null): Prepared? = store.readConsistent { s ->
+    fun prepare(store: LocalPersistence, cid: String, model: String,sequenceId:String?=null,expectedAssistantId:String?=null,wakePortraits:Set<String>?=null): Prepared? = store.readConsistent { s ->
         val row = LocalSoilStore(s).current(cid) ?: return@readConsistent null
         if (!row.enabled("auto_refresh_enabled") || row.enabled("manual_locked")) return@readConsistent null
         val history = RemoteCacheStore(s, strictReads = true).history(cid)?.turns ?: return@readConsistent null
         val all = active(history)
         val latest = all.lastOrNull() ?: return@readConsistent null
         if(latest.assistant.replySequence?.id!=sequenceId)return@readConsistent null
+        if(expectedAssistantId!=null&&(latest.assistant.id!=expectedAssistantId||latest.wakeActivityId==null))return@readConsistent null
         require(latest.assistant.modelId == model) { "整理模型与本轮实际模型不一致。" }
         if (row.str("source_assistant_id") == latest.assistant.id) return@readConsistent null
         val cursor = all.indexOfFirst { it.id == row.str("organized_through_turn_id") }
@@ -152,8 +157,15 @@ internal object LocalSoilRun {
         val portraits = modules.associateWith { LocalPortraitStore(s).read(it)?.root }
         fun digest(t:Turn,limit:Int)=buildJsonObject {
             put("turn_id",t.id)
-            put("user",buildJsonObject { put("message_id",t.user.id);put("content",clip(t.user.content,limit)) })
-            put("assistant",buildJsonObject { put("message_id",t.assistant.id);put("content",clip(t.assistant.content,if(t.messages.isEmpty())limit else limit/2)) })
+            t.wakeActivityId?.let{put("generation_source","dream_tide");put("wake_activity_id",it)}
+            put("user",t.user?.let{u->buildJsonObject { put("message_id",u.id);put("content",clip(u.content,limit)) }}?:JsonNull)
+            put("assistant",buildJsonObject {
+                put("message_id",t.assistant.id);put("content",clip(t.assistant.content,if(t.messages.isEmpty())limit else limit/2))
+                if(t.wakeActivityId!=null&&t.assistant.voiceIds.isNotEmpty()){put("voice_ids",JsonArray(t.assistant.voiceIds.map(::JsonPrimitive)));put("voice_delivery","metadata_only")}
+                if(t.wakeActivityId!=null&&t.assistant.attachments.isNotEmpty())put("attachments",JsonArray(t.assistant.attachments.map{a->buildJsonObject{
+                    put("id",a.id);put("type",a.type);put("name",a.name);put("mime",a.mime);put("size",a.size);put("delivery","metadata_only")
+                }}))
+            })
             if(t.messages.isNotEmpty())put("assistant_messages",JsonArray(t.messages.mapIndexed{index,message->buildJsonObject{
                 val text=clip(message.content,(limit/(2*t.messages.size)).coerceAtLeast(1))
                 put("message_id",message.id);put("index",index);put("content",text);put("truncated",text.length<message.content.length)
@@ -176,16 +188,17 @@ internal object LocalSoilRun {
         val inputTurns=(includedMissed+listOfNotNull(previous)+latest).distinctBy{it.id}
         val input=JsonObject(context()+mapOf("portraits" to buildJsonObject {
             for((module,root) in portraits){
-                val body=root?.str("body").orEmpty()
+                val permitted=wakePortraits==null||module in wakePortraits
+                val body=if(permitted)root?.str("body").orEmpty()else ""
                 put(if(module=="user_portrait")"user" else "self",buildJsonObject {
-                    put("auto_organize_enabled",(root==null || root.enabled("write_enabled")) && body.length<=MAX_PORTRAIT)
+                    put("auto_organize_enabled",permitted&&(root==null || root.enabled("write_enabled")) && body.length<=MAX_PORTRAIT)
                     put("current_body",body.take(MAX_PORTRAIT))
                 })
             }
         }))
         val template=if(inputTurns.any{it.messages.isNotEmpty()})LocalSoilPrompt.text.replace("整理输入结构：\n","若有 assistant_messages，按 index 阅读所有独立回复；assistant 仅为末条索引及摘录。truncated=true 表示摘录已裁短，不要推测省略内容。\n\n整理输入结构：\n")else LocalSoilPrompt.text
         val prompt = template + input.toString()
-        Prepared(cid, model, row, history, inputTurns, portraits, prompt)
+        Prepared(cid, model, row, history, inputTurns, portraits, prompt,wakePortraits?:modules.toSet())
     }
     private data class Proposal(val update: Boolean, val body: String, val reason: String, val excerpt: String)
     private data class Candidate(val title: String, val content: String, val refs: JsonArray, val excerpt: String)
@@ -218,7 +231,7 @@ internal object LocalSoilRun {
         }
         val portraits = modules.associateWith { module ->
             val o=obj[module]?.jsonObject?:return@associateWith Proposal(false,"","","")
-            val enabled=p.portraitRoots[module]?.let { it.enabled("write_enabled") && it.str("body").length<=MAX_PORTRAIT } ?: true
+            val enabled=module in p.allowedPortraits&&(p.portraitRoots[module]?.let { it.enabled("write_enabled") && it.str("body").length<=MAX_PORTRAIT } ?: true)
             val flag=o.getValue("should_update").jsonPrimitive
             require(!flag.isString)
             val update=flag.boolean

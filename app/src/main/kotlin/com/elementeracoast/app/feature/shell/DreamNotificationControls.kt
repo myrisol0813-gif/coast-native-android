@@ -32,10 +32,10 @@ internal fun DreamNotificationControls(cid:String,localMode:Boolean=true){
         lifecycle?.addObserver(observer)
         onDispose{lifecycle?.removeObserver(observer)}
     }
-    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackBorder=androidx.compose.foundation.BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant.copy(alpha=.55f)),fallbackElevation=1.dp){
+    com.elementeracoast.app.ui.theme.SnowLetterSurface(modifier=Modifier.fillMaxWidth(),role=com.elementeracoast.app.ui.theme.SnowLetterSurfaceRole.StatusCard,fallbackColor=MaterialTheme.colorScheme.surface,fallbackElevation=1.dp){
         Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
             Text("本机系统通知",style=MaterialTheme.typography.titleMedium)
-            Text("应用级设置，适用于此设备执行的已授权窗口。锁屏默认隐藏私密正文；不影响模型活动或费用。",style=MaterialTheme.typography.bodySmall)
+            Text("应用级设置，适用于此设备接收的活动通知。锁屏默认隐藏私密正文；不影响模型活动或费用。",style=MaterialTheme.typography.bodySmall)
             if(!permitted){
                 Text("系统通知尚未允许。",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
                 TextButton(onClick={
@@ -51,7 +51,7 @@ internal fun DreamNotificationControls(cid:String,localMode:Boolean=true){
                 TextButton(onClick={status=if(Notices.post(app,cid,"test","test",localMode=localMode))"已提交测试通知，请查看通知栏。" else "未能发送，请检查系统通知权限和类别设置。"}){Text("测试通知")}
             }
             if(status.isNotBlank())Text(status,style=MaterialTheme.typography.bodySmall)
-            Text("是否响铃、震动、显示顶部横幅及锁屏通知由 Android、手机厂商设置和勿扰模式决定。测试不会请求模型。在线套餐活动由手机执行并在确认保存后通知；不是远程推送。",style=MaterialTheme.typography.bodySmall)
+            Text("是否响铃、震动、显示顶部横幅及锁屏通知由 Android、手机厂商设置和勿扰模式决定。测试不会请求模型。在线 API 活动的正式消息、小笺和活动状态由后台定期读取，约15分钟一次，系统可能延迟；不是实时远程推送。套餐与本机活动由执行设备直接通知。",style=MaterialTheme.typography.bodySmall)
         }
     }
 }

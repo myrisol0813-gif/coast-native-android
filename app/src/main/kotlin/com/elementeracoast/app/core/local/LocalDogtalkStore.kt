@@ -85,6 +85,35 @@ internal class LocalDogtalkStore(private val store:LocalPersistence){
         val parent=d.row.copy(data=JsonObject(d.row.data+buildJsonObject{put("read_mode","keep_private");put("updated_at",now);put("last_read_at",now)}))
         write(rows.map{if(it.id==parent.id)parent else it}+snapshot)
     }
+    data class WakeDelivery(val row:Row,val text:String,val cid:String)
+    fun pendingWake(cid:String):WakeDelivery?{
+        val row=current("conversation",cid)?:return null
+        val v=row.data
+        if(v.str("read_mode")!="read_now"||v.str("body").isBlank())return null
+        val text=listOf("【私人草稿】",v.str("body"),v.str("true_core").takeIf{it.isNotBlank()}?.let{"真心核："+it}.orEmpty(),v.str("weather").takeIf{it.isNotBlank()}?.let{"当前天气："+it}.orEmpty()).filter{it.isNotBlank()}.joinToString("\n")
+        return WakeDelivery(row,text,cid)
+    }
+    // Called only inside the ledger's atomic first-request reservation.
+    fun snapshotWake(d:WakeDelivery,claimId:String,now:Long):String{
+        val rows=read()
+        require(current("conversation",d.cid)==d.row){"狗话已改变，未递送旧内容。"}
+        require(rows.none{it.module=="dogtalk_snapshots"&&it.data.str("source_type")=="dream_tide"&&it.data.str("source_id")==claimId})
+        val snapshot=Row("dogtalk_snapshots",JsonObject(d.row.data.filterKeys{it in common}+buildJsonObject{
+            put("id","dogtalk-snapshot-"+UUID.randomUUID());put("dogtalk_id",d.row.id);put("source_type","dream_tide");put("source_id",claimId);put("created_at",now)
+        }))
+        write(rows+snapshot);return snapshot.id
+    }
+    // A changed draft stays pending; no overwrite or consumption of newer text.
+    fun confirmWake(d:WakeDelivery,claimId:String,now:Long):JsonObject{
+        val rows=read()
+        val snapshot=rows.single{it.module=="dogtalk_snapshots"&&it.data.str("source_type")=="dream_tide"&&it.data.str("source_id")==claimId&&it.data.str("dogtalk_id")==d.row.id}
+        val consume=current("conversation",d.cid)==d.row
+        if(consume){
+            val parent=d.row.copy(data=JsonObject(d.row.data+buildJsonObject{put("read_mode","keep_private");put("updated_at",now);put("last_read_at",now)}))
+            write(rows.map{if(it.id==parent.id)parent else it})
+        }
+        return buildJsonObject{put("snapshot_id",snapshot.id);put("consumed",consume)}
+    }
     fun deleteConversation(cid:String){write(read().filterNot{it.data.optional("conversation_id")==cid})}
     companion object{
         private const val KEY="local.dogtalk.v2"
@@ -107,7 +136,7 @@ internal class LocalDogtalkStore(private val store:LocalPersistence){
             require(v.str("read_mode") in modes&&v.str("memory_weight")=="low"&&v["auto_recall"]==JsonPrimitive(0)&&v["readable_by_model_partner"]==JsonPrimitive(1)&&flags.all{v[it]==JsonPrimitive(1)}&&stamp(v["created_at"]))
             if(r.module=="dogtalk_records"){
                 require(v.str("type") in setOf("owner_mystic_dogtalk","xiaohan_mystic_dogtalk")&&v.str("status") in setOf("draft","saved","archived")&&v.str("source").length<=160&&stamp(v["updated_at"])&&listOf("archived_at","last_read_at").all{v[it]==JsonNull||stamp(v[it])})
-            }else require(idPattern.matches(v.str("dogtalk_id"))&&v.str("source_type") in setOf("turn","radio_message","lighthouse_letter")&&idPattern.matches(v.str("source_id")))
+            }else require(idPattern.matches(v.str("dogtalk_id"))&&v.str("source_type") in setOf("turn","radio_message","lighthouse_letter","dream_tide")&&idPattern.matches(v.str("source_id")))
         }
         fun validateRows(rows:List<Row>){
             rows.forEach(::validate);require(rows.map{it.id}.distinct().size==rows.size)

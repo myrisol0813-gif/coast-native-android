@@ -25,10 +25,18 @@ internal fun decodeChatGptReasoningEfforts(model: JsonObject): List<String> {
     return known.filter(advertised::contains)
 }
 
+/** Only explicit input capability metadata counts; a missing field is unknown. */
+internal fun decodeChatGptVision(model:JsonObject):Boolean?{
+    val source=model["input_modalities"]?: (model["architecture"] as? JsonObject)?.get("input_modalities")
+    val modalities=(source as? JsonArray)?.mapNotNull{(it as? JsonPrimitive)?.takeIf{p->p.isString}?.contentOrNull}
+    return modalities?.takeIf{it.isNotEmpty()}?.contains("image")
+}
+
 data class ChatGptAccountModel(
     val slug: String,
     val displayName: String,
-    val reasoningEfforts: List<String> = emptyList()
+    val reasoningEfforts: List<String> = emptyList(),
+    val vision:Boolean?=null
 )
 data class ChatGptProbeResult(
     val text: String,
@@ -177,7 +185,7 @@ class ChatGptPlanRepository(
                 val slug = item["slug"]?.jsonPrimitive?.contentOrNull.orEmpty()
                 if (slug.isBlank()) null else ChatGptAccountModel(
                     slug, item["display_name"]?.jsonPrimitive?.contentOrNull.orEmpty().ifBlank { slug },
-                    decodeChatGptReasoningEfforts(item)
+                    decodeChatGptReasoningEfforts(item),decodeChatGptVision(item)
                 )
             }
             latestModels = models

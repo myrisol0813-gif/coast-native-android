@@ -28,6 +28,19 @@ internal object LocalDreamSchedule {
         val epoch=if(previous!=null&&(previous.dailyTime!=next.dailyTime||previous.timeZone!=next.timeZone))UUID.randomUUID().toString()else previous?.scheduleEpoch
         return next.copy(scheduleEpoch=epoch)
     }
+    fun view(settings:DreamSettings,used:Set<String>,extraCount:Int,now:Long):DreamScheduleView{
+        val c=settings.config?:return DreamScheduleView()
+        val armed=settings.armedAt?:return DreamScheduleView()
+        val e=c.execution?:return DreamScheduleView()
+        if(!settings.enabled)return DreamScheduleView()
+        val here=day(now,c.timeZone);val m=minute(now,c.timeZone);val daily=minute(c.dailyTime)
+        val quiet=c.quietHours?.let{val a=minute(it.start);val b=minute(it.end);a==b||if(a<b)m in a until b else m>=a||m<b}?:false
+        val dailyKey="daily:"+here+(c.scheduleEpoch?.let{":"+it}?:"")
+        val dailyStatus=when{dailyKey in used->"used";day(armed,c.timeZone)==here&&minute(armed,c.timeZone)>daily->"tomorrow";m<daily->"waiting";quiet->"quiet";else->"due"}
+        val extra=settings.extraAt?.takeIf{at->c.allowExtra&&e.extraPerDay>0&&at>=armed&&settings.extraId!=null&&"extra:"+settings.extraId !in used&&day(at,c.timeZone)>=here&&(day(at,c.timeZone)!=here||extraCount<e.extraPerDay)}
+        val extraStatus=when{extra==null->"none";extra>now->"waiting";quiet->"quiet";else->"due"}
+        return DreamScheduleView(dailyStatus,extraStatus,extra,if(settings.running)null else candidate(settings.copy(extraAt=extra),used,now)?.kind)
+    }
     fun candidate(settings:DreamSettings,used:Set<String>,now:Long):LocalDreamSlot?{
         val c=settings.config?:return null
         val armed=settings.armedAt?:return null
@@ -57,13 +70,19 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     private fun active(h:JsonObject)=h.rows("runs").firstOrNull{it.str("status")=="running"}
     fun active(cid:String)=store.readConsistent{s->active(LocalDreamArchive(s).runtimeHistory(cid))!=null}
     fun settings(cid:String)=store.readConsistent{s->draft(s,cid).copy(running=active(LocalDreamArchive(s).runtimeHistory(cid))!=null)}
+    fun scheduleView(cid:String,now:Long=System.currentTimeMillis()):DreamScheduleView=store.readConsistent{s->
+        val h=LocalDreamArchive(s).runtimeHistory(cid);val a=draft(s,cid).copy(running=active(h)!=null)
+        val c=a.config?:return@readConsistent DreamScheduleView()
+        val runs=h.rows("runs")
+        LocalDreamSchedule.view(a,runs.map{it.str("slot_key")}.toSet(),runs.count{it.str("kind")=="extra"&&it.str("local_day")==LocalDreamSchedule.day(now,c.timeZone)},now)
+    }
     fun configure(cid:String,request:DreamSettingsRequest,enableAllowed:Boolean,now:Long=System.currentTimeMillis(),planRevision:String?=null):DreamSettings?=store.readConsistent{s->
         if(!live(s,cid))return@readConsistent null
         val old=draft(s,cid)
         if(old.revision!=request.revision)return@readConsistent null
         val running=active(LocalDreamArchive(s).runtimeHistory(cid))!=null
         if(request.action=="disarm"){
-            val next=old.copy(enabled=false,revision=UUID.randomUUID().toString(),armedAt=null,extraAt=null,extraId=null)
+            val next=old.copy(enabled=false,revision=UUID.randomUUID().toString(),armedAt=null,extraAt=null,extraId=null,authorizationRevision=null)
             save(s,cid,next);return@readConsistent next.copy(running=running)
         }
         if(running||request.action !in setOf("save","arm"))return@readConsistent null
@@ -74,12 +93,35 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         require(clock.matches(cfg.dailyTime)){"每日固定时间须为 HH:mm。"};ZoneId.of(cfg.timeZone)
         cfg.quietHours?.let{require(clock.matches(it.start)&&clock.matches(it.end)){"安静时段须为 HH:mm。"}}
         require(e.tokenBudget in 1..2147483646&&e.outputLimit in 1..2147483646&&e.toolBudget in 0..2147483646&&e.readTurns in 1..2147483646&&e.extraPerDay in 0..2147483646&&e.voiceLimit in 0..2147483646&&e.imageLimit in 0..2147483646&&e.invitation.isNotBlank()&&e.invitation.length<=16000)
-        val arm=request.action=="arm"
+        val activeSave=request.action=="save"&&old.enabled
         val plan=com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.slug(model)!=null
-        if(arm&&(!enableAllowed||!request.confirmExecution||(if(plan)planRevision==null||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646 else !model.startsWith("local:")||'/' !in model)))return@readConsistent null
+        if(activeSave){
+            val prior=requireNotNull(old.config)
+            require(old.modelId==model&&prior.execution==cfg.execution&&prior.allowExtra==cfg.allowExtra){"已有唤醒授权；修改模型、预算或权限请保存并重新授权，原预约未改变。"}
+            if(prior.copy(scheduleEpoch=null)==cfg.copy(scheduleEpoch=null))return@readConsistent old
+            // A schedule-only edit keeps the existing device grant identity.
+        }
+        val arm=request.action=="arm"||activeSave
+        if(request.action=="arm"&&(!enableAllowed||!request.confirmExecution||(if(plan)planRevision==null||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646 else !model.startsWith("local:")||'/' !in model)))return@readConsistent null
         // Only an explicit clock/zone edit creates a new daily schedule identity.
         // Reauthorization, unchanged saves, and budget edits cannot replay a slot.
-        val next=DreamSettings(revision=if(arm&&plan)requireNotNull(planRevision)else UUID.randomUUID().toString(),enabled=arm,config=LocalDreamSchedule.withScheduleIdentity(cfg,old.config),modelId=model,armedAt=if(arm)now else null)
+        val sameBinding=arm&&old.enabled&&old.modelId==model
+        val sameClock=old.config?.dailyTime==cfg.dailyTime&&old.config?.timeZone==cfg.timeZone
+        val armedAt=if(arm){if(sameBinding&&sameClock)old.armedAt?:now else now}else null
+        val extra=old.extraAt
+        val extraId=old.extraId
+        val quiet=extra?.let{value->cfg.quietHours?.let{q->
+            val m=Instant.ofEpochMilli(value).atZone(ZoneId.of(cfg.timeZone)).toLocalTime()
+            val minute=m.hour*60+m.minute
+            fun minutes(v:String)=LocalTime.parse(v).let{it.hour*60+it.minute}
+            val a=minutes(q.start);val z=minutes(q.end)
+            a==z||if(a<z)minute in a until z else minute>=a||minute<z
+        }}?:false
+        val runs=LocalDreamArchive(s).runtimeHistory(cid).rows("runs")
+        val keepExtra=sameBinding&&cfg.allowExtra&&e.extraPerDay>0&&extra!=null&&extra>now&&extra>=(old.armedAt?:now)&&extraId!=null&&!quiet&&
+            runs.none{it.str("slot_key")=="extra:"+extraId}&&runs.count{it.str("kind")=="extra"&&it.str("local_day")==LocalDreamSchedule.day(extra,cfg.timeZone)}<e.extraPerDay
+        val next=DreamSettings(revision=if(request.action=="arm"&&plan)requireNotNull(planRevision)else UUID.randomUUID().toString(),enabled=arm,config=LocalDreamSchedule.withScheduleIdentity(cfg,old.config),modelId=model,armedAt=armedAt,
+            extraAt=extra.takeIf{keepExtra},extraId=extraId.takeIf{keepExtra},authorizationRevision=if(arm&&plan){if(activeSave)old.grantRevision() else planRevision}else null)
         save(s,cid,next);next
     }
     private fun authorized(s:LocalPersistence,c:Claim,h:JsonObject):Boolean{
@@ -140,6 +182,16 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val row=buildJsonObject{put("claim_id",c.id);put("step_index",index);put("status","claimed");put("receipt_json",JsonNull);put("started_at",now);put("finished_at",JsonNull)}
         JsonObject(h+("steps" to JsonArray(rows+row)))
     }
+    fun reserveFirstWithDogtalk(c:Claim,d:LocalDogtalkStore.WakeDelivery,now:Long):Boolean=store.atomic{s->
+        if(c.config.execution?.includeDogtalk!=true||d.cid!=c.cid||!LocalDreamLedger(s).reserveStep(c,0,now))return@atomic false
+        LocalDogtalkStore(s).snapshotWake(d,c.id,now)
+        true
+    }
+    fun confirmFirstDogtalk(c:Claim,d:LocalDogtalkStore.WakeDelivery,now:Long):JsonObject?=store.atomic{s->
+        val h=LocalDreamArchive(s).runtimeHistory(c.cid)
+        if(!authorized(s,c,h)||c.config.execution?.includeDogtalk!=true||d.cid!=c.cid||h.rows("steps").none{it.str("claim_id")==c.id&&it.str("step_index")=="0"&&it.str("status")=="completed"})return@atomic null
+        LocalDogtalkStore(s).confirmWake(d,c.id,now)
+    }
     fun recordStep(c:Claim,index:Int,success:Boolean,receipt:JsonObject,now:Long)=mutate(c,false){h->
         val rows=h.rows("steps");val old=rows.singleOrNull{it.str("claim_id")==c.id&&it.str("step_index")==index.toString()&&it.str("status")=="claimed"}?:return@mutate null
         val row=JsonObject(old+mapOf("status" to JsonPrimitive(if(success)"completed"else "failed"),"receipt_json" to JsonPrimitive(receipt.toString()),"finished_at" to JsonPrimitive(now)))
@@ -162,11 +214,87 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         val row=buildJsonObject{put("claim_id",c.id);put("step_index",step);put("call_index",index);put("tool_name",name);put("status","claimed");put("receipt_json",JsonNull);put("started_at",now);put("finished_at",JsonNull)}
         JsonObject(h+("tools" to JsonArray(rows+row)))
     }
-    fun recordTool(c:Claim,step:Int,index:Int,ok:Boolean,count:Int?,now:Long,recordId:String?=null)=mutate(c,false){h->
+    fun recordTool(c:Claim,step:Int,index:Int,ok:Boolean,count:Int?,now:Long,recordId:String?=null,furniture:RemoteFurnitureRun?=null)=mutate(c,false){h->
         val rows=h.rows("tools");val old=rows.singleOrNull{it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("status")=="claimed"}?:return@mutate null
-        val receipt=buildJsonObject{put("ok",ok);count?.let{put("count",it)};recordId?.takeIf{it.matches(Regex("[A-Za-z0-9_.:-]{1,160}"))}?.let{put("record_id",it)}}
+        val receipt=buildJsonObject{put("ok",ok);furniture?.let{put("furniture",json.encodeToJsonElement(RemoteFurnitureRun.serializer(),it.copy(id="dream:"+c.id+":"+step+":"+index)))};count?.let{put("count",it)};recordId?.takeIf{it.matches(Regex("[A-Za-z0-9_.:-]{1,160}"))}?.let{put("record_id",it)}}
         val row=JsonObject(old+mapOf("status" to JsonPrimitive(if(ok)"completed"else "failed"),"receipt_json" to JsonPrimitive(receipt.toString()),"finished_at" to JsonPrimitive(now)))
         JsonObject(h+("tools" to JsonArray(rows.map{if(it==old)row else it})))
+    }
+    // The active claim and exact tool reservation must still exist at the
+    // durable write. No synthetic user message or new inference is created.
+    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList(),stickerIds:List<String> = emptyList(),voiceIds:List<String> = emptyList(),contextReceipt:JsonObject?=null):String?=store.atomic{s->
+        if((body.isBlank()&&imageIds.isEmpty()&&stickerIds.isEmpty()&&voiceIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size+stickerIds.size>12||imageIds.distinct().size!=imageIds.size||voiceIds.size>12||voiceIds.distinct().size!=voiceIds.size)return@atomic null
+        val h=LocalDreamArchive(s).runtimeHistory(c.cid)
+        if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
+            it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("tool_name")=="dream_send_message"&&it.str("status")=="claimed"
+        })return@atomic null
+        val cache=RemoteCacheStore(s,strictReads=true)
+        val history=cache.history(c.cid)?:return@atomic null
+        val tid="turn_dream_"+c.id+"_"+step+"_"+index
+        val mid="msg_dream_"+c.id+"_"+step+"_"+index
+        if(history.turns.size>=400||history.turns.any{it.id==tid||(it.user.variants+it.assistant.variantsByUserVariant.values.flatten()).any{v->v.id==mid}})return@atomic null
+        val stamp=Instant.ofEpochMilli(now).toString()
+        val events=h.rows("tools").filter{it.str("claim_id")==c.id}.filter{
+            val st=it.getValue("step_index").jsonPrimitive.int;val ix=it.getValue("call_index").jsonPrimitive.int
+            st<step||st==step&&ix<index
+        }.sortedWith(compareBy({it.getValue("step_index").jsonPrimitive.int},{it.getValue("call_index").jsonPrimitive.int}))
+        if(imageIds.any{imageId->events.none{event->
+            event.str("tool_name")=="image_generate"&&event.str("status")=="completed"&&
+                imageId=="att_dream_"+c.id+"_"+event.str("step_index")+"_"+event.str("call_index")&&
+                event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==imageId
+        }})return@atomic null
+        if(stickerIds.isNotEmpty()&&(c.config.execution?.allowStickerSend!=true||!history.contextSettings.stickerSendEnabled||!history.contextSettings.localModelToolsEnabled||!history.contextSettings.localModelWriteEnabled))return@atomic null
+        if(voiceIds.isNotEmpty()&&(c.config.execution?.allowVoice!=true||!history.contextSettings.localModelWriteEnabled))return@atomic null
+        if(voiceIds.any{voiceId->events.none{event->
+            event.str("tool_name")=="voice_create"&&event.str("status")=="completed"&&
+                voiceId=="voice_dream_"+c.id+"_"+event.str("step_index")+"_"+event.str("call_index")&&
+                event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==voiceId
+        }})return@atomic null
+        val voices=LocalSideRecords(s)
+        val voiceRows=if(voiceIds.isEmpty()&&imageIds.isEmpty())emptyList()else voices.rows()
+        val selected=voiceIds.map{voiceId->voiceRows.singleOrNull{r->r.kind=="voice"&&r.id==voiceId&&r.data.str("conversation_id")==c.cid&&r.data.str("source")=="dream_tide"&&r.data["turn_id"]==JsonNull&&r.data["message_id"]==JsonNull}?:return@atomic null}
+        selected.forEach{voices.bytes(it)}
+        val images=LocalAttachmentStore(s).bindDreamImages(c.cid,c.id,tid,imageIds,now)?:return@atomic null
+        val attachments=images+LocalStickerLibrary(s).copyForDreamMessage(c.cid,tid,mid,stickerIds,now)
+        val boundary=events.indexOfLast{it.str("tool_name")=="dream_send_message"&&it.str("status")=="completed"}
+        val furniture=events.drop(boundary+1).mapNotNull{event->
+            if(event.str("status") !in setOf("completed","failed"))return@mapNotNull null
+            val raw=event["receipt_json"]?.jsonPrimitive?.contentOrNull?:return@mapNotNull null
+            val item=Json.parseToJsonElement(raw).jsonObject["furniture"]?:return@mapNotNull null
+            json.decodeFromJsonElement(RemoteFurnitureRun.serializer(),item).takeIf{it.id=="dream:"+c.id+":"+event.str("step_index")+":"+event.str("call_index")}
+        }.take(16)
+        val context=buildJsonObject{
+            val source=contextReceipt
+            if(source!=null){
+                (source["stage"] as? JsonPrimitive)?.contentOrNull?.takeIf{it in setOf("prepared_not_confirmed_delivery","provider_response_received")}?.let{put("stage",it)}
+                for(key in listOf("estimated_tokens","comfort_ceiling","trimmed_count","omitted_turns"))(source[key] as? JsonPrimitive)?.longOrNull?.takeIf{it>=0}?.let{put(key,it)}
+                (source["over_budget"] as? JsonPrimitive)?.booleanOrNull?.let{put("over_budget",it)}
+                val kept=source["kept"] as? JsonObject
+                if(kept!=null)putJsonObject("kept"){
+                    for(key in listOf("custom_instructions","user_portrait","global_excerpt","soil","memory","worldbook","dogtalk","cross_window","workbench","reality","response_mode")){
+                        val value=kept[key] as? JsonPrimitive?:continue
+                        val bool=value.booleanOrNull;val count=value.longOrNull
+                        if(bool!=null)put(key,bool) else if(count!=null&&count>=0)put(key,count)
+                    }
+                }
+            }
+        }
+        val priorEvents=events.drop(boundary+1)
+        val wakeReceipt=RemoteWakeDeskReceipt(c.id,step,context,priorEvents.size,priorEvents.take(128).map{event->
+            val receipt=event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject}
+            RemoteWakeDeskTool(event.getValue("step_index").jsonPrimitive.int,event.getValue("call_index").jsonPrimitive.int,event.str("tool_name"),event.str("status"),receipt?.get("record_id")?.jsonPrimitive?.contentOrNull?.takeIf{it.matches(Regex("[A-Za-z0-9_.:-]{1,160}"))})
+        })
+        val deskSlip=RemoteDeskSlip(summary="自主消息 · 历史桌面",comfort="仅记录发送时已确认的活动事实；不保存隐藏推理、请求原文或工具结果全文。",wakeReceipt=wakeReceipt)
+        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments,voiceIds=voiceIds,deskSlip=deskSlip,archiveRetainedDeskSlip=true)
+        val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
+        if(imageIds.isNotEmpty()||voiceIds.isNotEmpty())voices.save(voiceRows.map{r->
+            val favorite=r.kind=="vault_treasures"&&r.data.str("conversation_id")==c.cid&&r.data["turn_id"]==JsonNull&&r.data["message_id"]==JsonNull&&
+                ((r.data.str("kind")=="image"&&r.data.str("source_id") in imageIds)||(r.data.str("kind")=="audio"&&r.data.str("source_id") in voiceIds))
+            if(r in selected||favorite)r.copy(data=JsonObject(r.data+mapOf("turn_id" to JsonPrimitive(tid),"message_id" to JsonPrimitive(mid))+(if(favorite)mapOf("role" to JsonPrimitive("assistant"))else emptyMap())))else r
+        })
+        cache.putHistory(c.cid,history.copy(updatedAt=stamp,turns=history.turns+turn))
+        cache.putConversations(cache.conversations().map{if(it.id==c.cid)it.copy(updatedAt=stamp)else it})
+        mid
     }
     fun note(c:Claim,body:String,now:Long)=mutate(c){h->
         if(c.config.execution?.writeNote!=true||body.isBlank()||body.length>16000||h.rows("notes").any{it.str("claim_id")==c.id})return@mutate null

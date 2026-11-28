@@ -135,7 +135,7 @@ internal class LocalSideRecords(private val store:LocalPersistence) {
         val histories=mutableMapOf<String,RemoteHistory?>()
         val items=media.map{v->
             val k=v.optional("kind")?:"audio";val cid=v.str("conversation_id");val id=v.str("id");val key="$k:$cid:$id";val treasure=treasures[key]?.data
-            val origin=if(k=="audio")AttachmentOrigin("assistant",v.optional("message_id"),if(v.optional("message_id")!=null)"linked" else if(v.optional("source")=="dream_tide")"unlinked" else "turn_only")else if(id.startsWith("att_dream_"))AttachmentOrigin("assistant",null,"unlinked") else attachmentOrigin(histories.getOrPut(cid){cache.history(cid)},v)
+            val origin=if(k=="audio")AttachmentOrigin("assistant",v.optional("message_id"),if(v.optional("message_id")!=null)"linked" else if(v.optional("source")=="dream_tide")"unlinked" else "turn_only")else if(id.startsWith("att_dream_")&&v.optional("turn_id")==null)AttachmentOrigin("assistant",null,"unlinked") else attachmentOrigin(histories.getOrPut(cid){cache.history(cid)},v)
             buildJsonObject{
                 put("id",id);put("source_id",id);put("kind",k);put("conversation_id",cid);put("turn_id",v["turn_id"]?:JsonNull);put("message_id",origin.messageId?.let(::JsonPrimitive)?:JsonNull);put("role",origin.role?.let(::JsonPrimitive)?:JsonNull);put("origin_status",origin.status)
                 val mediaName=v.optional("name")?:if(v.optional("source")=="dream_tide")"自主活动语音" else "语音"
@@ -213,7 +213,7 @@ internal class LocalSideRecords(private val store:LocalPersistence) {
             for(k in listOf("chapter_index","paragraph_index","start_offset","end_offset"))if(v[k]!=null&&v[k]!=JsonNull)require(v.number(k) in 0..Int.MAX_VALUE.toLong())
             if(limit(r.kind)>0)require(r.digest!=null&&hex.matches(r.digest)&&size(r) in 1..limit(r.kind))else require(r.digest==null)
             when(r.kind){
-                "voice"->{require(!(v.str("id").startsWith("voice_dream_")||v.str("source")=="dream_tide")||v.str("id").startsWith("voice_dream_")&&v.str("source")=="dream_tide"&&v["turn_id"]==JsonNull&&v["message_id"]==JsonNull);require(v.str("source").length<=160&&v.str("voice_id").length<=180&&v.str("text").length<=2400&&v.optional("model_label")?.length?.let{it<=180}!=false)}
+                "voice"->{require(!(v.str("id").startsWith("voice_dream_")||v.str("source")=="dream_tide")||v.str("id").startsWith("voice_dream_")&&v.str("source")=="dream_tide"&&((v["turn_id"]==JsonNull&&v["message_id"]==JsonNull)||(v.optional("turn_id")?.startsWith("turn_dream_")==true&&v.optional("message_id")==v.optional("turn_id")?.replaceFirst("turn_dream_","msg_dream_"))));require(v.str("source").length<=160&&v.str("voice_id").length<=180&&v.str("text").length<=2400&&v.optional("model_label")?.length?.let{it<=180}!=false)}
                 "vault_treasures"->{require(v.str("kind") in setOf("text","soil","audio","image","file")&&v.str("source_key")==v.str("kind")+":"+v.str("conversation_id")+":"+v.str("source_id")&&v.str("notes").length<=1200&&v.str("excerpt").length<=12000&&v.str("role") in setOf("user","assistant"));val p=Json.parseToJsonElement(v.str("selections_json")).jsonArray.map{it.jsonPrimitive.int};require(p.size<=40&&p==p.distinct().sorted()&&p.all{it>=0})}
                 "vault_media_labels"->require(v.str("source_key").startsWith("image:")&&v.str("source_key").length<=327&&v.str("display_name").length in 1..120&&v.str("display_name").trim()==v.str("display_name")&&v.str("display_name").none{it.code<32||it.code==127})
                 "library_books"->require(v.str("title").length in 1..160&&v.str("title").isNotBlank()&&v.str("format") in setOf("epub","txt"))
@@ -315,6 +315,7 @@ internal object ArchiveV2SideRecords{
                 val h=histories.getValue(requireNotNull(cid));val tid=v["turn_id"]?.jsonPrimitive?.contentOrNull;val mid=v["message_id"]?.jsonPrimitive?.contentOrNull
                 require(tid==null||h.turns.any{it.id==tid})
                 require(mid==null||h.turns.any{t->(tid==null||tid==t.id)&&(t.user.variants+t.assistant.variantsByUserVariant.values.flatten()).any{it.id==mid}}){"语音的原消息不存在。"}
+                if(v.getValue("source").jsonPrimitive.content=="dream_tide"&&mid!=null)require(h.turns.any{t->t.id==tid&&t.turnType=="dream_tide"&&t.assistant.variantsByUserVariant.values.flatten().any{it.id==mid&&row.id in it.voiceIds}}){"自主语音的正式消息引用缺失。"}
             }else if(row.kind=="vault_treasures"){
                 val kind=v.getValue("kind").jsonPrimitive.content;val id=v.getValue("source_id").jsonPrimitive.content
                 val src=LocalSideRecords.source(kind,requireNotNull(cid),id,histories.getValue(cid),next,attachments,soil)

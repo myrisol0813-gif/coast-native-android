@@ -36,6 +36,23 @@ internal class LocalAttachmentStore(private val store:LocalPersistence){
         publish(Original(meta,ArchiveV2Chunks.digest(data)),data)
         return RemoteAttachment(id=id,type=kind,name=meta.str("name"),mime=normalizedMime,size=data.size.toLong(),storageKey="chat-attachment:"+id,createdAt=java.time.Instant.ofEpochMilli(now).toString())
     }
+    // Only the live wake ledger calls this, inside the same atomic generation
+    // as its exact assistant message. Keep the existing binary and digest.
+    internal fun bindDreamImages(cid:String,claimId:String,tid:String,ids:List<String>,now:Long):List<RemoteAttachment>?{
+        if(ids.isEmpty())return emptyList()
+        val rows=entries()
+        val selected=ids.map{id->rows.singleOrNull{r->r.metadata.str("id")==id&&r.metadata.str("conversation_id")==cid&&
+            r.metadata["turn_id"]==JsonNull&&r.metadata.str("kind")=="image"&&id.startsWith("att_dream_"+claimId+"_")&&dreamImageTurnMatches(id,tid)}?:return null}
+        val attachments=selected.map{r->
+            bytes(r)
+            val m=r.metadata
+            if(m.str("mime") !in setOf("image/png","image/jpeg","image/webp"))return null
+            RemoteAttachment(id=m.str("id"),type="image",name=m.str("name"),mime=m.str("mime"),size=m.getValue("size").jsonPrimitive.long,
+                storageKey="chat-attachment:"+m.str("id"),createdAt=java.time.Instant.ofEpochMilli(m.getValue("created_at").jsonPrimitive.long).toString())
+        }
+        writeIndex(rows.map{r->if(r in selected)r.copy(metadata=JsonObject(r.metadata+mapOf("turn_id" to JsonPrimitive(tid),"updated_at" to JsonPrimitive(now))))else r})
+        return attachments
+    }
     fun needsHistoryLink(cid:String,history:RemoteHistory):Boolean{
         val linked=entries().filter{it.metadata.str("conversation_id")==cid}.associateBy{it.metadata.str("id")}
         return history.turns.any{t->(t.user.variants+t.assistant.variantsByUserVariant.values.flatten()).any{v->v.attachments.any{a->linked[a.id]?.metadata?.get("turn_id")==JsonNull}}}
@@ -111,17 +128,21 @@ internal class LocalAttachmentStore(private val store:LocalPersistence){
         private val mime=Regex("[a-z0-9.+-]+/[a-z0-9.+-]+")
         private fun key(id:String)="local.attachment.original.v2."+id
         fun JsonObject.str(k:String):String{val v=getValue(k);require(v is JsonPrimitive&&v.isString);return v.content}
+        private fun dreamImageTurnMatches(id:String,tid:String):Boolean{
+            val claim=Regex("^att_dream_(.+)_[0-9]+_[0-9]+$").matchEntire(id)?.groupValues?.get(1)?:return false
+            return tid.startsWith("turn_dream_"+claim+"_")&&tid.removePrefix("turn_dream_"+claim+"_").matches(Regex("[0-9]+_[0-9]+"))
+        }
         fun validate(m:JsonObject){
             require(m.keys==setOf("id","conversation_id","turn_id","kind","name","mime","size","created_at","updated_at"))
             require(id.matches(m.str("id"))&&id.matches(m.str("conversation_id"))&&(m["turn_id"]==JsonNull||id.matches(m.str("turn_id"))))
-            require(!m.str("id").startsWith("att_dream_")||m["turn_id"]==JsonNull&&m.str("kind")=="image")
+            require(!m.str("id").startsWith("att_dream_")||m.str("kind")=="image"&&(m["turn_id"]==JsonNull||dreamImageTurnMatches(m.str("id"),m.str("turn_id"))))
             require(m.str("kind") in setOf("image","file")&&m.str("name").length in 1..180&&m.str("mime").length<=120&&mime.matches(m.str("mime")))
             val size=m.getValue("size").jsonPrimitive;require(!size.isString&&size.long in 1..MAX_BYTES)
             for(k in listOf("created_at","updated_at")){val n=m.getValue(k).jsonPrimitive;require(!n.isString&&n.long>=0)}
         }
         fun checkReference(cid:String,tid:String,a:RemoteAttachment,metadata:Map<String,JsonObject>){
-            require(!a.id.startsWith("att_dream_")){"自主活动原件不能改绑聊天轮次。"}
             val m=requireNotNull(metadata[a.id]){"聊天引用的附件原件未选择或缺失。"}
+            require(!a.id.startsWith("att_dream_")||m["turn_id"]==JsonPrimitive(tid)&&dreamImageTurnMatches(a.id,tid)){"自主活动原件不能改绑聊天轮次。"}
             require(m.str("conversation_id")==cid&&(m["turn_id"]==JsonNull||m.str("turn_id")==tid)&&m.str("kind")==a.type&&m.str("name")==a.name&&m.str("mime")==a.mime&&m.getValue("size").jsonPrimitive.long==a.size){"附件原件与消息引用不一致。"}
         }
     }

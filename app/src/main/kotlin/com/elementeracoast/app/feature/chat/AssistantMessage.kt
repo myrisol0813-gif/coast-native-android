@@ -82,6 +82,22 @@ internal fun AssistantMessage(
                 Spacer(Modifier.width(12.dp))
                 ThoughtSoilHeaderPill(soil = thoughtSoil, onClick = onOpenThoughtSoil)
             }
+            if (message.generationSource == "dream_tide") {
+                Spacer(Modifier.width(6.dp))
+                SnowLetterSurface(
+                    role = SnowLetterSurfaceRole.StatusCard,
+                    fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = .10f),
+                    fallbackShape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = "梦醒",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.fillMaxWidth()) {

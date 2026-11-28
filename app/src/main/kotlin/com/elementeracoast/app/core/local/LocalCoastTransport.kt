@@ -112,14 +112,18 @@ class LocalCoastTransport(private val store: LocalPersistence,
     private fun route(r: Request): Response {
         val path = r.url.encodedPath
         val method = r.method
-        if (path == "/api/chat/dream-tide" || path == "/api/chat/dream-tide/notes" || path == "/api/chat/dream-tide/activity" || path == "/api/chat/dream-tide/reply") {
+        if (path == "/api/chat/dream-tide" || path == "/api/chat/dream-tide/notes" || path == "/api/chat/dream-tide/activity" || path == "/api/chat/dream-tide/reply" || path == "/api/chat/dream-tide/arrival") {
             val b=if(method=="POST")body(r)else JsonObject(emptyMap())
             val cid=if(method=="POST")b.str("conversation_id").orEmpty()else r.url.queryParameter("conversation_id").orEmpty()
             if(cache.conversations().none{it.id==cid&&it.roomType=="main"&&it.source=="coast"&&it.deletedAt==null})return missing(r)
+            if(method=="GET"&&path=="/api/chat/dream-tide/arrival"){
+                val latest=cache.history(cid)?.turns?.lastOrNull{it.turnType=="dream_tide"}?.id
+                return ok(r,"turn_id" to (latest?.let(::JsonPrimitive)?:JsonNull))
+            }
             val ledger=LocalDreamLedger(store)
             val previous=ledger.settings(cid)
             val ready=BuildConfig.LOCAL_DREAM_EXECUTION_ENABLED&&dreamCanArm!=null
-            fun payload(settings:DreamSettings)=element(DreamSettingsResponse.serializer(),DreamSettingsResponse(ok=true,settings=settings,executionAvailable=ready,schedulerConfigured=ready,planExecutionAvailable=ready&&dreamPlan!=null,planStatus=if(settings.modelId?.startsWith("chatgpt-plan:")==true)dreamPlan?.status(cid,settings.revision,settings.modelId)else null,planRequestLimit=dreamPlan?.requestLimit(cid,settings.revision,settings.modelId))).jsonObject
+            fun payload(settings:DreamSettings)=element(DreamSettingsResponse.serializer(),DreamSettingsResponse(ok=true,settings=settings,executionAvailable=ready,schedulerConfigured=ready,planExecutionAvailable=ready&&dreamPlan!=null,planStatus=if(settings.modelId?.startsWith("chatgpt-plan:")==true)dreamPlan?.status(cid,settings.grantRevision(),settings.modelId)else null,planRequestLimit=dreamPlan?.requestLimit(cid,settings.grantRevision(),settings.modelId),schedule=ledger.scheduleView(cid))).jsonObject
             if(method=="GET"){
                 if(path=="/api/chat/dream-tide")return response(r,200,payload(previous))
                 val offset=r.url.queryParameter("offset")?.toIntOrNull()?:0
@@ -141,9 +145,10 @@ class LocalCoastTransport(private val store: LocalPersistence,
             if(!b.containsKey("revision")||request.revision!=previous.revision)return failure(r,409,"dream_tide_conflict","设置已改变，请刷新。")
             val isPlan=request.modelId?.startsWith("chatgpt-plan:")==true
             val planArm=isPlan&&request.action=="arm"
+            if(isPlan&&request.action=="save"&&previous.enabled&&dreamPlan?.requestLimit(cid,previous.grantRevision(),previous.modelId)?.let{it!=request.planRequestLimit}==true)return failure(r,409,"dream_reauthorization_required","修改套餐请求次数须重新授权。")
             val saved=if(planArm){
                 val route=dreamPlan
-                if(!ready||route==null||!request.confirmExecution||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..129)return failure(r,409,"dream_plan_not_available","套餐自主唤醒未开放，或缺少独立软预算确认。")
+                if(!ready||route==null||!request.confirmExecution||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646)return failure(r,409,"dream_plan_not_available","套餐自主唤醒未开放，或缺少独立软预算确认。")
                 val lease=LocalDreamRuntime.acquire()?:return failure(r,409,"dream_tide_busy","当前有活动或聊天正在执行。")
                 try{
                     val nextRevision=UUID.randomUUID().toString()
@@ -155,7 +160,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
             }else{
                 val mayArm=ready&&request.confirmExecution&&request.modelId?.let{dreamCanArm?.invoke(it)}==true
                 if(request.action=="arm"&&!mayArm)return failure(r,409,"dream_tide_not_available","本机自主唤醒尚未开放，或所选供应商不可用。")
-                (ledger.configure(cid,request,mayArm)?:return failure(r,409,"dream_tide_conflict","设置已变化或活动尚未结束。")).also{dreamPlan?.revoke(cid)}
+                (ledger.configure(cid,request,mayArm)?:return failure(r,409,"dream_tide_conflict","设置已变化或活动尚未结束。")).also{if(!it.enabled||!isPlan)dreamPlan?.revoke(cid)}
             }
             dreamChanged?.invoke()
             return response(r,200,payload(saved))
@@ -212,6 +217,11 @@ class LocalCoastTransport(private val store: LocalPersistence,
                     val c=RemoteCacheStore(s,strictReads=true)
                     val old=c.history(cid)?:RemoteHistory(conversationId=cid)
                     require(!LocalReplyRunStore(s).active(cid)&&!LocalDreamLedger(s).active(cid)){"当前窗口正在执行活动。"}
+                    val allowWakeDelete=r.header("X-Coast-Delete-Revision")==old.updatedAt
+                    for(t in old.turns.filter{it.turnType=="dream_tide"}){
+                        val next=input.turns.firstOrNull{it.id==t.id}
+                        require(if(next==null)allowWakeDelete else next.turnType=="dream_tide"&&next.wakeActivityId==t.wakeActivityId&&t.assistant.variantsByUserVariant["0"].orEmpty().all{v->next.assistant.variantsByUserVariant["0"].orEmpty().any{it.id==v.id&&it.content==v.content&&it.generationSource==v.generationSource&&it.attachments==v.attachments&&it.voiceIds==v.voiceIds}}){"历史中有新到的自主消息，请刷新。"}
+                    }
                     LocalReplyRunStore.protect(old,input,r.header("X-Coast-Delete-Revision"))
                     val next=LocalImageRecovery.protect(old,input,r.header("X-Coast-Delete-Revision")).copy(conversationId=cid,updatedAt=now())
                     val originals=LocalAttachmentStore(s)

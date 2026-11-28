@@ -34,6 +34,19 @@ class LocalSoilRunTest {
         assertTrue(runCatching{LocalSoilRun.commit(s,p,result)}.isFailure)
         assertEquals(soil,LocalSoilStore(s).read())
     }
+    @Test fun autonomousAssistantIsARealSoilSourceWithoutFakeUser(){
+        val s=fixture();val cache=RemoteCacheStore(s);val h=cache.history(cid)!!
+        val wake=RemoteTurn("wake-turn",turnType="dream_tide",wakeActivityId="wake-activity",assistant=RemoteAssistantBranches(activeByUserVariant=mapOf("0" to 0),variantsByUserVariant=mapOf("0" to listOf(RemoteVariant("wake-message","自主发言",modelId=model,finishReason="stop",generationSource="dream_tide")))))
+        cache.putHistory(cid,h.copy(turns=h.turns+wake))
+        val p=LocalSoilRun.prepare(s,cid,model)!!
+        val latest=Json.parseToJsonElement(p.prompt.substringAfter("整理输入结构：\n")).jsonObject.getValue("latest_turn").jsonObject
+        assertEquals(JsonNull,latest["user"])
+        assertEquals("wake-activity",latest.getValue("wake_activity_id").jsonPrimitive.content)
+        assertEquals("wake-message",latest.getValue("assistant").jsonObject.getValue("message_id").jsonPrimitive.content)
+        LocalSoilRun.commit(s,p,"""{"current_text":"新地层","afterthoughts":[]}""")
+        assertEquals("wake-message",LocalSoilStore(s).read().history.last().getValue("assistant_message_id").jsonPrimitive.content)
+        assertNull(LocalSoilRun.prepare(s,cid,model))
+    }
     @Test fun invalidAndStaleResultsLeaveOldRowsIntact() {
         val s=fixture();val p=LocalSoilRun.prepare(s,cid,model)!!
         val before=LocalSoilStore(s).read()

@@ -73,6 +73,336 @@ class LocalDreamExecutorTest {
         assertEquals("not_due",engine.run(cid,settings.revision!!,model,at))
         assertEquals(3,requests)
     }
+    @Test fun wakeStickerCatalogueAndRepeatedPureStickerDelivery()=runBlocking{
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val h=cache.history(cid)!!
+        cache.putHistory(cid,h.copy(contextSettings=h.contextSettings.copy(stickerSendEnabled=true,localModelToolsEnabled=true,localModelWriteEnabled=true)))
+        val bytes=ByteArray(24);byteArrayOf(137.toByte(),80,78,71,13,10,26,10).copyInto(bytes)
+        val library=LocalStickerLibrary(store)
+        val sticker=library.upload("fixture.png","image/png","fixture happy",bytes)
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowStickerSend=true,tokenBudget=40000,toolBudget=6))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+            requests++
+            assertTrue(tools.toString().contains("dream_sticker_search"))
+            when(requests){
+                1->response(call("search","dream_sticker_search",buildJsonObject{put("q","fixture")}))
+                2->{assertTrue(messages.toString().contains(sticker.id));response(call("send","dream_send_message",buildJsonObject{put("body","");put("sticker_ids",JsonArray(listOf(JsonPrimitive(sticker.id),JsonPrimitive(sticker.id))))}))}
+                3->{library.update(sticker.id,"owner",enabled=false);response(call("off","dream_send_message",buildJsonObject{put("body","");put("sticker_ids",JsonArray(listOf(JsonPrimitive(sticker.id))))}))}
+                else->response()
+            }
+        },clock={at})
+        assertEquals("completed",engine.run(cid,arm.revision!!,model,at))
+        val msg=cache.history(cid)!!.turns.filter{it.turnType=="dream_tide"}.single().assistant.variantsByUserVariant.getValue("0").single()
+        assertEquals("",msg.content);assertEquals(2,msg.attachments.size);assertNotEquals(msg.attachments[0].id,msg.attachments[1].id)
+        val originals=LocalAttachmentStore(store)
+        msg.attachments.forEach{a->assertEquals(sticker.id,a.stickerDelivery?.stickerId);assertArrayEquals(bytes,originals.bytes(originals.entries().single{it.metadata.getValue("id").jsonPrimitive.content==a.id}))}
+    }
+    @Test fun voiceOnlyWakeMessageLinksSavedOriginalWithoutSynthesis(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val h=cache.history(cid)!!
+        cache.putHistory(cid,h.copy(contextSettings=h.contextSettings.copy(localModelWriteEnabled=true)))
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowVoice=true,toolBudget=6))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        assertTrue(ledger.reserveStep(claim,0,at));assertTrue(ledger.recordStep(claim,0,true,buildJsonObject{},at))
+        assertTrue(ledger.reserveTool(claim,0,0,"voice_create",at))
+        val voiceId="voice_dream_"+claim.id+"_0_0";val mp3=byteArrayOf(73,68,51,4,0,0,0,0,0,0,1,2)
+        store.atomic{s->saveLocalVoice(s,cid,null,null,"dream_tide",model,LocalVoiceProvider.Generated("fixtureVoice","fixture speech",mp3),voiceId)}
+        assertTrue(ledger.recordTool(claim,0,0,true,null,at,voiceId))
+        assertTrue(ledger.reserveTool(claim,0,1,"dream_send_message",at))
+        assertNull(ledger.sendMessage(claim,0,1,"",at,voiceIds=listOf("voice_dream_foreign_0_0")))
+        val favorite=LocalSideRecords(store).saveTreasure(buildJsonObject{put("kind","audio");put("conversation_id",cid);put("source_id",voiceId);put("notes","原始备注")})
+        assertEquals(JsonNull,favorite["message_id"])
+        val sent=ledger.sendMessage(claim,0,1,"",at,voiceIds=listOf(voiceId));assertNotNull(sent)
+        val linkedFavorite=LocalSideRecords(store).rows().single{it.kind=="vault_treasures"}.data
+        assertEquals(favorite["id"],linkedFavorite["id"]);assertEquals(JsonPrimitive(sent!!),linkedFavorite["message_id"]);assertEquals(JsonPrimitive("原始备注"),linkedFavorite["notes"])
+        assertTrue(ledger.recordTool(claim,0,1,true,null,at,sent))
+        assertTrue(ledger.reserveTool(claim,0,2,"dream_send_message",at))
+        assertNull(ledger.sendMessage(claim,0,2,"",at,voiceIds=listOf(voiceId)))
+        val turn=cache.history(cid)!!.turns.last();val msg=turn.assistant.variantsByUserVariant.getValue("0").single()
+        assertEquals("",msg.content);assertEquals(listOf(voiceId),msg.voiceIds)
+        val records=LocalSideRecords(store);val clip=records.audio(voiceId)!!
+        assertEquals(turn.id,clip.data.getValue("turn_id").jsonPrimitive.content);assertEquals(sent,clip.data.getValue("message_id").jsonPrimitive.content);assertArrayEquals(mp3,records.bytes(clip))
+        assertTrue(ledger.recordTool(claim,0,2,false,null,at))
+        assertTrue(ledger.finish(claim,"completed",buildJsonObject{},null,at))
+        val dir=java.nio.file.Files.createTempDirectory("bound-voice-archive").toFile()
+        try{
+            val zip=java.io.File(dir,"voice.zip");val app="com.elementeracoast.source"
+            val manifest=ArchiveV2Local.export(store,app,zip);val stage=ArchiveV2Stage(dir,"voice");ArchiveV2ZipReader.stage(zip,stage)
+            val dst=MemoryLocalPersistence();ArchiveV2Local.restore(manifest,stage,setOf("chat","voice","vault"),app,dst,true)
+            val restored=RemoteCacheStore(dst).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
+            assertEquals(msg.id,restored.id);assertEquals(listOf(voiceId),restored.voiceIds)
+            val side=LocalSideRecords(dst);assertArrayEquals(mp3,side.bytes(side.audio(voiceId)!!));assertFalse(LocalDreamLedger(dst).settings(cid).enabled)
+            val html=java.io.ByteArrayOutputStream();assertTrue(com.elementeracoast.app.feature.wolf.OfflineV2HtmlArchive.write(zip,html).isEmpty())
+            val entries=mutableMapOf<String,ByteArray>()
+            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(html.toByteArray())).use{z->while(true){val e=z.nextEntry?:break;entries[e.name]=z.readBytes()}}
+            val page=entries.filterKeys{it.endsWith(".html")}.values.map{it.decodeToString()}.first{it.contains("自主消息 · ")}
+            assertTrue(page.contains("<audio controls"));assertFalse(page.contains("<h2>本窗口语音</h2>"));assertTrue(entries.filterKeys{it.endsWith(".mp3")}.values.any{it.contentEquals(mp3)})
+        }finally{dir.deleteRecursively()}
+    }
+    @Test fun localApiWakeOrganizesTheActualSentMessageWithinBudget()=runBlocking{
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+        LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,tokenBudget=22000,toolBudget=5))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+            requests++
+            when(requests){
+                1->response(call("send","dream_send_message",buildJsonObject{put("body","wake soil source")}))
+                2->response()
+                else->{
+                    assertTrue(tools.isEmpty());assertTrue(messages.toString().contains("wake soil source"))
+                    buildJsonObject{
+                        put("model","fixture/model");putJsonObject("usage"){put("total_tokens",120);put("prompt_tokens",100);put("completion_tokens",20);put("cost",0.002)}
+                        putJsonArray("choices"){add(buildJsonObject{put("finish_reason","stop");putJsonObject("message"){put("content","""{"current_text":"wake soil","afterthoughts":[]}""")}})}
+                    }
+                }
+            }
+        },clock={at})
+        assertEquals("completed",engine.run(cid,arm.revision!!,model,at));assertEquals(3,requests)
+        val message=RemoteCacheStore(store).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
+        val soil=LocalSoilStore(store).read()
+        assertEquals(message.id,soil.history.last().getValue("assistant_message_id").jsonPrimitive.content)
+        assertEquals("wake soil",soil.current.single().getValue("current_text").jsonPrimitive.content)
+        val receipt=requireNotNull(message.deskSlip?.wakeReceipt)
+        assertEquals("provider_response_received",receipt.context.getValue("stage").jsonPrimitive.content)
+        assertTrue(receipt.context.containsKey("estimated_tokens"))
+
+    }
+    @Test fun furnitureReceiptsAttachOnceToEachFormalWakeMessage(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowLibrary=true,toolBudget=5))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        for(step in 0..1){
+            assertTrue(ledger.reserveStep(claim,step,at))
+            assertTrue(ledger.recordStep(claim,step,true,buildJsonObject{},at))
+            assertTrue(ledger.reserveTool(claim,step,0,"library_books",at))
+            assertTrue(ledger.recordTool(claim,step,0,true,null,at,furniture=RemoteFurnitureRun("original-audit-"+step,"library.books","翻阅书架")))
+            assertTrue(ledger.reserveTool(claim,step,1,"dream_send_message",at))
+            val id=ledger.sendMessage(claim,step,1,"message "+step,at)!!
+            assertTrue(ledger.recordTool(claim,step,1,true,null,at,id))
+        }
+        val messages=RemoteCacheStore(store).history(cid)!!.turns.filter{it.turnType=="dream_tide"}.map{it.assistant.variantsByUserVariant.getValue("0").single()}
+        assertEquals(2,messages.size)
+        assertEquals(listOf("library.books","library.books"),messages.map{it.furnitureRuns.single().toolKey})
+        assertNotEquals(messages[0].furnitureRuns.single().id,messages[1].furnitureRuns.single().id)
+        assertEquals("dream:"+claim.id+":0:0",messages[0].furnitureRuns.single().id)
+        assertEquals("dream:"+claim.id+":1:0",messages[1].furnitureRuns.single().id)
+        assertTrue(messages.all{it.archiveRetainedDeskSlip})
+        val receipts=messages.map{requireNotNull(it.deskSlip?.wakeReceipt)}
+        assertEquals(listOf(0,1),receipts.map{it.requestIndex})
+        assertTrue(receipts.all{it.activityId==claim.id&&it.toolCount==1})
+        assertTrue(receipts.all{it.tools.single().toolName=="library_books"&&it.tools.single().status=="completed"})
+        assertEquals(listOf(0,1),receipts.map{it.tools.single().stepIndex})
+        assertTrue(receipts.all{it.context.isEmpty()})
+
+    }
+    @Test fun sharedComfortTrimsWholeAutonomousHistoryWithoutFakeUser(){
+        val old=buildJsonObject{put("turn_id","old");put("body","旧".repeat(2200)+"old-tail")}
+        val recent=buildJsonObject{put("turn_id","new");put("body","new-wake")}
+        val result=LocalContextPolicy.assemble("whole-core","whole-portrait","","",emptyList(),emptyList(),"","","","",emptyList(),1800,basePrompt="自主活动，不是人类新发言",autonomousHistory=listOf(old,recent),autonomousHistoryTotal=5)
+        val message=result.messages.single()
+        assertEquals("system",message.role);assertTrue(message.content.contains("whole-core"))
+        assertTrue(message.content.contains("whole-portrait"));assertFalse(message.content.contains("old-tail"))
+        assertTrue(message.content.contains("new-wake"));assertEquals(4,result.omittedAutonomousTurns)
+    }
+    @Test fun autonomousCrossWindowAndReadbackRespectBothGrants(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val history=cache.history(cid)!!
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowCrossWindow=true,allowDreamReadback=true))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        val names=setOf("cross_window_search","cross_window_read_recent","cross_window_keyword_search","cross_window_read_messages","dream_readback")
+        assertNull(LocalToolSession.openAutonomous(store,claim))
+        val ctx=history.contextSettings.copy(localModelToolsEnabled=true,crossWindowAuto=true,dreamReadbackEnabled=true)
+        cache.putHistory(cid,history.copy(contextSettings=ctx))
+        val session=LocalToolSession.openAutonomous(store,claim)!!
+        val exposed=session.completionsTools.map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}.toSet()
+        assertTrue(exposed.containsAll(names))
+        val denied=claim.copy(config=cfg)
+        assertTrue(names.none{LocalDreamToolPolicy.allowed(denied,it)})
+        cache.putHistory(cid,history.copy(contextSettings=ctx.copy(crossWindowAuto=false,dreamReadbackEnabled=false)))
+        val closed=LocalToolSession.openAutonomous(store,claim)?.completionsTools.orEmpty().map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}
+        assertTrue(closed.none{it in names})
+    }
+    @Test fun autonomousDogtalkDeliveryKeepsChangedOrFailedDraft()=runBlocking{
+        for(mode in listOf("off","private","success","failed","changed")){
+            val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+            val dog=LocalDogtalkStore(store)
+            fun draft(body:String,readMode:String)=dog.save(buildJsonObject{put("room_scope","conversation");put("conversation_id",cid);put("body",body);put("read_mode",readMode)})
+            draft("dogtalk-original",if(mode=="private")"keep_private"else "read_now")
+            val updated=cfg.copy(execution=cfg.execution!!.copy(includeDogtalk=mode!="off",tokenBudget=22000))
+            val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+            val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,_,_->
+                assertEquals(mode !in listOf("off","private"),messages.toString().contains("dogtalk-original"))
+                if(mode=="changed")draft("dogtalk-new-edit","read_now")
+                if(mode=="failed")error("provider failed")
+                response()
+            },clock={at})
+            engine.run(cid,arm.revision!!,model,at)
+            val live=dog.public("conversation",cid)
+            assertEquals(if(mode in listOf("private","success"))"keep_private"else "read_now",live.getValue("read_mode").jsonPrimitive.content)
+            if(mode=="changed")assertEquals("dogtalk-new-edit",live.getValue("body").jsonPrimitive.content)
+            val snapshots=dog.read().filter{it.module=="dogtalk_snapshots"}
+            assertEquals(if(mode in listOf("off","private"))0 else 1,snapshots.size)
+            if(snapshots.isNotEmpty())assertEquals("dream_tide",snapshots.single().data.getValue("source_type").jsonPrimitive.content)
+            assertEquals(1,RemoteCacheStore(store).history(cid)!!.turns.size)
+        }
+    }
+    @Test fun autonomousDailyAndWorldbookReadersRequireExplicitGrant(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val history=cache.history(cid)!!
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowDailyRead=true,allowWorldbookRead=true))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        val names=setOf("list_daily_moments","list_daily_diaries","worldbook_list")
+        assertNull(LocalToolSession.openAutonomous(store,claim))
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelToolsEnabled=true)))
+        val session=LocalToolSession.openAutonomous(store,claim)!!
+        val exposed=session.completionsTools.map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}.toSet()
+        assertTrue(exposed.containsAll(names))
+        assertTrue(names.none{LocalDreamToolPolicy.allowed(claim.copy(config=cfg),it)})
+    }
+    @Test fun autonomousDailyInteractionIsSeparateFromPosting(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val history=cache.history(cid)!!
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowDailyInteract=true))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        assertNull(LocalToolSession.openAutonomous(store,claim))
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
+        val session=LocalToolSession.openAutonomous(store,claim)!!
+        val exposed=session.completionsTools.map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}.toSet()
+        assertTrue(exposed.containsAll(setOf("moment_comment","moment_like")))
+        assertFalse(exposed.contains("create_moment"))
+        assertFalse(LocalDreamToolPolicy.allowed(claim.copy(config=cfg),"moment_comment"))
+    }
+    @Test fun wakePortraitProposalKeepsOfficialDocumentUnchanged()=runBlocking{
+        val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+        val history=cache.history(cid)!!
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
+        LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(includeSelfPortrait=true,allowSelfPortraitProposal=true,includeUserPortrait=false,allowUserPortraitProposal=true,tokenBudget=24000))
+        val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+        val before=LocalPortraitStore(store).body("self_portrait")
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,_,tools,_->
+            requests++
+            if(requests==1){
+                assertTrue(tools.toString().contains("global_excerpt_propose"))
+                assertFalse(tools.toString().contains("user_portrait_propose"))
+                response(call("p","global_excerpt_propose",buildJsonObject{put("proposed_body","fixture complete new portrait");put("reason","fixture lasting observation");put("change_kind","rewrite")}))
+            }else response()
+        },clock={at})
+        assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+        val portraits=LocalPortraitStore(store)
+        assertEquals(before,portraits.body("self_portrait"))
+        val candidate=portraits.read("self_portrait")!!.candidates.single()
+        assertEquals(cid,candidate.getValue("source_conversation_id").jsonPrimitive.content)
+        assertEquals(JsonNull,candidate["source_message_id"])
+        assertTrue(candidate.getValue("id").jsonPrimitive.content.startsWith("portrait_dream_"))
+        assertTrue(portraits.read("user_portrait")?.candidates.orEmpty().isEmpty())
+    }
+    @Test fun wakeCalendarMutationProtectsOwnerAndOtherWindowRecords()=runBlocking{
+        val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+        val history=cache.history(cid)!!
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
+        val cal=LocalCalendarStore(store)
+        fun add(title:String)=cal.save(null,buildJsonObject{put("day","2026-11-28");put("title",title);put("kind","note")})
+        val owner=add("owner")
+        val mine=add("mine")
+        val key=mine.getValue("id").jsonPrimitive.content
+        val ownerKey=owner.getValue("id").jsonPrimitive.content
+        cal.restoreSnapshot(JsonArray(cal.snapshot().map{row->if(row.jsonObject.getValue("id").jsonPrimitive.content==key)JsonObject(row.jsonObject+buildJsonObject{put("author","assistant");put("conversation_id",cid);put("source","chat_tool");put("source_turn_id",JsonNull);put("tool_call_id","dream:fixture:0:0");put("model_label",model)})else row}))
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(allowCalendarEdit=true,tokenBudget=24000,toolBudget=5))
+        val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,_,tools,_->
+            requests++
+            if(requests==1){
+                assertTrue(tools.toString().contains("calendar_update"))
+                assertFalse(tools.toString().contains("calendar_create"))
+                response(call("edit","calendar_update",buildJsonObject{put("id",key);put("title","edited")}),
+                    call("owner","calendar_delete",buildJsonObject{put("id",ownerKey)}))
+            }else response()
+        },clock={at})
+        assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+        val rows=cal.snapshot().map{it.jsonObject}
+        assertEquals("edited",rows.single{it.getValue("id").jsonPrimitive.content==key}.getValue("title").jsonPrimitive.content)
+        assertEquals("owner",rows.single{it.getValue("id").jsonPrimitive.content==ownerKey}.getValue("title").jsonPrimitive.content)
+    }
+    @Test fun historyTextOriginalRequiresCorrectWindowAndVisibleMessage()=runBlocking{
+        val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+        val text="history-original-text-fixture"
+        val originals=LocalAttachmentStore(store)
+        val original=originals.upload(cid,"fixture.txt","text/plain",text.encodeToByteArray())
+        val other=originals.upload("other","other.txt","text/plain","secret".encodeToByteArray())
+        val history=cache.history(cid)!!
+        val turn=history.turns.single()
+        cache.putHistory(cid,history.copy(turns=listOf(turn.copy(user=turn.user.copy(variants=listOf(turn.user.variants.single().copy(attachments=listOf(original))))))))
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(includeHistoryAttachments=true,allowHistoryFileRead=true,tokenBudget=24000))
+        val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+        var requests=0
+        fun args(id:String)=buildJsonObject{put("start",0);put("message_id","u");put("attachment_id",id)}
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+            if(++requests==1){assertTrue(tools.toString().contains("dream_read_history_file"));response(call("good","dream_read_history_file",args(original.id)),call("wrong","dream_read_history_file",args(other.id)))}
+            else{assertTrue(messages.toString().contains(text));response()}
+        },clock={at})
+        assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+        val events=LocalDreamArchive(store).export(cid)!!.getValue("tools").jsonArray.map{it.jsonObject}
+        assertEquals(listOf("completed","failed"),events.map{it.getValue("status").jsonPrimitive.content})
+        assertFalse(events.toString().contains(text))
+    }
+    @Test fun historicalImageOriginalIsDeliveredOnlyToKnownVisionModel()=runBlocking{
+        for(vision in listOf(true,false)){
+            val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+            val bytes=byteArrayOf(137.toByte(),80,78,71,13,10,26,10)+ByteArray(16)
+            val original=LocalAttachmentStore(store).upload(cid,"fixture.png","image/png",bytes)
+            val h=cache.history(cid)!!;val t=h.turns.single()
+            cache.putHistory(cid,h.copy(turns=listOf(t.copy(user=t.user.copy(variants=listOf(t.user.variants.single().copy(attachments=listOf(original))))))))
+            val cfg2=cfg.copy(execution=cfg.execution!!.copy(includeHistoryAttachments=true,allowHistoryImageRead=true,tokenBudget=24000))
+            val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+            var requests=0;var seen=0
+            val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+                if(++requests==1){
+                    assertEquals(vision,tools.toString().contains("dream_read_history_image"))
+                    if(vision)response(call("i","dream_read_history_image",buildJsonObject{put("start",0);put("message_id","u");put("attachment_id",original.id)}))else response()
+                }else{
+                    if(messages.toString().contains("data:image/png;base64,"))seen++
+                    assertTrue(messages.toString().contains("历史图像原件"))
+                    response()
+                }
+            },clock={at},modelBudget={_,_,_->LocalInputBudget(18000,null,100000,"fixture",vision)})
+            assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+            assertEquals(if(vision)1 else 0,seen)
+            val archive=LocalDreamArchive(store).export(cid)!!.toString()
+            assertEquals(vision,archive.contains("image_readback_accepted"))
+            assertFalse(archive.contains("data:image/"));assertEquals(1,cache.history(cid)!!.turns.size)
+        }
+    }
+    @Test fun editsPreserveFutureExtraAppointmentIdentity(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+        val claim=ledger.claim(cid,settings.revision!!,model,at)!!
+        val extraAt=at+7200000
+        assertTrue(ledger.finish(claim,"completed",buildJsonObject{},extraAt,at+1))
+        val original=ledger.settings(cid)
+        val changed=cfg.copy(dailyTime="10:00",execution=cfg.execution!!.copy(tokenBudget=24000))
+        val edited=ledger.configure(cid,DreamSettingsRequest(cid,original.revision,"arm",changed,model,true),true,at+2)!!
+        assertEquals(extraAt,edited.extraAt);assertEquals(original.extraId,edited.extraId)
+        val again=ledger.configure(cid,DreamSettingsRequest(cid,edited.revision,"arm",changed.copy(execution=changed.execution!!.copy(invitation="new invitation")),model,true),true,at+3)!!
+        assertEquals(extraAt,again.extraAt);assertEquals(original.extraId,again.extraId);assertEquals(edited.armedAt,again.armedAt)
+        val fixed=ledger.claim(cid,again.revision!!,model,at+3600000)!!
+        assertEquals("daily",fixed.slot.kind);assertTrue(ledger.finish(fixed,"completed",buildJsonObject{},null,at+3600001))
+        val extra=ledger.claim(cid,again.revision!!,model,extraAt)!!
+        assertEquals("extra:"+original.extraId,extra.slot.key)
+        assertTrue(ledger.finish(extra,"completed",buildJsonObject{},null,extraAt+1))
+        assertNull(ledger.settings(cid).extraAt)
+        assertNull(ledger.claim(cid,again.revision!!,model,extraAt+2))
+    }
     @Test fun unknownUsageStopsBeforeToolsAndRevokedClaimCannotWrite()=runBlocking{
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store);var requests=0
         val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,_,_,_->
@@ -131,10 +461,47 @@ class LocalDreamExecutorTest {
     @Test fun largerOwnerBudgetsSaveAndArchiveWithoutClamping(){
         val (store,armed)=fixture()
         val e=cfg.execution!!.copy(tokenBudget=2000000,outputLimit=100000,toolBudget=200,readTurns=500,extraPerDay=200,voiceLimit=200,imageLimit=200)
-        val updated=LocalDreamLedger(store).configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(execution=e),model),false,at)!!
+        val ledger=LocalDreamLedger(store)
+        val paused=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"disarm"),false,at)!!
+        val updated=ledger.configure(cid,DreamSettingsRequest(cid,paused.revision,"save",cfg.copy(execution=e),model),false,at)!!
         assertEquals(e,updated.config!!.execution)
         assertNotNull(LocalDreamArchive(store).export(cid))
         assertFalse(updated.enabled)
+    }
+    @Test fun ordinarySaveKeepsExistingAuthorizationAndDoesNotWidenPermissions(){
+        val (store,armed)=fixture();val ledger=LocalDreamLedger(store)
+        val unchanged=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg,model),false,at)!!
+        assertTrue(unchanged.enabled);assertEquals(armed.revision,unchanged.revision)
+        try{
+            ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(execution=cfg.execution!!.copy(tokenBudget=20000)),model),false,at)
+            fail("permission change must require explicit authorization")
+        }catch(_:IllegalArgumentException){}
+        assertEquals(armed,ledger.settings(cid))
+        val edited=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(dailyTime="10:00"),model),false,at)!!
+        assertTrue(edited.enabled);assertEquals("10:00",edited.config!!.dailyTime);assertNotEquals(armed.revision,edited.revision)
+    }
+    @Test fun planScheduleEditKeepsIndependentGrantAndChangesConfigurationFence(){
+        val (store,armed)=fixture();val ledger=LocalDreamLedger(store)
+        val plan="chatgpt-plan:gpt-6.2-sol";val grant="grant-fixture"
+        val enabled=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"arm",cfg,plan,true,true,5),true,at-86400000,grant)!!
+        assertEquals(grant,enabled.grantRevision())
+        val edited=ledger.configure(cid,DreamSettingsRequest(cid,enabled.revision,"save",cfg.copy(dailyTime="10:00"),plan),false,at)!!
+        assertTrue(edited.enabled);assertNotEquals(enabled.revision,edited.revision);assertEquals(grant,edited.grantRevision())
+        assertNull(ledger.claim(cid,enabled.revision!!,plan,at+3600000))
+        assertFalse(LocalDreamArchive(store).export(cid)!!.toString().contains("authorizationRevision"))
+        assertNotNull(ledger.claim(cid,edited.revision!!,plan,at+3600000))
+    }
+    @Test fun scheduleDisplayDistinguishesDueQuietConsumedAndExpired(){
+        val (_,armed)=fixture()
+        val extra=armed.copy(extraAt=at-60000,extraId="fixture")
+        val daily=LocalDreamSchedule.view(extra,emptySet(),0,at)
+        assertEquals("due",daily.dailyStatus);assertEquals("due",daily.extraStatus);assertEquals("daily",daily.eligibleKind)
+        val used=setOf("daily:2026-11-27")
+        assertEquals("extra",LocalDreamSchedule.view(extra,used,0,at).eligibleKind)
+        assertEquals("quiet",LocalDreamSchedule.view(extra.copy(config=cfg.copy(quietHours=DreamQuietHours("00:00","00:00"))),used,0,at).extraStatus)
+        assertNull(LocalDreamSchedule.view(extra.copy(running=true),used,0,at).eligibleKind)
+        assertNull(LocalDreamSchedule.view(extra,used,1,at).extraAt)
+        assertNull(LocalDreamSchedule.view(extra,used,0,at+86400000).extraAt)
     }
     @Test fun scheduleQuietAndAlreadyConsumedSlots(){
         val (_,a)=fixture()
@@ -162,11 +529,20 @@ class LocalDreamExecutorTest {
         assertFalse("memory_search" in names||"read_mystic_dogtalk" in names)
         val page=session.execute("read","library_read",buildJsonObject{put("book_id",book);put("chapter_index",0)}.toString())
         assertTrue(page.output,page.ok);assertTrue(page.output.contains("real page fixture"))
-        val write=session.execute("write","library_write",buildJsonObject{put("action","create");put("book_id",book);put("kind","reflection");put("body","independent note")}.toString())
+        val args=buildJsonObject{put("action","create");put("book_id",book);put("kind","reflection");put("body","independent note")}.toString()
+        // Even a permitted tool cannot bypass the actual activity reservation.
+        assertFalse(session.execute("unreserved-write","library_write",args).ok)
+        assertTrue(ledger.reserveStep(claim,0,at))
+        assertTrue(ledger.recordStep(claim,0,true,buildJsonObject{},at))
+        assertTrue(ledger.reserveTool(claim,0,0,"library_write",at))
+        val write=session.execute(claim.id+":0:0","library_write",args)
         assertTrue(write.output,write.ok)
+        assertTrue(ledger.recordTool(claim,0,0,true,null,at,Json.parseToJsonElement(write.output).jsonObject.getValue("id").jsonPrimitive.content))
+        assertTrue(ledger.reserveTool(claim,0,1,"library_write",at))
+        assertFalse(session.execute(claim.id+":0:1","library_write",buildJsonObject{put("action","delete");put("id",Json.parseToJsonElement(write.output).jsonObject.getValue("id"))}.toString()).ok)
+        assertTrue(ledger.recordTool(claim,0,1,false,null,at))
         val note=LocalSideRecords(store).rows().single{it.kind=="library_notes"}.data
         assertEquals(JsonNull,note["source_turn_id"]);assertEquals("assistant",note["author"]!!.jsonPrimitive.content)
-        assertFalse(session.execute("delete","library_write",buildJsonObject{put("action","delete");put("id",note.getValue("id"))}.toString()).ok)
         assertTrue(LocalToolAudit(store).read().isEmpty())
         ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"disarm"),false,at)
         assertFalse(session.execute("revoked","library_read",buildJsonObject{put("book_id",book);put("chapter_index",0)}.toString()).ok)
@@ -299,11 +675,11 @@ class LocalDreamExecutorTest {
     }
 
 
-    @Test fun independentImageOriginalKeepsActivityIdentityAndCannotBecomeChatAttachment(){
+    @Test fun independentImageOriginalKeepsActivityIdentityAndCannotBeReboundByOrdinaryChat(){
         val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
         val history=cache.history(cid)!!
         cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
-        val cfg2=cfg.copy(execution=cfg.execution!!.copy(allowImage=true,imageLimit=2,tokenBudget=24000))
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(allowImage=true,allowMessage=true,imageLimit=2,toolBudget=10,tokenBudget=24000))
         val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
         val imageConfig=LocalProviderConfig("image-fixture","fixture","https://openrouter.ai/api/v1","fixture-only",listOf("fixture/paid"))
         val selected=imageConfig.modelId("fixture/paid")
@@ -326,11 +702,28 @@ class LocalDreamExecutorTest {
         assertTrue(runCatching{LocalAttachmentStore.validate(JsonObject(original.metadata+("turn_id" to JsonPrimitive("t"))))}.isFailure)
         assertTrue(runCatching{generator.execute(claim.id+":0:0",buildJsonObject{put("prompt","again")})}.isFailure)
         assertEquals(1,calls)
-        assertTrue(ledger.reserveTool(claim,0,1,"image_generate",at))
+        val imageId=result.getValue("id").jsonPrimitive.content
+        assertTrue(ledger.recordTool(claim,0,0,true,null,at,imageId))
+        assertTrue(ledger.reserveTool(claim,0,1,"dream_send_message",at))
+        assertNull(ledger.sendMessage(claim,0,1,"foreign",at,listOf("att_dream_foreign_0_0")))
+        assertNull(ledger.sendMessage(claim,0,1,"",at))
+        val sent=ledger.sendMessage(claim,0,1,"",at,listOf(imageId))
+        assertNotNull(sent)
+        assertTrue(ledger.recordTool(claim,0,1,true,null,at,sent))
+        val turn=cache.history(cid)!!.turns.last()
+        assertEquals("",turn.assistant.variantsByUserVariant.getValue("0").single().content)
+        assertEquals(imageId,turn.assistant.variantsByUserVariant.getValue("0").single().attachments.single().id)
+        val bound=LocalAttachmentStore(store).entries().single()
+        assertEquals(turn.id,bound.metadata.getValue("turn_id").jsonPrimitive.content)
+        assertArrayEquals(bytes,LocalAttachmentStore(store).bytes(bound))
+        assertTrue(ledger.reserveTool(claim,0,2,"dream_send_message",at))
+        assertNull(ledger.sendMessage(claim,0,2,"duplicate",at,listOf(imageId)))
+        assertTrue(ledger.recordTool(claim,0,2,false,null,at))
+        assertTrue(ledger.reserveTool(claim,0,3,"image_generate",at))
         val revoked=LocalDreamImage(store,claim,selected,{imageConfig},
             discover={listOf(LocalImageProvider.Model("fixture/paid","fixture",false))},
             generate={_,_->assertNotNull(ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"disarm"),false,at));LocalImageProvider.Generated(bytes,"image/png","openrouter","fixture/paid",null,null,"fixture")})
-        assertTrue(runCatching{revoked.execute(claim.id+":0:1",buildJsonObject{put("prompt","revoked")})}.isFailure)
+        assertTrue(runCatching{revoked.execute(claim.id+":0:3",buildJsonObject{put("prompt","revoked")})}.isFailure)
         assertEquals(1,LocalAttachmentStore(store).entries().size)
     }
 
@@ -565,6 +958,40 @@ class LocalDreamExecutorTest {
         assertEquals(JsonNull,row.getValue("result").jsonObject["reported_cost"])
         assertEquals(1,RemoteCacheStore(store).history(cid)!!.turns.size)
         assertEquals("not_due",engine.run(cid,rev,m,at));assertEquals(2,calls)
+    }
+    @Test fun planWakeSoilConsumesOnlyRemainingGrantRequest()=runBlocking{
+        for(limit in listOf(2,3)){
+            val (store,initial)=fixture();val ledger=LocalDreamLedger(store)
+            LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})
+            val m="chatgpt-plan:fixture-model";val rev="plan-soil-"+limit
+            val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,tokenBudget=22000,toolBudget=5))
+            val request=DreamSettingsRequest(cid,initial.revision,"arm",updated,m,true,confirmPlanSoftBudget=true,planRequestLimit=limit)
+            assertNotNull(ledger.configure(cid,request,true,at-86400000,planRevision=rev))
+            val grant=com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.Grant(cid,rev,"account","client","fixture-model",true,limit)
+            var calls=0
+            val binding=com.elementeracoast.app.feature.chatgpt.NativeDreamPlanBinding(grant,{true}){body,tools,authorize->
+                assertTrue(authorize());calls++
+                val output=when(calls){
+                    1->buildJsonObject{put("type","function_call");put("namespace","coast");put("name","dream_send_message");put("call_id","sent");put("arguments",buildJsonObject{put("body","real plan wake")}.toString())}
+                    2->null
+                    else->{
+                        assertTrue(tools.isEmpty());assertTrue(body.toString().contains("real plan wake"))
+                        buildJsonObject{put("type","message");put("role","assistant");putJsonArray("content"){add(buildJsonObject{put("type","output_text");put("text","""{"current_text":"plan soil","afterthoughts":[]}""")})}}
+                    }
+                }
+                val raw=buildJsonObject{put("status","completed");put("model","fixture-model");putJsonObject("usage"){put("total_tokens",120)};put("output",JsonArray(listOfNotNull(output)))}
+                com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.complete(raw,emptyMap(),tools)
+            }
+            val engine=LocalDreamExecutor(store,{error("API fallback prohibited")},{_,_,_,_,_->error("API fallback prohibited")},clock={at},preparePlan={_,_,_->binding})
+            assertEquals("completed",engine.run(cid,rev,m,at));assertEquals(limit,calls)
+            val message=RemoteCacheStore(store).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
+            assertEquals("real plan wake",message.content)
+            val result=LocalDreamArchive(store).activity(cid,0).getValue("items").jsonArray.single().jsonObject.getValue("result").jsonObject
+            assertEquals(JsonPrimitive(limit*120),result["total_tokens"])
+            val soil=LocalSoilStore(store).read()
+            if(limit==3){assertEquals(message.id,soil.history.last().getValue("assistant_message_id").jsonPrimitive.content);assertEquals("plan soil",soil.current.single().getValue("current_text").jsonPrimitive.content)}
+            else assertTrue(soil.history.isEmpty())
+        }
     }
     @Test fun planQuotaFailureIsTerminalAndCannotSwitchToApiKey()=runBlocking{
         val (store,initial)=fixture();val ledger=LocalDreamLedger(store)

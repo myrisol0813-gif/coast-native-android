@@ -20,7 +20,8 @@ data class DreamExecutionConfig(
     val allowWeb:Boolean=false,val allowLibrary:Boolean=false,val allowMemory:Boolean=false,val allowCalendar:Boolean=false,
     val allowCollection:Boolean=false,val allowLibraryWrite:Boolean=false,
     val allowDailyWrite:Boolean=false,val allowCalendarWrite:Boolean=false,val allowVoice:Boolean=false,val allowImage:Boolean=false,
-    val voiceLimit:Int=1,val imageLimit:Int=1,val allowMemoryCandidate:Boolean=false,val allowImageReadback:Boolean=false
+    val voiceLimit:Int=1,val imageLimit:Int=1,val allowMemoryCandidate:Boolean=false,val allowImageReadback:Boolean=false,
+    val allowMessage:Boolean=false,val allowStickerSend:Boolean=false,val includeRecentChat:Boolean=false,val includeHistoryAttachments:Boolean=false,val allowHistoryFileRead:Boolean=false,val allowHistoryImageRead:Boolean=false,val includeSoil:Boolean=false,val includeRecall:Boolean=false,val includeWorldbook:Boolean=false,val allowCrossWindow:Boolean=false,val allowDreamReadback:Boolean=false,val includeDogtalk:Boolean=false,val allowDailyRead:Boolean=false,val allowWorldbookRead:Boolean=false,val allowDailyInteract:Boolean=false,val allowSelfPortraitProposal:Boolean=false,val allowUserPortraitProposal:Boolean=false,val allowLibraryEdit:Boolean=false,val allowCalendarEdit:Boolean=false
 )
 
 @Serializable
@@ -33,14 +34,19 @@ data class DreamConfig(
 @Serializable
 data class DreamSettings(
     val revision:String?=null,val enabled:Boolean=false,val config:DreamConfig?=null,
-    val modelId:String?=null,val armedAt:Long?=null,val extraAt:Long?=null,val running:Boolean=false,val extraId:String?=null
-)
+    val modelId:String?=null,val armedAt:Long?=null,val extraAt:Long?=null,val running:Boolean=false,val extraId:String?=null,val authorizationRevision:String?=null
+){
+    fun grantRevision():String?=authorizationRevision?:revision
+}
+
+@Serializable
+data class DreamScheduleView(val dailyStatus:String="disabled",val extraStatus:String="none",val extraAt:Long?=null,val eligibleKind:String?=null)
 
 @Serializable
 data class DreamSettingsResponse(
     val ok:Boolean=false,val settings:DreamSettings=DreamSettings(),
     val executionAvailable:Boolean=false,val schedulerConfigured:Boolean=false,
-    val planExecutionAvailable:Boolean=false,val planStatus:String?=null,val planRequestLimit:Int?=null
+    val planExecutionAvailable:Boolean=false,val planStatus:String?=null,val planRequestLimit:Int?=null,val schedule:DreamScheduleView?=null
 )
 
 @Serializable
@@ -75,3 +81,8 @@ data class DreamActivity(
 data class DreamNotesResponse(val ok:Boolean=false,val items:List<DreamNote> = emptyList(),val nextOffset:Int?=null)
 @Serializable
 data class DreamActivityResponse(val ok:Boolean=false,val items:List<DreamActivity> = emptyList(),val nextOffset:Int?=null)
+
+@Serializable
+data class DreamArrivalReference(val seq:Long,@SerialName("conversation_id")val conversationId:String,@SerialName("turn_id")val turnId:String,@SerialName("message_id")val messageId:String,val kind:String="message")
+@Serializable
+data class DreamArrivalPage(val ok:Boolean=false,val cursor:Long=0,val items:List<DreamArrivalReference> = emptyList(),val hasMore:Boolean=false,val reset:Boolean=false)

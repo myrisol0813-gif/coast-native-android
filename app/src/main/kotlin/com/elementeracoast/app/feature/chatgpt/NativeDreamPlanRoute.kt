@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 internal class NativeDreamPlanBinding(
     val grant:NativeDreamPlanProtocol.Grant,
     val authorized:()->Boolean,
+    val vision:Boolean?=null,
     val send:suspend (JsonObject,Set<String>,suspend ()->Boolean)->NativeDreamPlanProtocol.Step
 )
 
@@ -34,10 +35,11 @@ internal class NativeDreamPlanRoute(private val store:LocalPersistence,private v
         val epoch=account.wakeConnectionEpoch()?:return null
         val grant=grants.resolve(window,revision,model,current,epoch)?:return null
         fun authorized()=grants.resolve(window,revision,model,account.currentAccount(),account.wakeConnectionEpoch())==grant
-        val names=try{account.models().map{it.slug}.toSet()}catch(e:CancellationException){throw e}catch(_:Exception){return null}
-        if(!authorized()||grant.model !in names)return null
+        val models=try{account.models()}catch(e:CancellationException){throw e}catch(_:Exception){return null}
+        val selected=models.singleOrNull{it.slug==grant.model}?:return null
+        if(!authorized())return null
         val transport=NativeDreamPlanTransport(account)
-        return NativeDreamPlanBinding(grant,::authorized){body,exposed,check->
+        return NativeDreamPlanBinding(grant,::authorized,selected.vision){body,exposed,check->
             try{
                 transport.request(grant,window,revision,model,body,exposed){authorized()&&check()}
             }catch(e:NativeDreamPlanFailure){

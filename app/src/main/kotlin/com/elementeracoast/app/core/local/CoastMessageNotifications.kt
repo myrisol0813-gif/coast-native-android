@@ -27,7 +27,7 @@ internal object CoastMessageNotifications {
     fun always(c:Context)=prefs(c).getBoolean("always",true)
     fun preview(c:Context)=prefs(c).getString("preview","full")?:"full"
     fun publicContent(c:Context)=prefs(c).getBoolean("public",false)
-    fun setFlag(c:Context,key:String,value:Boolean){prefs(c).edit().putBoolean(key,value).apply()}
+    fun setFlag(c:Context,key:String,value:Boolean){prefs(c).edit().putBoolean(key,value).apply();if(key=="enabled")OnlineArrivalWorker.sync(c)}
     fun setPreview(c:Context,value:String){if(value in setOf("none","short","full"))prefs(c).edit().putString("preview",value).apply()}
     fun display(c:Context,body:String,fallback:String):String=when(preview(c)){
         "none"->fallback
@@ -61,9 +61,21 @@ internal object CoastMessageNotifications {
         val interactive=c.getSystemService(PowerManager::class.java).isInteractive
         if(!always(c)&&foreground&&interactive&&!locked)return false
         val media=variant.attachments.size
-        val body=variant.content+if(media>0)"\n［附件 ${media} 件，打开查看］"else ""
+        val body=variant.content+(if(media>0)"\n［附件 ${media} 件，打开查看］"else "")+(if(variant.voiceIds.isNotEmpty())"\n［语音 ${variant.voiceIds.size} 段，打开收听］"else "")
         deliver(c,cid,variant.id,body.trim(),"收到一条新回复",local,false)
     }.getOrDefault(false)
+    /** Durable per-message watermark prevents a recovery read from re-alerting
+     * an already handled wake message. Store IDs only, never body or audio. */
+    @Synchronized fun postWake(c:Context,cid:String,variant:RemoteVariant,local:Boolean):Boolean{
+        if(variant.generationSource!="dream_tide")return false
+        val mode=if(local)"local" else "online"
+        val key="wake_notified:"+mode+":"+cid
+        val p=prefs(c)
+        val seen=p.getString(key,"").orEmpty().split('\n').filter{it.isNotBlank()}
+        if(variant.id in seen)return false
+        if(!p.edit().putString(key,(seen+variant.id).takeLast(400).joinToString("\n")).commit())return false
+        return post(c,cid,variant,local)
+    }
     fun test(c:Context)=runCatching{deliver(c,"test","test","这是一条测试通知，没有调用模型。","测试通知",false,true)}.getOrDefault(false)
     private fun deliver(c:Context,cid:String,mid:String,body:String,title:String,local:Boolean,test:Boolean):Boolean{
         ensure(c)

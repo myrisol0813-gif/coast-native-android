@@ -52,7 +52,11 @@ class LocalDreamWorker(context:Context,params:WorkerParameters):CoroutineWorker(
                         ?.firstOrNull{it["claim_id"]?.jsonPrimitive?.contentOrNull==claim}
                         ?.get("body")?.jsonPrimitive?.contentOrNull
                 }.getOrNull()else null
-                LocalDreamNotifications.post(applicationContext,cid,claim,kind,body)
+                if(kind.startsWith("message:")){
+                    val mid=kind.removePrefix("message:")
+                    val message=RemoteCacheStore(store,strictReads=true).history(cid)?.turns?.firstOrNull{it.wakeActivityId==claim&&it.turnType=="dream_tide"&&it.assistant.variantsByUserVariant.values.flatten().any{v->v.id==mid}}?.assistant?.variantsByUserVariant?.values?.flatten()?.firstOrNull{it.id==mid&&it.generationSource=="dream_tide"}
+                    if(message!=null)CoastMessageNotifications.postWake(applicationContext,cid,message,true)
+                }else LocalDreamNotifications.post(applicationContext,cid,claim,kind,body)
             })
             val windows=RemoteCacheStore(store,strictReads=true).conversations().filter{it.roomType=="main"&&it.source=="coast"&&it.deletedAt==null}
             val now=System.currentTimeMillis()
@@ -62,7 +66,7 @@ class LocalDreamWorker(context:Context,params:WorkerParameters):CoroutineWorker(
                 val a=ledger.settings(w.id)
                 val history=LocalDreamArchive(store).runtimeHistory(w.id)["runs"]!!.jsonArray.map{it.jsonObject}
                 val used=history.map{it.getValue("slot_key").jsonPrimitive.content}.toSet()
-                if(LocalDreamSchedule.candidate(a,used,now)==null||a.revision==null||a.modelId==null||a.modelId.startsWith("chatgpt-plan:")&&plan?.status(w.id,a.revision,a.modelId)!="authorized")null
+                if(LocalDreamSchedule.candidate(a,used,now)==null||a.revision==null||a.modelId==null||a.modelId.startsWith("chatgpt-plan:")&&plan?.status(w.id,a.grantRevision(),a.modelId)!="authorized")null
                 else Triple(w.id,a,history.maxOfOrNull{it.getValue("started_at").jsonPrimitive.long}?:0L)
             }.sortedBy{it.third}
             // One active window per worker tick. A bounded tick cannot turn
