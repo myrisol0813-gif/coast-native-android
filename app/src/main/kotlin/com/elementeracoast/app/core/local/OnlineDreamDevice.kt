@@ -128,7 +128,15 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         var inFlight:Int?=null
         var soilInFlight:Int?=null
         var cancellation:CancellationException?=null
-        suspend fun authorized()=stillRegistered(r)&&binding.authorized()&&action("heartbeat").ok()
+        suspend fun authorized():Boolean{
+            if(!stillRegistered(r))throw NativeDreamPlanFailure("device_registration_ended")
+            if(!binding.authorized())throw NativeDreamPlanFailure("plan_binding_ended")
+            val reply=try{action("heartbeat")}catch(e:CancellationException){throw e}catch(e:Exception){
+                throw NativeDreamPlanFailure("heartbeat_"+WakeDiagnostic.reason(e),WakeDiagnostic.http(e))
+            }
+            if(!reply.ok())throw NativeDreamPlanFailure("heartbeat_"+WakeDiagnostic.code(reply.str("reason").ifBlank{"rejected"}))
+            return true
+        }
         try{
             mark("device_received")
             // New servers acknowledge delivery. Older servers may not support
@@ -145,12 +153,14 @@ internal class OnlineDreamDevice private constructor(private val context:Context
             var pendingImages=emptyList<JsonObject>()
             var usedTools=0L
             coroutineScope{
-                val running=currentCoroutineContext()[Job]!!
+                // A failed heartbeat is an execution failure, not an Android
+                // cancellation or a successful heartbeat that was stopped at cleanup.
+                // Structured concurrency propagates its typed cause and cancels any
+                // in-flight request. Never retry a potentially billable request.
                 val heartbeat=launch{
                     while(isActive){
                         delay(15000)
-                        val valid=try{authorized()}catch(e:CancellationException){throw e}catch(_:Exception){false}
-                        if(!valid){running.cancel(CancellationException("wake authorization ended"));break}
+                        authorized()
                     }
                 }
                 try{
@@ -186,7 +196,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         check(pendingImages.isEmpty()||binding.vision==true&&pendingImages.sumOf{it.getValue("bytes").jsonPrimitive.long}<=8L*1024*1024)
                         usedTools+=calls.size.toLong()
                         if(!noteNotified&&results.any{it.str("name")=="dream_write_note"}){
-                            val n=runCatching{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}.getOrNull()
+                            val n=try{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}catch(e:CancellationException){throw e}catch(_:Exception){null}
                             if(n!=null){notice("note",n.body);noteNotified=true}
                         }
                         if(finish=="stop"){completed=true;reason="ended";break}
@@ -226,7 +236,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                     }
                 }finally{heartbeat.cancelAndJoin()}
             }
-        }catch(e:CancellationException){cancellation=e;reason="authorization_or_task_ended"}
+        }catch(e:CancellationException){cancellation=e;reason="device_task_cancelled"}
         catch(e:Exception){reason=WakeDiagnostic.reason(e);httpStatus=WakeDiagnostic.http(e)}
         finally{
             withContext(NonCancellable){

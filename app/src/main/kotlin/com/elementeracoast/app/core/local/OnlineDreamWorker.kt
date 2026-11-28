@@ -33,7 +33,11 @@ class OnlineDreamWorker(context:Context,params:WorkerParameters):CoroutineWorker
         fun sync(context:Context){
             val app=context.applicationContext
             val manager=WorkManager.getInstance(app)
-            val enabled=BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED&&!NativeWorkspace.localSelected(app)&&runCatching{OnlineDreamDevice.get(app).registrations().isNotEmpty()}.getOrDefault(false)
+            if(!BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED||NativeWorkspace.localSelected(app)){manager.cancelUniqueWork(JOB);return}
+            // A storage read failure is not evidence that the owner removed
+            // all registrations. Keep the existing worker instead of cancelling
+            // an admitted activity from an unrelated UI refresh.
+            val enabled=try{OnlineDreamDevice.get(app).registrations().isNotEmpty()}catch(_:Exception){return}
             if(!enabled){manager.cancelUniqueWork(JOB);return}
             val request=PeriodicWorkRequestBuilder<OnlineDreamWorker>(15,TimeUnit.MINUTES)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
