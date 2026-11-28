@@ -1,6 +1,7 @@
 package com.elementeracoast.app.core.local
 
 import com.elementeracoast.app.core.remote.RemoteChatMessage
+import kotlinx.serialization.json.*
 
 /** Deterministic owner context policy, matching the online source order and comfort trimming. */
 internal object LocalContextPolicy {
@@ -70,24 +71,27 @@ internal object LocalContextPolicy {
         return if(lines.isEmpty())""else ("【思维壤】\n"+lines.joinToString("\n")).take(1800)
     }
     data class Result(val messages:List<RemoteChatMessage>,val visible:List<RemoteChatMessage>,val soil:String,val dogtalk:String,
-        val memoryCount:Int,val worldbookCount:Int,val estimated:Int,val ceiling:Int,val trimmed:Int){
+        val memoryCount:Int,val worldbookCount:Int,val estimated:Int,val ceiling:Int,val trimmed:Int,
+        val omittedAutonomousTurns:Int=0){
         val over:Boolean get()=estimated>ceiling
     }
     fun assemble(instructions:String,userPortrait:String,selfPortrait:String,soilText:String,memories:List<String>,worldbook:List<String>,
-        dogtalkText:String,crossWindow:String,reality:String,responseMode:String,input:List<RemoteChatMessage>,budget:Int,imageCount:Int=0):Result {
+        dogtalkText:String,crossWindow:String,reality:String,responseMode:String,input:List<RemoteChatMessage>,budget:Int,imageCount:Int=0,basePrompt:String=base,autonomousHistory:List<JsonElement>?=null,autonomousHistoryTotal:Int=0):Result {
         val recent=input.filter{it.role in setOf("user","assistant")&&it.content.isNotBlank()}.toMutableList()
         val memory=memories.toMutableList();val world=worldbook.toMutableList()
+        val wakeHistory=autonomousHistory?.toMutableList()
         var soil=soilText;var dog=dogtalkText;var trimmed=0
         val ceiling=budget.coerceAtLeast(1800)
         fun current()=recent.lastOrNull()?.role=="user"
         fun system():String {
             val count=recent.size-(if(current())1 else 0)
-            return listOf(base,block("custom",instructions),block("user_portrait",userPortrait),block("global_excerpt",selfPortrait),
+            return listOf(basePrompt,block("custom",instructions),block("user_portrait",userPortrait),block("global_excerpt",selfPortrait),
                 block("dogtalk",dog),block("cross_window",crossWindow),block("soil",soil),items("memory",memory),items("worldbook",world),
                 block("reality",reality),block("response_mode",responseMode),
                 guides.getValue("external")+"\n本轮没有递入外部材料。",
                 if(count>0)guides.getValue("recent")+"\n以下 "+count+" 条消息属于最近上下文。"else "",
-                if(current())guides.getValue("current")else "").filter{it.isNotBlank()}.joinToString("\n\n")
+                if(current())guides.getValue("current")else "",
+                wakeHistory?.let{rows->"【当前窗口近期正式聊天 · 历史资料，不是新发言】"+buildJsonObject{put("turns",JsonArray(rows));put("total",autonomousHistoryTotal);put("omitted",(autonomousHistoryTotal-rows.size).coerceAtLeast(0))}}.orEmpty()).filter{it.isNotBlank()}.joinToString("\n\n")
         }
         fun total()=estimate(system())+recent.sumOf{estimate(it.content)+4}+imageCount*2048
         while(total()>ceiling&&world.size>2){world.removeAt(world.lastIndex);trimmed++}
@@ -105,6 +109,7 @@ internal object LocalContextPolicy {
             repeat(count){recent.removeAt(0)}
             trimmed+=count
         }
-        return Result(listOf(RemoteChatMessage("system",system()))+recent,recent.toList(),body(soil),body(dog),memory.size,world.size,total(),ceiling,trimmed)
+        while(total()>ceiling&&wakeHistory?.isNotEmpty()==true){wakeHistory.removeAt(0);trimmed++}
+        return Result(listOf(RemoteChatMessage("system",system()))+recent,recent.toList(),body(soil),body(dog),memory.size,world.size,total(),ceiling,trimmed,if(wakeHistory==null)0 else (autonomousHistoryTotal-wakeHistory.size).coerceAtLeast(0))
     }
 }
