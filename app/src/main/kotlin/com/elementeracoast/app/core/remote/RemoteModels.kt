@@ -121,7 +121,8 @@ data class RemoteTurn(
     @SerialName("turn_type") val turnType: String? = null,
     @SerialName("model_id") val modelId: String? = null,
     val user: RemoteUserBranch = RemoteUserBranch(),
-    val assistant: RemoteAssistantBranches = RemoteAssistantBranches()
+    val assistant: RemoteAssistantBranches = RemoteAssistantBranches(),
+    @SerialName("wake_activity_id") val wakeActivityId: String? = null
 )
 
 @Serializable
