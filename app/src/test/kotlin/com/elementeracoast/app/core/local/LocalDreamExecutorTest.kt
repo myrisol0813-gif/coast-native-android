@@ -456,8 +456,8 @@ class LocalDreamExecutorTest {
         val edited=ledger.configure(cid,DreamSettingsRequest(cid,enabled.revision,"save",cfg.copy(dailyTime="10:00"),plan),false,at)!!
         assertTrue(edited.enabled);assertNotEquals(enabled.revision,edited.revision);assertEquals(grant,edited.grantRevision())
         assertNull(ledger.claim(cid,enabled.revision!!,plan,at+3600000))
-        assertNotNull(ledger.claim(cid,edited.revision!!,plan,at+3600000))
         assertFalse(LocalDreamArchive(store).export(cid)!!.toString().contains("authorizationRevision"))
+        assertNotNull(ledger.claim(cid,edited.revision!!,plan,at+3600000))
     }
     @Test fun scheduleDisplayDistinguishesDueQuietConsumedAndExpired(){
         val (_,armed)=fixture()
