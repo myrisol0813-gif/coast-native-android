@@ -42,8 +42,8 @@ android {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 34
-        versionCode = 140
-        versionName = "0.1.138"
+        versionCode = 141
+        versionName = "0.1.139"
         buildConfigField("String", "COAST_API_BASE_URL", "\"https://app.elementeracoast.com\"")
         // Feature availability is on; each window must still explicitly authorize execution.
         // Build overrides remain available for diagnostic or restricted distributions.
