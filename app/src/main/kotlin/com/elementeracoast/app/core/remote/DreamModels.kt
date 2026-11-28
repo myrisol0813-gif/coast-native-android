@@ -38,10 +38,13 @@ data class DreamSettings(
 )
 
 @Serializable
+data class DreamScheduleView(val dailyStatus:String="disabled",val extraStatus:String="none",val extraAt:Long?=null,val eligibleKind:String?=null)
+
+@Serializable
 data class DreamSettingsResponse(
     val ok:Boolean=false,val settings:DreamSettings=DreamSettings(),
     val executionAvailable:Boolean=false,val schedulerConfigured:Boolean=false,
-    val planExecutionAvailable:Boolean=false,val planStatus:String?=null,val planRequestLimit:Int?=null
+    val planExecutionAvailable:Boolean=false,val planStatus:String?=null,val planRequestLimit:Int?=null,val schedule:DreamScheduleView?=null
 )
 
 @Serializable

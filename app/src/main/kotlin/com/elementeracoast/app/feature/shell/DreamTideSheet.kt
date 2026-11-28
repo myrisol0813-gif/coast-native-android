@@ -138,6 +138,19 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
         finally{busy=false}
     }
     LaunchedEffect(cid,tab,offset){load()}
+    LaunchedEffect(cid,tab,loaded){
+        if(tab==0&&loaded)while(true){
+            delay(15000)
+            if(!busy)try{
+                val revision=response.settings.revision
+                val fresh=api.dreamSettings(cid)
+                if(!busy&&response.settings.revision==revision){
+                    if(fresh.settings.revision==revision)response=onlineDevice?.status(cid,fresh)?:fresh
+                    else notice="设置已在其他端更改，请重新打开后编辑。"
+                }
+            }catch(e:CancellationException){throw e}catch(_:Exception){}
+        }
+    }
     val activeActivity=activityPage.items.any{it.status=="running"}
     LaunchedEffect(cid,tab,offset,activeActivity){
         if(tab==2&&offset==0&&activeActivity)while(activityPage.items.any{it.status=="running"}){
@@ -209,7 +222,17 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                     else->"已授权"
                 })
                 Text(if(localMode)if(canArm)"本机按系统后台调度尝试唤醒。仅向绑定供应商请求；强停、关机、断网或省电限制可能延迟或中断。" else "本机目前仅支持保存配置，尚未开放自动执行。不会访问云端。" else if(planDraft&&response.planExecutionAvailable)"在线资料由海岸保存；套餐唤醒由这台手机调度和推理。强停、关机、断网或省电限制可能延迟或中断；无需云端套餐凭据。" else if(canArm)"服务端已配置调度，授权后才会请求模型。" else "此模型路径尚未开通调度，可先保存设置。",style=MaterialTheme.typography.bodySmall)
-                response.settings.extraAt?.let{Text("下一次额外预约："+stamp(it))}
+                if(response.settings.enabled){
+                    val schedule=response.schedule
+                    response.settings.config?.let{saved->
+                        val status=when(schedule?.dailyStatus){"used"->"本日时段已使用";"tomorrow"->"本日已错过，从次日开始";"waiting"->"等待固定时段";"quiet"->"安静时段内";"due"->"已到时段，等待调度";else->"状态未确认"}
+                        Text("每日 "+saved.dailyTime+" · "+saved.timeZone+" · "+status,style=MaterialTheme.typography.bodySmall)
+                    }
+                    val extra=schedule?.extraAt
+                    if(extra!=null)Text((when(schedule.extraStatus){"quiet"->"额外预约已到，安静时段内";"due"->"额外预约已到，等待调度";else->"额外预约"})+"："+stamp(extra))
+                    else Text(if(schedule==null)"额外预约状态未确认" else "暂无有效额外预约",style=MaterialTheme.typography.bodySmall)
+                    if(schedule?.eligibleKind!=null)Text("当前有可认领时段，不代表精确执行保证。",style=MaterialTheme.typography.bodySmall)
+                }
                 if(response.settings.enabled)Button(onClick={save("disarm")},enabled=!busy){Text("关闭唤醒授权")}
                 DreamField("绑定模型 ID",model,{model=it.take(180)},!busy)
                 if(planDraft){

@@ -28,6 +28,19 @@ internal object LocalDreamSchedule {
         val epoch=if(previous!=null&&(previous.dailyTime!=next.dailyTime||previous.timeZone!=next.timeZone))UUID.randomUUID().toString()else previous?.scheduleEpoch
         return next.copy(scheduleEpoch=epoch)
     }
+    fun view(settings:DreamSettings,used:Set<String>,extraCount:Int,now:Long):DreamScheduleView{
+        val c=settings.config?:return DreamScheduleView()
+        val armed=settings.armedAt?:return DreamScheduleView()
+        val e=c.execution?:return DreamScheduleView()
+        if(!settings.enabled)return DreamScheduleView()
+        val here=day(now,c.timeZone);val m=minute(now,c.timeZone);val daily=minute(c.dailyTime)
+        val quiet=c.quietHours?.let{val a=minute(it.start);val b=minute(it.end);a==b||if(a<b)m in a until b else m>=a||m<b}?:false
+        val dailyKey="daily:"+here+(c.scheduleEpoch?.let{":"+it}?:"")
+        val dailyStatus=when{dailyKey in used->"used";day(armed,c.timeZone)==here&&minute(armed,c.timeZone)>daily->"tomorrow";m<daily->"waiting";quiet->"quiet";else->"due"}
+        val extra=settings.extraAt?.takeIf{at->c.allowExtra&&e.extraPerDay>0&&at>=armed&&settings.extraId!=null&&"extra:"+settings.extraId !in used&&day(at,c.timeZone)>=here&&(day(at,c.timeZone)!=here||extraCount<e.extraPerDay)}
+        val extraStatus=when{extra==null->"none";extra>now->"waiting";quiet->"quiet";else->"due"}
+        return DreamScheduleView(dailyStatus,extraStatus,extra,if(settings.running)null else candidate(settings.copy(extraAt=extra),used,now)?.kind)
+    }
     fun candidate(settings:DreamSettings,used:Set<String>,now:Long):LocalDreamSlot?{
         val c=settings.config?:return null
         val armed=settings.armedAt?:return null
@@ -57,6 +70,12 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     private fun active(h:JsonObject)=h.rows("runs").firstOrNull{it.str("status")=="running"}
     fun active(cid:String)=store.readConsistent{s->active(LocalDreamArchive(s).runtimeHistory(cid))!=null}
     fun settings(cid:String)=store.readConsistent{s->draft(s,cid).copy(running=active(LocalDreamArchive(s).runtimeHistory(cid))!=null)}
+    fun scheduleView(cid:String,now:Long=System.currentTimeMillis()):DreamScheduleView=store.readConsistent{s->
+        val h=LocalDreamArchive(s).runtimeHistory(cid);val a=draft(s,cid).copy(running=active(h)!=null)
+        val c=a.config?:return@readConsistent DreamScheduleView()
+        val runs=h.rows("runs")
+        LocalDreamSchedule.view(a,runs.map{it.str("slot_key")}.toSet(),runs.count{it.str("kind")=="extra"&&it.str("local_day")==LocalDreamSchedule.day(now,c.timeZone)},now)
+    }
     fun configure(cid:String,request:DreamSettingsRequest,enableAllowed:Boolean,now:Long=System.currentTimeMillis(),planRevision:String?=null):DreamSettings?=store.readConsistent{s->
         if(!live(s,cid))return@readConsistent null
         val old=draft(s,cid)
