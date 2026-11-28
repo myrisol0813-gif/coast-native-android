@@ -200,6 +200,32 @@ class LocalDreamExecutorTest {
         assertFalse(exposed.contains("create_moment"))
         assertFalse(LocalDreamToolPolicy.allowed(claim.copy(config=cfg),"moment_comment"))
     }
+    @Test fun wakePortraitProposalKeepsOfficialDocumentUnchanged()=runBlocking{
+        val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+        val history=cache.history(cid)!!
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
+        LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(includeSelfPortrait=true,allowSelfPortraitProposal=true,includeUserPortrait=false,allowUserPortraitProposal=true,tokenBudget=24000))
+        val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+        val before=LocalPortraitStore(store).body("self_portrait")
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,_,tools,_->
+            requests++
+            if(requests==1){
+                assertTrue(tools.toString().contains("global_excerpt_propose"))
+                assertFalse(tools.toString().contains("user_portrait_propose"))
+                response(call("p","global_excerpt_propose",buildJsonObject{put("proposed_body","fixture complete new portrait");put("reason","fixture lasting observation");put("change_kind","rewrite")}))
+            }else response()
+        },clock={at})
+        assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+        val portraits=LocalPortraitStore(store)
+        assertEquals(before,portraits.body("self_portrait"))
+        val candidate=portraits.read("self_portrait")!!.candidates.single()
+        assertEquals(cid,candidate.getValue("source_conversation_id").jsonPrimitive.content)
+        assertEquals(JsonNull,candidate["source_message_id"])
+        assertTrue(candidate.getValue("id").jsonPrimitive.content.startsWith("portrait_dream_"))
+        assertTrue(portraits.read("user_portrait")?.candidates.orEmpty().isEmpty())
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
