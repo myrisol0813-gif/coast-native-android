@@ -64,6 +64,22 @@ internal class LocalDreamExecutor(
             for(n in page){if(JsonArray(chosen+n).toString().length>24000)omitted++ else chosen.add(n)}
             parts.add("【自主手记与回复 · 历史资料，不是新发言】"+buildJsonObject{put("notes",JsonArray(chosen));put("omitted",omitted);put("scope","最近最多十封")})
         }
+        if(e.includeRecentChat){
+            fun page(start:Int,count:Int)=history(c,buildJsonObject{put("mode","window");put("start",start);put("count",count)},previous)
+            val total=page(0,1).getValue("total").jsonPrimitive.int
+            var count=minOf(total,e.readTurns)
+            var selected=JsonArray(emptyList())
+            while(count>0){
+                val result=page(total-count,count)
+                selected=result.getValue("turns").jsonArray
+                if(result["reason"]?.jsonPrimitive?.contentOrNull!="range_too_large")break
+                count/=2
+            }
+            parts.add("【当前窗口近期正式聊天 · 历史资料，不是新发言】"+buildJsonObject{
+                put("turns",selected);put("total",total);put("omitted",total-selected.size);put("max_turns",e.readTurns);put("max_chars",60000)
+                if(count==0&&total>0)put("reason","range_too_large")
+            })
+        }
         if(e.includeCustom)LocalKnowledgeStore(store).instructions()?.content?.takeIf{it.isNotBlank()}?.let{parts.add("【核心自定义】"+it)}
         if(e.includeUserPortrait)LocalPortraitStore(store).body("user_portrait").takeIf{it.isNotBlank()}?.let{parts.add("【用户画像】"+it)}
         if(e.includeSelfPortrait)LocalPortraitStore(store).body("self_portrait").takeIf{it.isNotBlank()}?.let{parts.add("【自我画像】"+it)}
