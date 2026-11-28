@@ -246,6 +246,8 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("小笺与回笺",execution.includeReplies,!busy){execution=execution.copy(includeReplies=it)}
                 DreamSwitch("允许自主选读窗口历史",execution.readHistory,!busy){execution=execution.copy(readHistory=it)}
                 DreamSwitch("允许写小笺",execution.writeNote,!busy){execution=execution.copy(writeNote=it)}
+                DreamSwitch("允许在当前窗口主动发送正式消息（计入工具预算）",execution.allowMessage,!busy){execution=execution.copy(allowMessage=it)}
+                Text("每条正文最多12000字符。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("核心自定义",execution.includeCustom,!busy){execution=execution.copy(includeCustom=it)}
                 DreamSwitch("用户画像",execution.includeUserPortrait,!busy){execution=execution.copy(includeUserPortrait=it)}
                 DreamSwitch("自我画像",execution.includeSelfPortrait,!busy){execution=execution.copy(includeSelfPortrait=it)}
