@@ -107,7 +107,7 @@ internal object LocalSoilRun {
     private const val MAX_PORTRAIT = 12000
     private val modules = listOf("user_portrait", "self_portrait")
     private val textFields = setOf("current_text", "afterthoughts", "memory_candidates", "seed_candidates", "user_portrait", "self_portrait")
-    data class Turn(val id: String, val user: RemoteVariant, val assistant: RemoteVariant,val messages:List<RemoteVariant> = emptyList())
+    data class Turn(val id: String, val user: RemoteVariant?, val assistant: RemoteVariant,val messages:List<RemoteVariant> = emptyList(),val wakeActivityId:String?=null)
     data class Prepared(
         val cid: String, val model: String, val row: JsonObject, val history: List<RemoteTurn>,
         val turns: List<Turn>, val portraitRoots: Map<String, JsonObject?>, val prompt: String
@@ -128,13 +128,16 @@ internal object LocalSoilRun {
     }
     private fun active(history: List<RemoteTurn>): List<Turn> = history.mapNotNull { t ->
         val key = t.user.active.toString()
-        val u = t.user.variants.getOrNull(t.user.active) ?: return@mapNotNull null
+        val u = t.user.variants.getOrNull(t.user.active)
+        val wake=t.wakeActivityId?.takeIf{t.turnType=="dream_tide"&&t.user.variants.isEmpty()&&it.isNotBlank()}
+        if(u==null&&wake==null)return@mapNotNull null
         val list=t.assistant.variantsByUserVariant[key].orEmpty()
         val selected=t.assistant.activeByUserVariant[key]?:0
         val group=com.elementeracoast.app.feature.chat.ReplySequence.selectedGroup(list,selected)
         val a=group.lastOrNull()?:return@mapNotNull null
-        if (u.hidden || u.inputType == "landing_letter" || a.hidden || a.content.isBlank() ||
-            a.finishReason in setOf("cancelled", "error") || !a.errorDetail.isNullOrBlank()) null else Turn(t.id,u,a,group.takeIf{a.replySequence!=null}.orEmpty())
+        if (u?.hidden==true || u?.inputType == "landing_letter" || a.hidden || a.content.isBlank() ||
+            (wake!=null&&a.generationSource!="dream_tide") ||
+            a.finishReason in setOf("cancelled", "error") || !a.errorDetail.isNullOrBlank()) null else Turn(t.id,u,a,group.takeIf{a.replySequence!=null}.orEmpty(),wake)
     }
     fun prepare(store: LocalPersistence, cid: String, model: String,sequenceId:String?=null): Prepared? = store.readConsistent { s ->
         val row = LocalSoilStore(s).current(cid) ?: return@readConsistent null
@@ -152,7 +155,8 @@ internal object LocalSoilRun {
         val portraits = modules.associateWith { LocalPortraitStore(s).read(it)?.root }
         fun digest(t:Turn,limit:Int)=buildJsonObject {
             put("turn_id",t.id)
-            put("user",buildJsonObject { put("message_id",t.user.id);put("content",clip(t.user.content,limit)) })
+            t.wakeActivityId?.let{put("generation_source","dream_tide");put("wake_activity_id",it)}
+            put("user",t.user?.let{u->buildJsonObject { put("message_id",u.id);put("content",clip(u.content,limit)) }}?:JsonNull)
             put("assistant",buildJsonObject { put("message_id",t.assistant.id);put("content",clip(t.assistant.content,if(t.messages.isEmpty())limit else limit/2)) })
             if(t.messages.isNotEmpty())put("assistant_messages",JsonArray(t.messages.mapIndexed{index,message->buildJsonObject{
                 val text=clip(message.content,(limit/(2*t.messages.size)).coerceAtLeast(1))
