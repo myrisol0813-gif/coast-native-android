@@ -79,7 +79,23 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         if(arm&&(!enableAllowed||!request.confirmExecution||(if(plan)planRevision==null||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646 else !model.startsWith("local:")||'/' !in model)))return@readConsistent null
         // Only an explicit clock/zone edit creates a new daily schedule identity.
         // Reauthorization, unchanged saves, and budget edits cannot replay a slot.
-        val next=DreamSettings(revision=if(arm&&plan)requireNotNull(planRevision)else UUID.randomUUID().toString(),enabled=arm,config=LocalDreamSchedule.withScheduleIdentity(cfg,old.config),modelId=model,armedAt=if(arm)now else null)
+        val sameBinding=arm&&old.enabled&&old.modelId==model
+        val sameClock=old.config?.dailyTime==cfg.dailyTime&&old.config?.timeZone==cfg.timeZone
+        val armedAt=if(arm){if(sameBinding&&sameClock)old.armedAt?:now else now}else null
+        val extra=old.extraAt
+        val extraId=old.extraId
+        val quiet=extra?.let{value->cfg.quietHours?.let{q->
+            val m=Instant.ofEpochMilli(value).atZone(ZoneId.of(cfg.timeZone)).toLocalTime()
+            val minute=m.hour*60+m.minute
+            fun minutes(v:String)=LocalTime.parse(v).let{it.hour*60+it.minute}
+            val a=minutes(q.start);val z=minutes(q.end)
+            a==z||if(a<z)minute in a until z else minute>=a||minute<z
+        }}?:false
+        val runs=LocalDreamArchive(s).runtimeHistory(cid).rows("runs")
+        val keepExtra=sameBinding&&cfg.allowExtra&&e.extraPerDay>0&&extra!=null&&extra>now&&extra>=(old.armedAt?:now)&&extraId!=null&&!quiet&&
+            runs.none{it.str("slot_key")=="extra:"+extraId}&&runs.count{it.str("kind")=="extra"&&it.str("local_day")==LocalDreamSchedule.day(extra,cfg.timeZone)}<e.extraPerDay
+        val next=DreamSettings(revision=if(arm&&plan)requireNotNull(planRevision)else UUID.randomUUID().toString(),enabled=arm,config=LocalDreamSchedule.withScheduleIdentity(cfg,old.config),modelId=model,armedAt=armedAt,
+            extraAt=extra.takeIf{keepExtra},extraId=extraId.takeIf{keepExtra})
         save(s,cid,next);next
     }
     private fun authorized(s:LocalPersistence,c:Claim,h:JsonObject):Boolean{
