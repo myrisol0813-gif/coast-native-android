@@ -112,7 +112,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         })
         fun JsonObject.ok()=get("ok")?.jsonPrimitive?.booleanOrNull==true
         diagnostic(r,"check","claim_request")
-        val admitted=try{action("claim")}catch(e:CancellationException){throw e}catch(e:Exception){
+        val admitted=try{action("claim",buildJsonObject{put("history_vision",binding.vision==true)})}catch(e:CancellationException){throw e}catch(e:Exception){
             diagnostic(r,"attempt","claim_response_unconfirmed",WakeDiagnostic.reason(e),http=WakeDiagnostic.http(e));return false
         }
         if(!admitted.ok()){diagnostic(r,"check","claim_not_admitted",admitted.str("reason"));return false}
@@ -142,6 +142,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
             val instructions=admitted.getValue("instructions").jsonPrimitive.content
             val session=NativeDreamPlanSession(binding.grant,instructions,e.tokenBudget,e.outputLimit){body,tools->binding.send(body,tools){authorized()}}
             var results=emptyList<JsonObject>()
+            var pendingImages=emptyList<JsonObject>()
             var usedTools=0L
             coroutineScope{
                 val running=currentCoroutineContext()[Job]!!
@@ -158,10 +159,14 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         if(!session.canContinue()){reason="plan_step_or_soft_budget_limit";break}
                         stepIndex=i;mark("request_prepare")
                         val tools=if(usedTools>=e.toolBudget||i==e.toolBudget||i+1>=limit)JsonArray(emptyList())else offered
-                        val step=session.step(i,tools,results,reserve={
+                        val images=pendingImages;pendingImages=emptyList()
+                        val imageIds=JsonArray(images.map{it.getValue("id")})
+                        check(images.isEmpty()||binding.vision==true)
+                        val step=session.step(i,tools,results,images.map{it.getValue("message").jsonObject},reserve={
                             mark("request_reserved")
-                            val reply=action("reserve",buildJsonObject{put("step",i)})
+                            val reply=action("reserve",buildJsonObject{put("step",i);if(images.isNotEmpty())put("image_ids",imageIds)})
                             if(!reply.ok())throw NativeDreamPlanFailure("reserve_"+WakeDiagnostic.code(reply.str("reason")))
+                            if(images.isNotEmpty())check(reply["image_ids"]==imageIds)
                             inFlight=i;mark("provider_wait")
                             true
                         },authorize={authorized()})
@@ -177,6 +182,8 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         })
                         if(!response.ok())throw NativeDreamPlanFailure("step_"+WakeDiagnostic.code(response.str("reason")))
                         results=response.getValue("results").jsonArray.map{it.jsonObject}
+                        pendingImages=(response["images"] as? JsonArray).orEmpty().map{it.jsonObject}
+                        check(pendingImages.isEmpty()||binding.vision==true&&pendingImages.sumOf{it.getValue("bytes").jsonPrimitive.long}<=8L*1024*1024)
                         usedTools+=calls.size.toLong()
                         if(!noteNotified&&results.any{it.str("name")=="dream_write_note"}){
                             val n=runCatching{api.dreamNotes(r.cid).items.firstOrNull{it.claimId==claim}}.getOrNull()
