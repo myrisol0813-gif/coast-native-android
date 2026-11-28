@@ -312,7 +312,7 @@ internal class LocalToolSession private constructor(
             val input=parseInput(spec,arguments)
             store.atomic{s->
                 if(!allowedNow(s,spec))throw LocalToolFailure("permission_revoked","当前窗口写入权限已关闭或窗口已变化。")
-                if(autonomousClaim!=null)require(spec.name in setOf("create_moment","create_diary","calendar_create")||spec.name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
+                if(autonomousClaim!=null)require(spec.name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like")||spec.name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
                 val value=LocalToolWrites(s,cid,if(autonomousClaim==null)turn else null,modelId,if(autonomousClaim==null)auditId else "dream:"+callId).execute(spec.name,input)
                 if(estimated+estimate(arguments)+estimate(value.toString())+32>toolBudget)throw LocalToolFailure("budget_exceeded","本轮工具预算不足，未保存。")
                 auditWrite(s,auditId,spec.key,start,true)
@@ -446,7 +446,7 @@ internal class LocalToolSession private constructor(
             val h=RemoteCacheStore(store,strictReads=true).history(claim.cid)?:return null
             val e=requireNotNull(claim.config.execution)
             val read=h.contextSettings.localModelToolsEnabled
-            val write=h.contextSettings.localModelWriteEnabled&&(e.allowLibraryWrite||e.allowDailyWrite||e.allowCalendarWrite||e.allowVoice)
+            val write=h.contextSettings.localModelWriteEnabled&&(e.allowLibraryWrite||e.allowDailyWrite||e.allowDailyInteract||e.allowCalendarWrite||e.allowVoice)
             val cross=e.allowCrossWindow&&h.contextSettings.crossWindowAuto
             if(!read&&!write&&!cross)return null
             val session=LocalToolSession(store,claim.cid,"",null,cross,read,write,claim.model,
