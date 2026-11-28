@@ -113,7 +113,11 @@ class LocalDreamExecutorTest {
         assertTrue(ledger.recordTool(claim,0,0,true,null,at,voiceId))
         assertTrue(ledger.reserveTool(claim,0,1,"dream_send_message",at))
         assertNull(ledger.sendMessage(claim,0,1,"",at,voiceIds=listOf("voice_dream_foreign_0_0")))
+        val favorite=LocalSideRecords(store).saveTreasure(buildJsonObject{put("kind","audio");put("conversation_id",cid);put("source_id",voiceId);put("notes","原始备注")})
+        assertEquals(JsonNull,favorite["message_id"])
         val sent=ledger.sendMessage(claim,0,1,"",at,voiceIds=listOf(voiceId));assertNotNull(sent)
+        val linkedFavorite=LocalSideRecords(store).rows().single{it.kind=="vault_treasures"}.data
+        assertEquals(favorite["id"],linkedFavorite["id"]);assertEquals(JsonPrimitive(sent!!),linkedFavorite["message_id"]);assertEquals(JsonPrimitive("原始备注"),linkedFavorite["notes"])
         assertTrue(ledger.recordTool(claim,0,1,true,null,at,sent))
         assertTrue(ledger.reserveTool(claim,0,2,"dream_send_message",at))
         assertNull(ledger.sendMessage(claim,0,2,"",at,voiceIds=listOf(voiceId)))
@@ -127,7 +131,7 @@ class LocalDreamExecutorTest {
         try{
             val zip=java.io.File(dir,"voice.zip");val app="com.elementeracoast.source"
             val manifest=ArchiveV2Local.export(store,app,zip);val stage=ArchiveV2Stage(dir,"voice");ArchiveV2ZipReader.stage(zip,stage)
-            val dst=MemoryLocalPersistence();ArchiveV2Local.restore(manifest,stage,setOf("chat","voice"),app,dst,true)
+            val dst=MemoryLocalPersistence();ArchiveV2Local.restore(manifest,stage,setOf("chat","voice","vault"),app,dst,true)
             val restored=RemoteCacheStore(dst).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
             assertEquals(msg.id,restored.id);assertEquals(listOf(voiceId),restored.voiceIds)
             val side=LocalSideRecords(dst);assertArrayEquals(mp3,side.bytes(side.audio(voiceId)!!));assertFalse(LocalDreamLedger(dst).settings(cid).enabled)

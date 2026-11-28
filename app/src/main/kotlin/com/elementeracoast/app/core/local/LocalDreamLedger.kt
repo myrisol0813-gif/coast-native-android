@@ -251,7 +251,7 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
                 event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==voiceId
         }})return@atomic null
         val voices=LocalSideRecords(s)
-        val voiceRows=if(voiceIds.isEmpty())emptyList()else voices.rows()
+        val voiceRows=if(voiceIds.isEmpty()&&imageIds.isEmpty())emptyList()else voices.rows()
         val selected=voiceIds.map{voiceId->voiceRows.singleOrNull{r->r.kind=="voice"&&r.id==voiceId&&r.data.str("conversation_id")==c.cid&&r.data.str("source")=="dream_tide"&&r.data["turn_id"]==JsonNull&&r.data["message_id"]==JsonNull}?:return@atomic null}
         selected.forEach{voices.bytes(it)}
         val images=LocalAttachmentStore(s).bindDreamImages(c.cid,c.id,tid,imageIds,now)?:return@atomic null
@@ -265,7 +265,11 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         }.take(16)
         val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments,voiceIds=voiceIds)
         val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
-        if(selected.isNotEmpty())voices.save(voiceRows.map{r->if(r in selected)r.copy(data=JsonObject(r.data+mapOf("turn_id" to JsonPrimitive(tid),"message_id" to JsonPrimitive(mid))))else r})
+        if(imageIds.isNotEmpty()||voiceIds.isNotEmpty())voices.save(voiceRows.map{r->
+            val favorite=r.kind=="vault_treasures"&&r.data.str("conversation_id")==c.cid&&r.data["turn_id"]==JsonNull&&r.data["message_id"]==JsonNull&&
+                ((r.data.str("kind")=="image"&&r.data.str("source_id") in imageIds)||(r.data.str("kind")=="audio"&&r.data.str("source_id") in voiceIds))
+            if(r in selected||favorite)r.copy(data=JsonObject(r.data+mapOf("turn_id" to JsonPrimitive(tid),"message_id" to JsonPrimitive(mid))+(if(favorite)mapOf("role" to JsonPrimitive("assistant"))else emptyMap())))else r
+        })
         cache.putHistory(c.cid,history.copy(updatedAt=stamp,turns=history.turns+turn))
         cache.putConversations(cache.conversations().map{if(it.id==c.cid)it.copy(updatedAt=stamp)else it})
         mid
