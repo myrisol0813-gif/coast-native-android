@@ -49,7 +49,7 @@ internal class LocalDreamExecutor(
         }
     }
     private fun msg(role:String,content:String)=buildJsonObject{put("role",role);put("content",content)}
-    private suspend fun context(c:LocalDreamLedger.Claim,previous:JsonObject?):String{
+    private suspend fun context(c:LocalDreamLedger.Claim,previous:JsonObject?):Pair<String,JsonObject>{
         val e=requireNotNull(c.config.execution)
         val parts=mutableListOf("【自主唤醒 · 系统发起的独立活动】这不是用户新发言。可以探索或安静结束；无需产出聊天消息，不必使用工具。",e.invitation)
         if(e.includeTime)parts.add("【当前时间】"+Instant.ofEpochMilli(c.startedAt).atZone(ZoneId.of(c.config.timeZone)))
@@ -64,7 +64,8 @@ internal class LocalDreamExecutor(
             for(n in page){if(JsonArray(chosen+n).toString().length>24000)omitted++ else chosen.add(n)}
             parts.add("【自主手记与回复 · 历史资料，不是新发言】"+buildJsonObject{put("notes",JsonArray(chosen));put("omitted",omitted);put("scope","最近最多十封")})
         }
-        var recent=emptyList<RemoteChatMessage>()
+        var recent=emptyList<RemoteChatMessage>();var historyBlocks:List<JsonElement>?=null;var historyTotal=0
+        var soilText="";var memories=emptyList<String>();var worldbook=emptyList<String>();var custom="";var userPortrait="";var selfPortrait=""
         if(e.includeRecentChat){
             fun page(start:Int,count:Int)=history(c,buildJsonObject{put("mode","window");put("start",start);put("count",count)},previous)
             val total=page(0,1).getValue("total").jsonPrimitive.int
@@ -77,31 +78,28 @@ internal class LocalDreamExecutor(
                 count/=2
             }
             recent=selected.flatMap{it.jsonObject.getValue("messages").jsonArray}.map{v->RemoteChatMessage(v.jsonObject.str("role"),v.jsonObject.str("content"))}
-            parts.add("【当前窗口近期正式聊天 · 历史资料，不是新发言】"+buildJsonObject{
-                put("turns",selected);put("total",total);put("omitted",total-selected.size);put("max_turns",e.readTurns);put("max_chars",60000)
-                if(count==0&&total>0)put("reason","range_too_large")
-            })
+            historyBlocks=selected.toList();historyTotal=total
         }
         if(e.includeSoil){
             val row=LocalSoilStore(store).current(c.cid)
             if(row?.get("auto_refresh_enabled")?.jsonPrimitive?.intOrNull==1){
                 val current=row.str("current_text")
                 val after=Json.parseToJsonElement(row.str("afterthoughts_json")).jsonArray.map{it.jsonPrimitive.content}
-                LocalContextPolicy.formatSoil(current,after).takeIf{it.isNotBlank()}?.let{parts.add(it)}
+                soilText=LocalContextPolicy.formatSoil(current,after)
             }
         }
         if(e.includeRecall){
             val recalled=LocalMemoryStore(store).recallDetailed(e.invitation,c.cid)
             val texts=recalled.entries.map{v->listOf("标题："+v.title,"类型："+v.entryType,"标签："+v.tag,"来源窗口："+v.sourceWindow,"生命核："+v.lifeCore,"使用时机："+v.usageHint,"勿误用："+v.avoidHint,"内容："+v.content).joinToString("\n")}
-            if(texts.isNotEmpty())parts.add("【相关记忆】\n"+texts.joinToString("\n\n"))
+            memories=texts
         }
         if(e.includeWorldbook){
             val entries=LocalKnowledgeStore(store).match(e.invitation,recent,"main_chat")
-            if(entries.isNotEmpty())parts.add("【世界书】\n"+entries.joinToString("\n\n"){it.entry.title+"："+it.entry.content})
+            worldbook=entries.map{it.entry.title+"："+it.entry.content}
         }
-        if(e.includeCustom)LocalKnowledgeStore(store).instructions()?.content?.takeIf{it.isNotBlank()}?.let{parts.add("【核心自定义】"+it)}
-        if(e.includeUserPortrait)LocalPortraitStore(store).body("user_portrait").takeIf{it.isNotBlank()}?.let{parts.add("【用户画像】"+it)}
-        if(e.includeSelfPortrait)LocalPortraitStore(store).body("self_portrait").takeIf{it.isNotBlank()}?.let{parts.add("【自我画像】"+it)}
+        if(e.includeCustom)custom=LocalKnowledgeStore(store).instructions()?.content.orEmpty()
+        if(e.includeUserPortrait)userPortrait=LocalPortraitStore(store).body("user_portrait")
+        if(e.includeSelfPortrait)selfPortrait=LocalPortraitStore(store).body("self_portrait")
         val h=RemoteCacheStore(store,strictReads=true).history(c.cid)
         if(e.includeConversationCount&&previous!=null&&h!=null){
             val since=previous.getValue("started_at").jsonPrimitive.long
@@ -121,7 +119,13 @@ internal class LocalDreamExecutor(
                 if(real.missing.isNotEmpty())parts.add("【未取得的现实资料】"+real.missing.joinToString("、"))
             }
         }
-        return parts.joinToString("\n\n")
+        val windowBudget=h?.contextSettings?.contextBudget?:6000
+        val limit=minOf(if(windowBudget==0)18000 else windowBudget,(e.tokenBudget-minOf(e.outputLimit,(e.tokenBudget/4).coerceAtLeast(1))).coerceAtLeast(1))
+        val comfort=LocalContextPolicy.assemble(custom,userPortrait,selfPortrait,soilText,memories,worldbook,"","","","",emptyList(),limit,basePrompt=parts.joinToString("\n\n"),autonomousHistory=historyBlocks,autonomousHistoryTotal=historyTotal)
+        return comfort.messages.single().content to buildJsonObject{
+            put("estimated_tokens",comfort.estimated);put("comfort_ceiling",comfort.ceiling);put("trimmed_count",comfort.trimmed);put("omitted_turns",comfort.omittedAutonomousTurns);put("over_budget",comfort.over)
+            putJsonObject("kept"){put("custom_instructions",custom.isNotBlank());put("user_portrait",userPortrait.isNotBlank());put("global_excerpt",selfPortrait.isNotBlank());put("soil",comfort.soil.isNotBlank());put("memory",comfort.memoryCount);put("worldbook",comfort.worldbookCount)}
+        }
     }
     private fun history(c:LocalDreamLedger.Claim,a:JsonObject,previous:JsonObject?):JsonObject{
         val mode=a.str("mode");val start=a["start"]?.jsonPrimitive?.intOrNull;val count=a["count"]?.jsonPrimitive?.intOrNull
@@ -164,7 +168,7 @@ internal class LocalDreamExecutor(
         val e=requireNotNull(c.config.execution);var status="failed";var reason="incomplete"
         var total=0L;var cost=0.0;var known=true;var costKnown=!isPlan;var calls=0;var proposed:Long?=null
         val activities=mutableListOf<JsonElement>()
-        var lastMessageId:String?=null;var soilResult:JsonObject?=null
+        var lastMessageId:String?=null;var soilResult:JsonObject?=null;var contextReceipt:JsonObject?=null
         var cancelled:CancellationException?=null
         var phase="context";var stepIndex:Int?=null;var httpStatus:Int?=null
         var inputEstimate:Long?=null;var remainingBudget:Long?=null
@@ -181,7 +185,8 @@ internal class LocalDreamExecutor(
                 try{
                     mark("context")
                     val previous=ledger.previous(c)
-                    val invitation=context(c,previous)
+                    val (invitation,receipt)=context(c,previous)
+                    contextReceipt=receipt
                     mark("tools_prepare")
                     val messages=mutableListOf<JsonElement>(msg("system",invitation))
                     val planSession=plan?.let{p->NativeDreamPlanSession(p.grant,invitation,e.tokenBudget,e.outputLimit){body,tools->p.send(body,tools){authorized()}}}
@@ -389,7 +394,7 @@ internal class LocalDreamExecutor(
             put("reason",reason);put("phase",phase);stepIndex?.let{put("step",it)};httpStatus?.let{put("http_status",it)}
             put("confirmed_tokens",total);inputEstimate?.let{put("estimated_input_tokens",it)};remainingBudget?.let{put("estimated_remaining_tokens",it)}
             putJsonObject("limits"){put("token_budget",e.tokenBudget);put("tool_budget",e.toolBudget);plan?.grant?.requestLimit?.let{put("request_limit",it)}}
-            put("activities",JsonArray(activities));put("tool_calls",calls);soilResult?.let{put("soil",it)}
+            put("activities",JsonArray(activities));put("tool_calls",calls);soilResult?.let{put("soil",it)};contextReceipt?.let{put("context",it)}
             put("total_tokens",if(known)JsonPrimitive(total)else JsonNull);put("reported_cost",if(costKnown)JsonPrimitive(cost)else JsonNull)
             proposed?.let{put("proposed_extra_at",it)};put("accounting",if(isPlan)"ChatGPT plan usage; soft token budget; no USD inference cost reported; separate media cost not included" else "chat provider reported; separate media cost not included; input estimate is not a hard billing guarantee")
         }
