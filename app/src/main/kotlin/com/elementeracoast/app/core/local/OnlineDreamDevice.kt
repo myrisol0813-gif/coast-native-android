@@ -126,6 +126,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         var phase="device_received";var stepIndex:Int?=null;var httpStatus:Int?=null
         fun mark(value:String){phase=value;diagnostic(r,"attempt",phase,step=stepIndex,claim=claim)}
         var inFlight:Int?=null
+        var soilInFlight:Int?=null
         var cancellation:CancellationException?=null
         suspend fun authorized()=stillRegistered(r)&&binding.authorized()&&action("heartbeat").ok()
         try{
@@ -184,6 +185,38 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                         if(finish=="stop"){completed=true;reason="ended";break}
                         if(response["canContinue"]?.jsonPrimitive?.booleanOrNull!=true){reason="plan_step_or_soft_budget_limit";break}
                     }
+                    if(completed){
+                        try{
+                            val prepared=action("soil_prepare")
+                            if(prepared.ok()&&prepared["skipped"]?.jsonPrimitive?.booleanOrNull!=true){
+                                val index=prepared.getValue("step").jsonPrimitive.int
+                                soilInFlight=index
+                                stepIndex=index
+                                val remaining=prepared.getValue("remaining").jsonPrimitive.long
+                                val hint=prepared.getValue("outputHint").jsonPrimitive.int
+                                val prompt=prepared.getValue("prompt").jsonPrimitive.content
+                                check(index in 0 until limit&&index<=e.toolBudget&&remaining>0&&hint>0)
+                                check(authorized())
+                                mark("provider_wait")
+                                val body=NativeDreamPlanProtocol.body(binding.grant.model,prompt+"\n只返回完整整理 JSON；建议输出不超过 "+hint+" token。",listOf(buildJsonObject{put("role","developer");put("content","整理已经发送的正式自主消息，不是人类新发言。")}),JsonArray(emptyList()),remaining)
+                                val raw=binding.send(body,emptySet()){authorized()}.normalized
+                                val choice=raw.getValue("choices").jsonArray.first().jsonObject
+                                val message=choice.getValue("message").jsonObject
+                                val text=message.str("content")
+                                val max=prepared.getValue("max_result_chars").jsonPrimitive.int
+                                val finish=if(choice.str("finish_reason")=="stop"&&text.length<=max)"stop" else "failed"
+                                soilInFlight=null
+                                mark("step_delivery")
+                                val settled=action("soil_commit",buildJsonObject{
+                                    put("step",index);put("finish",finish);put("usage",raw["usage"]?:JsonNull)
+                                    if(finish=="stop")put("result_text",text)
+                                })
+                                if(!settled.ok())diagnostic(r,"attempt","soil_settlement_unconfirmed",settled.str("reason"),index,claim)
+                            }
+                        }catch(ex:CancellationException){throw ex}catch(ex:Exception){
+                            diagnostic(r,"attempt","soil_unconfirmed",WakeDiagnostic.reason(ex),stepIndex,claim,WakeDiagnostic.http(ex))
+                        }
+                    }
                 }finally{heartbeat.cancelAndJoin()}
             }
         }catch(e:CancellationException){cancellation=e;reason="authorization_or_task_ended"}
@@ -192,6 +225,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
             withContext(NonCancellable){
                 diagnostic(r,"attempt",phase,reason,stepIndex,claim,httpStatus)
                 inFlight?.let{i->runCatching{action("step",buildJsonObject{put("step",i);put("finish","failed");put("reason",reason);httpStatus?.let{put("http_status",it)};put("usage",JsonNull);put("calls",JsonArray(emptyList()))})}}
+                soilInFlight?.let{i->runCatching{action("soil_commit",buildJsonObject{put("step",i);put("finish","failed");put("usage",JsonNull)})}}
                 val settled=runCatching{action("finish",buildJsonObject{put("completed",completed);put("reason",reason);put("phase",phase)})}.getOrNull()
                 if(settled?.ok()!=true)diagnostic(r,"check","finish_unconfirmed",settled?.str("reason")?:"finish_response_unconfirmed",stepIndex,claim)
                 // Read back the persisted note even if the last tool response
