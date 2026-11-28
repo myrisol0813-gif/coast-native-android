@@ -181,7 +181,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 if(!saved.ok)error="保存未确认。"
                 else{
                     hydrate(api.dreamSettings(cid))
-                    notice=when(action){"arm"->"已授权梦醒潮";"disarm"->"已撤回授权";else->"设置已保存 · 未启用"}
+                    notice=when(action){"arm"->"已授权梦醒潮";"disarm"->"已撤回授权";else->if(saved.settings.enabled)"设置已保存 · 保留授权" else "草稿已保存 · 未启用"}
                 }
             }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"保存未完成。"}
             finally{busy=false}
@@ -288,11 +288,12 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("自主语音（独立供应商费用）",execution.allowVoice,!busy){execution=execution.copy(allowVoice=it)}
                 DreamSwitch("自主生图（独立供应商费用）",execution.allowImage,!busy){execution=execution.copy(allowImage=it)}
                 DreamSwitch("允许将本次自主生图原件转交支持视觉的模型（计入推理预算）",execution.allowImageReadback,!busy){execution=execution.copy(allowImageReadback=it)}
-                Button(onClick={save("save")},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("保存设置（不启用）")}
+                Text("已授权时保存不会撤销授权。修改模型、预算或权限须重新授权，套餐定时修改也须重新授权。",style=MaterialTheme.typography.bodySmall)
+                Button(onClick={save("save")},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(response.settings.enabled)"保存设置（保留授权）" else "保存草稿（不启用）")}
                 if(canArmSelected){
                     DreamSwitch(if(planDraft)"确认允许按设置自动使用本机套餐额度（媒体可能另计费用）" else "确认按上述设置进行模型调用并产生相应费用",consent,!busy){consent=it}
                     if(planDraft)DreamSwitch("理解套餐 token 为软预算，不是供应商硬上限",softConsent,!busy){softConsent=it}
-                    Button(onClick={save("arm")},enabled=!busy&&consent&&(!planDraft||softConsent),modifier=Modifier.fillMaxWidth()){Text("保存并授权唤醒")}
+                    Button(onClick={save("arm")},enabled=!busy&&consent&&(!planDraft||softConsent),modifier=Modifier.fillMaxWidth()){Text(if(response.settings.enabled)"保存并重新授权" else "保存并授权唤醒")}
                 }
             }else if(tab==1){
                 if(localMode&&!canArm)Text("本机自动执行尚未开放；已归档的历史仍可阅读。",style=MaterialTheme.typography.bodySmall)

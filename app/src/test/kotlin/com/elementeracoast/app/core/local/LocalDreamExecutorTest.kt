@@ -429,10 +429,24 @@ class LocalDreamExecutorTest {
     @Test fun largerOwnerBudgetsSaveAndArchiveWithoutClamping(){
         val (store,armed)=fixture()
         val e=cfg.execution!!.copy(tokenBudget=2000000,outputLimit=100000,toolBudget=200,readTurns=500,extraPerDay=200,voiceLimit=200,imageLimit=200)
-        val updated=LocalDreamLedger(store).configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(execution=e),model),false,at)!!
+        val ledger=LocalDreamLedger(store)
+        val paused=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"disarm"),false,at)!!
+        val updated=ledger.configure(cid,DreamSettingsRequest(cid,paused.revision,"save",cfg.copy(execution=e),model),false,at)!!
         assertEquals(e,updated.config!!.execution)
         assertNotNull(LocalDreamArchive(store).export(cid))
         assertFalse(updated.enabled)
+    }
+    @Test fun ordinarySaveKeepsExistingAuthorizationAndDoesNotWidenPermissions(){
+        val (store,armed)=fixture();val ledger=LocalDreamLedger(store)
+        val unchanged=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg,model),false,at)!!
+        assertTrue(unchanged.enabled);assertEquals(armed.revision,unchanged.revision)
+        try{
+            ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(execution=cfg.execution!!.copy(tokenBudget=20000)),model),false,at)
+            fail("permission change must require explicit authorization")
+        }catch(_:IllegalArgumentException){}
+        assertEquals(armed,ledger.settings(cid))
+        val edited=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(dailyTime="10:00"),model),false,at)!!
+        assertTrue(edited.enabled);assertEquals("10:00",edited.config!!.dailyTime);assertNotEquals(armed.revision,edited.revision)
     }
     @Test fun scheduleQuietAndAlreadyConsumedSlots(){
         val (_,a)=fixture()

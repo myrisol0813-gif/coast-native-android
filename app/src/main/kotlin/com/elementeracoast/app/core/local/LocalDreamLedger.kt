@@ -74,9 +74,16 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
         require(clock.matches(cfg.dailyTime)){"每日固定时间须为 HH:mm。"};ZoneId.of(cfg.timeZone)
         cfg.quietHours?.let{require(clock.matches(it.start)&&clock.matches(it.end)){"安静时段须为 HH:mm。"}}
         require(e.tokenBudget in 1..2147483646&&e.outputLimit in 1..2147483646&&e.toolBudget in 0..2147483646&&e.readTurns in 1..2147483646&&e.extraPerDay in 0..2147483646&&e.voiceLimit in 0..2147483646&&e.imageLimit in 0..2147483646&&e.invitation.isNotBlank()&&e.invitation.length<=16000)
-        val arm=request.action=="arm"
+        val activeSave=request.action=="save"&&old.enabled
         val plan=com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.slug(model)!=null
-        if(arm&&(!enableAllowed||!request.confirmExecution||(if(plan)planRevision==null||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646 else !model.startsWith("local:")||'/' !in model)))return@readConsistent null
+        if(activeSave){
+            val prior=requireNotNull(old.config)
+            require(old.modelId==model&&prior.execution==cfg.execution&&prior.allowExtra==cfg.allowExtra){"已有唤醒授权；修改模型、预算或权限请保存并重新授权，原预约未改变。"}
+            if(prior.copy(scheduleEpoch=null)==cfg.copy(scheduleEpoch=null))return@readConsistent old
+            require(!plan){"套餐定时修改请保存并重新授权；原预约未改变。"}
+        }
+        val arm=request.action=="arm"||activeSave
+        if(request.action=="arm"&&(!enableAllowed||!request.confirmExecution||(if(plan)planRevision==null||!request.confirmPlanSoftBudget||request.planRequestLimit !in 1..2147483646 else !model.startsWith("local:")||'/' !in model)))return@readConsistent null
         // Only an explicit clock/zone edit creates a new daily schedule identity.
         // Reauthorization, unchanged saves, and budget edits cannot replay a slot.
         val sameBinding=arm&&old.enabled&&old.modelId==model

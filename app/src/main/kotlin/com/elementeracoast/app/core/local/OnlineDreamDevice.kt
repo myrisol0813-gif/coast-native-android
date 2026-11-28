@@ -53,7 +53,7 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         if(value.action=="disarm"){remove(cid);OnlineDreamWorker.sync(context);return@withContext api.saveDreamSettings(value)}
         if(value.action!="arm"||NativeDreamPlanProtocol.slug(value.modelId.orEmpty())==null){
             val result=api.saveDreamSettings(value)
-            if(result.ok){remove(cid);OnlineDreamWorker.sync(context)}
+            if(result.ok){if(!result.settings.enabled||NativeDreamPlanProtocol.slug(result.settings.modelId.orEmpty())==null)remove(cid);OnlineDreamWorker.sync(context)}
             return@withContext result
         }
         check(active()&&value.confirmExecution&&value.confirmPlanSoftBudget){"当前设备未连接在线海岸或未确认套餐授权。"}

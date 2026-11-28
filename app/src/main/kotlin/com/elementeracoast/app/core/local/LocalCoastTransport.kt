@@ -155,7 +155,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
             }else{
                 val mayArm=ready&&request.confirmExecution&&request.modelId?.let{dreamCanArm?.invoke(it)}==true
                 if(request.action=="arm"&&!mayArm)return failure(r,409,"dream_tide_not_available","本机自主唤醒尚未开放，或所选供应商不可用。")
-                (ledger.configure(cid,request,mayArm)?:return failure(r,409,"dream_tide_conflict","设置已变化或活动尚未结束。")).also{dreamPlan?.revoke(cid)}
+                (ledger.configure(cid,request,mayArm)?:return failure(r,409,"dream_tide_conflict","设置已变化或活动尚未结束。")).also{if(!it.enabled||!isPlan)dreamPlan?.revoke(cid)}
             }
             dreamChanged?.invoke()
             return response(r,200,payload(saved))
