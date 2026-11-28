@@ -276,9 +276,11 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("查阅日历",execution.allowCalendar,!busy){execution=execution.copy(allowCalendar=it)}
                 DreamSwitch("查阅收藏",execution.allowCollection,!busy){execution=execution.copy(allowCollection=it)}
                 DreamSwitch("创建自己的书房笔记",execution.allowLibraryWrite,!busy){execution=execution.copy(allowLibraryWrite=it)}
+                DreamSwitch("修改或删除本窗口自己的书房笔记",execution.allowLibraryEdit,!busy){execution=execution.copy(allowLibraryEdit=it)}
                 DreamSwitch("新增自己的日记与动态",execution.allowDailyWrite,!busy){execution=execution.copy(allowDailyWrite=it)}
                 DreamSwitch("评论与点赞朋友圈（只改变自己的点赞）",execution.allowDailyInteract,!busy){execution=execution.copy(allowDailyInteract=it)}
                 DreamSwitch("新增日历事项",execution.allowCalendarWrite,!busy){execution=execution.copy(allowCalendarWrite=it)}
+                DreamSwitch("修改或删除本窗口自己的日历",execution.allowCalendarEdit,!busy){execution=execution.copy(allowCalendarEdit=it)}
                 DreamSwitch("自主语音（独立供应商费用）",execution.allowVoice,!busy){execution=execution.copy(allowVoice=it)}
                 DreamSwitch("自主生图（独立供应商费用）",execution.allowImage,!busy){execution=execution.copy(allowImage=it)}
                 DreamSwitch("允许将本次自主生图原件转交支持视觉的模型（计入推理预算）",execution.allowImageReadback,!busy){execution=execution.copy(allowImageReadback=it)}
