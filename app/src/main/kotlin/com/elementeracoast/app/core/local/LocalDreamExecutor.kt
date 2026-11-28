@@ -119,11 +119,10 @@ internal class LocalDreamExecutor(
                 if(real.missing.isNotEmpty())parts.add("【未取得的现实资料】"+real.missing.joinToString("、"))
             }
         }
-        val windowBudget=h?.contextSettings?.contextBudget?:6000
-        val limit=minOf(if(windowBudget==0)18000 else windowBudget,(e.tokenBudget-minOf(e.outputLimit,(e.tokenBudget/4).coerceAtLeast(1))).coerceAtLeast(1))
+        val limit=(e.tokenBudget-minOf(e.outputLimit,(e.tokenBudget/4).coerceAtLeast(1))).coerceAtLeast(1)
         val comfort=LocalContextPolicy.assemble(custom,userPortrait,selfPortrait,soilText,memories,worldbook,"","","","",emptyList(),limit,basePrompt=parts.joinToString("\n\n"),autonomousHistory=historyBlocks,autonomousHistoryTotal=historyTotal)
         return comfort.messages.single().content to buildJsonObject{
-            put("estimated_tokens",comfort.estimated);put("comfort_ceiling",comfort.ceiling);put("trimmed_count",comfort.trimmed);put("omitted_turns",comfort.omittedAutonomousTurns);put("over_budget",comfort.over)
+            put("stage","prepared_not_confirmed_delivery");put("estimated_tokens",comfort.estimated);put("comfort_ceiling",comfort.ceiling);put("trimmed_count",comfort.trimmed);put("omitted_turns",comfort.omittedAutonomousTurns);put("over_budget",comfort.over)
             putJsonObject("kept"){put("custom_instructions",custom.isNotBlank());put("user_portrait",userPortrait.isNotBlank());put("global_excerpt",selfPortrait.isNotBlank());put("soil",comfort.soil.isNotBlank());put("memory",comfort.memoryCount);put("worldbook",comfort.worldbookCount)}
         }
     }
