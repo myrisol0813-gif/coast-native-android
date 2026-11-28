@@ -276,6 +276,33 @@ class LocalDreamExecutorTest {
         assertEquals(listOf("completed","failed"),events.map{it.getValue("status").jsonPrimitive.content})
         assertFalse(events.toString().contains(text))
     }
+    @Test fun historicalImageOriginalIsDeliveredOnlyToKnownVisionModel()=runBlocking{
+        for(vision in listOf(true,false)){
+            val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+            val bytes=byteArrayOf(137.toByte(),80,78,71,13,10,26,10)+ByteArray(16)
+            val original=LocalAttachmentStore(store).upload(cid,"fixture.png","image/png",bytes)
+            val h=cache.history(cid)!!;val t=h.turns.single()
+            cache.putHistory(cid,h.copy(turns=listOf(t.copy(user=t.user.copy(variants=listOf(t.user.variants.single().copy(attachments=listOf(original))))))))
+            val cfg2=cfg.copy(execution=cfg.execution!!.copy(includeHistoryAttachments=true,allowHistoryImageRead=true,tokenBudget=24000))
+            val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+            var requests=0;var seen=0
+            val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+                if(++requests==1){
+                    assertEquals(vision,tools.toString().contains("dream_read_history_image"))
+                    if(vision)response(call("i","dream_read_history_image",buildJsonObject{put("start",0);put("message_id","u");put("attachment_id",original.id)}))else response()
+                }else{
+                    if(messages.toString().contains("data:image/png;base64,"))seen++
+                    assertTrue(messages.toString().contains("历史图像原件"))
+                    response()
+                }
+            },clock={at},modelBudget={_,_,_->LocalInputBudget(18000,null,100000,"fixture",vision)})
+            assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+            assertEquals(if(vision)1 else 0,seen)
+            val archive=LocalDreamArchive(store).export(cid)!!.toString()
+            assertEquals(vision,archive.contains("image_readback_accepted"))
+            assertFalse(archive.contains("data:image/"));assertEquals(1,cache.history(cid)!!.turns.size)
+        }
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
