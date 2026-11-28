@@ -73,6 +73,25 @@ class LocalDreamExecutorTest {
         assertEquals("not_due",engine.run(cid,settings.revision!!,model,at))
         assertEquals(3,requests)
     }
+    @Test fun editsPreserveFutureExtraAppointmentIdentity(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
+        val claim=ledger.claim(cid,settings.revision!!,model,at)!!
+        val extraAt=at+7200000
+        assertTrue(ledger.finish(claim,"completed",buildJsonObject{},extraAt,at+1))
+        val original=ledger.settings(cid)
+        val changed=cfg.copy(dailyTime="10:00",execution=cfg.execution!!.copy(tokenBudget=24000))
+        val edited=ledger.configure(cid,DreamSettingsRequest(cid,original.revision,"arm",changed,model,true),true,at+2)!!
+        assertEquals(extraAt,edited.extraAt);assertEquals(original.extraId,edited.extraId)
+        val again=ledger.configure(cid,DreamSettingsRequest(cid,edited.revision,"arm",changed.copy(execution=changed.execution!!.copy(invitation="new invitation")),model,true),true,at+3)!!
+        assertEquals(extraAt,again.extraAt);assertEquals(original.extraId,again.extraId);assertEquals(edited.armedAt,again.armedAt)
+        val fixed=ledger.claim(cid,again.revision!!,model,at+3600000)!!
+        assertEquals("daily",fixed.slot.kind);assertTrue(ledger.finish(fixed,"completed",buildJsonObject{},null,at+3600001))
+        val extra=ledger.claim(cid,again.revision!!,model,extraAt)!!
+        assertEquals("extra:"+original.extraId,extra.slot.key)
+        assertTrue(ledger.finish(extra,"completed",buildJsonObject{},null,extraAt+1))
+        assertNull(ledger.settings(cid).extraAt)
+        assertNull(ledger.claim(cid,again.revision!!,model,extraAt+2))
+    }
     @Test fun unknownUsageStopsBeforeToolsAndRevokedClaimCannotWrite()=runBlocking{
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store);var requests=0
         val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,_,_,_->
