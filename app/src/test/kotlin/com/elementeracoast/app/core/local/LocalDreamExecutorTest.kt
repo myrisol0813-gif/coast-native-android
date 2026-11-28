@@ -254,6 +254,28 @@ class LocalDreamExecutorTest {
         assertEquals("edited",rows.single{it.getValue("id").jsonPrimitive.content==key}.getValue("title").jsonPrimitive.content)
         assertEquals("owner",rows.single{it.getValue("id").jsonPrimitive.content==ownerKey}.getValue("title").jsonPrimitive.content)
     }
+    @Test fun historyTextOriginalRequiresCorrectWindowAndVisibleMessage()=runBlocking{
+        val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+        val text="history-original-text-fixture"
+        val originals=LocalAttachmentStore(store)
+        val original=originals.upload(cid,"fixture.txt","text/plain",text.encodeToByteArray())
+        val other=originals.upload("other","other.txt","text/plain","secret".encodeToByteArray())
+        val history=cache.history(cid)!!
+        val turn=history.turns.single()
+        cache.putHistory(cid,history.copy(turns=listOf(turn.copy(user=turn.user.copy(variants=listOf(turn.user.variants.single().copy(attachments=listOf(original))))))))
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(includeHistoryAttachments=true,allowHistoryFileRead=true,tokenBudget=24000))
+        val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+        var requests=0
+        fun args(id:String)=buildJsonObject{put("start",0);put("message_id","u");put("attachment_id",id)}
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,messages,tools,_->
+            if(++requests==1){assertTrue(tools.toString().contains("dream_read_history_file"));response(call("good","dream_read_history_file",args(original.id)),call("wrong","dream_read_history_file",args(other.id)))}
+            else{assertTrue(messages.toString().contains(text));response()}
+        },clock={at})
+        assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+        val events=LocalDreamArchive(store).export(cid)!!.getValue("tools").jsonArray.map{it.jsonObject}
+        assertEquals(listOf("completed","failed"),events.map{it.getValue("status").jsonPrimitive.content})
+        assertFalse(events.toString().contains(text))
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
