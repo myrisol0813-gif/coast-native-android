@@ -26,7 +26,7 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
     private fun result(id:String)=buildJsonObject{put("ok",true);put("id",id);put("saved",true)}
     fun execute(name:String,input:JsonObject):JsonObject {
         require(label.isNotBlank())
-        if(turn==null)require(name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")||name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
+        if(turn==null)require(name in setOf("create_moment","create_diary","calendar_create","calendar_update","calendar_delete","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")||name=="library_write"&&input["action"]?.jsonPrimitive?.content in setOf("create","edit","delete"))
         return when(name){
             "create_moment"->{
                 val m=RemoteDailyMoment(id=id,date=input.date(),author=actor,source="chat_tool",
@@ -78,6 +78,13 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
                 calendar.restoreSnapshot(JsonArray(calendar.snapshot().map{if(it.jsonObject["id"]?.jsonPrimitive?.content==key)changed else it}))
                 result(key)
             }
+            "calendar_update","calendar_delete"->{
+                val calendar=LocalCalendarStore(s);val key=input.text("id",160)
+                val old=calendar.snapshot().map{it.jsonObject}.singleOrNull{it["id"]?.jsonPrimitive?.content==key}?:throw LocalToolFailure("not_found","没有找到日历记录。")
+                require(turn==null&&old["author"]?.jsonPrimitive?.content=="assistant"&&old["conversation_id"]?.jsonPrimitive?.content==cid){"只能修改本窗口模型自己的日历"}
+                if(name=="calendar_delete")calendar.delete(key) else calendar.save(key,JsonObject(input.filterKeys{it!="id"}))
+                result(key)
+            }
             "library_write"->{
                 val side=LocalSideRecords(s)
                 fun fail(code:String,message:String):Nothing=throw LocalToolFailure(code,message)
@@ -107,7 +114,7 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
                     "edit","delete"->{
                         val note=input.text("id",160)
                         val row=side.rows().firstOrNull{it.kind=="library_notes"&&it.data["id"]?.jsonPrimitive?.content==note} ?: fail("note_not_found","没有找到这条笔记。")
-                        if(row.data["author"]?.jsonPrimitive?.content!="assistant")fail("wrong_author","只能修改或删除自己的笔记。")
+                        if(row.data["author"]?.jsonPrimitive?.content!="assistant"||turn==null&&row.data["conversation_id"]?.jsonPrimitive?.content!=cid)fail("wrong_author","只能修改或删除自己的笔记；自主活动限本窗口。")
                         side.editNote(note,if(input.text("action",8)=="edit")input.text("body",4000)else null,"assistant")
                         result(note)
                     }
