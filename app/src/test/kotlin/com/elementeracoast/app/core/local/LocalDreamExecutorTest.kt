@@ -632,6 +632,40 @@ class LocalDreamExecutorTest {
         assertEquals(1,RemoteCacheStore(store).history(cid)!!.turns.size)
         assertEquals("not_due",engine.run(cid,rev,m,at));assertEquals(2,calls)
     }
+    @Test fun planWakeSoilConsumesOnlyRemainingGrantRequest()=runBlocking{
+        for(limit in listOf(2,3)){
+            val (store,initial)=fixture();val ledger=LocalDreamLedger(store)
+            LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})
+            val m="chatgpt-plan:fixture-model";val rev="plan-soil-"+limit
+            val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,tokenBudget=22000,toolBudget=5))
+            val request=DreamSettingsRequest(cid,initial.revision,"arm",updated,m,true,confirmPlanSoftBudget=true,planRequestLimit=limit)
+            assertNotNull(ledger.configure(cid,request,true,at-86400000,planRevision=rev))
+            val grant=com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.Grant(cid,rev,"account","client","fixture-model",true,limit)
+            var calls=0
+            val binding=com.elementeracoast.app.feature.chatgpt.NativeDreamPlanBinding(grant,{true}){body,tools,authorize->
+                assertTrue(authorize());calls++
+                val output=when(calls){
+                    1->buildJsonObject{put("type","function_call");put("namespace","coast");put("name","dream_send_message");put("call_id","sent");put("arguments",buildJsonObject{put("body","real plan wake")}.toString())}
+                    2->null
+                    else->{
+                        assertTrue(tools.isEmpty());assertTrue(body.toString().contains("real plan wake"))
+                        buildJsonObject{put("type","message");put("role","assistant");putJsonArray("content"){add(buildJsonObject{put("type","output_text");put("text","""{"current_text":"plan soil","afterthoughts":[]}""")})}}
+                    }
+                }
+                val raw=buildJsonObject{put("status","completed");put("model","fixture-model");putJsonObject("usage"){put("total_tokens",120)};put("output",JsonArray(listOfNotNull(output)))}
+                com.elementeracoast.app.feature.chatgpt.NativeDreamPlanProtocol.complete(raw,emptyMap(),tools)
+            }
+            val engine=LocalDreamExecutor(store,{error("API fallback prohibited")},{_,_,_,_,_->error("API fallback prohibited")},clock={at},preparePlan={_,_,_->binding})
+            assertEquals("completed",engine.run(cid,rev,m,at));assertEquals(limit,calls)
+            val message=RemoteCacheStore(store).history(cid)!!.turns.last().assistant.variantsByUserVariant.getValue("0").single()
+            assertEquals("real plan wake",message.content)
+            val result=LocalDreamArchive(store).activity(cid,0).getValue("items").jsonArray.single().jsonObject.getValue("result").jsonObject
+            assertEquals(JsonPrimitive(limit*120),result["total_tokens"])
+            val soil=LocalSoilStore(store).read()
+            if(limit==3){assertEquals(message.id,soil.history.last().getValue("assistant_message_id").jsonPrimitive.content);assertEquals("plan soil",soil.current.single().getValue("current_text").jsonPrimitive.content)}
+            else assertTrue(soil.history.isEmpty())
+        }
+    }
     @Test fun planQuotaFailureIsTerminalAndCannotSwitchToApiKey()=runBlocking{
         val (store,initial)=fixture();val ledger=LocalDreamLedger(store)
         val m="chatgpt-plan:fixture-model";val rev="plan-quota"
