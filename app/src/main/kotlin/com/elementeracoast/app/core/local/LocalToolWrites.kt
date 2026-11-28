@@ -26,7 +26,7 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
     private fun result(id:String)=buildJsonObject{put("ok",true);put("id",id);put("saved",true)}
     fun execute(name:String,input:JsonObject):JsonObject {
         require(label.isNotBlank())
-        if(turn==null)require(name in setOf("create_moment","create_diary","calendar_create")||name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
+        if(turn==null)require(name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like")||name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
         return when(name){
             "create_moment"->{
                 val m=RemoteDailyMoment(id=id,date=input.date(),author=actor,source="chat_tool",
@@ -48,8 +48,12 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
             "moment_comment"->{
                 val mid=input.text("moment_id",160);val rows=cache.dailyMoments()
                 val m=rows.single{it.id==mid}
-                val c=RemoteDailyComment(id,author=actor,text=input.text("text",2000),modelId=label,createdAt=now)
-                cache.putDailyMoments(rows.map{if(it.id==mid)m.copy(comments=m.comments+c,updatedAt=now)else it});result(id)
+                val commentId=if(turn==null)"moment_comment_dream_"+auditId.removePrefix("dream:").replace(':','_') else id
+                val c=RemoteDailyComment(commentId,author=actor,text=input.text("text",2000),modelId=label,createdAt=now)
+                val existing=m.comments.firstOrNull{it.id==commentId}
+                require(existing==null||existing.author==actor&&existing.text==c.text){"自主评论编号冲突"}
+                if(existing==null)cache.putDailyMoments(rows.map{if(it.id==mid)m.copy(comments=m.comments+c,updatedAt=now)else it})
+                result(commentId)
             }
             "moment_like"->{
                 val mid=input.text("moment_id",160);val rows=cache.dailyMoments();val m=rows.single{it.id==mid}
