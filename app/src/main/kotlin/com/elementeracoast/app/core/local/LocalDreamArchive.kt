@@ -84,19 +84,19 @@ internal class LocalDreamArchive(private val store:LocalPersistence){
         val prefix=if(kind=="voice")"voice_dream_" else "att_dream_"
         val mediaId=row.str("id")
         if(!mediaId.startsWith(prefix)&&!(kind=="voice"&&row["source"]==JsonPrimitive("dream_tide")))return
-        require(if(kind=="voice")row["turn_id"]==JsonNull&&row["message_id"]==JsonNull&&row["source"]==JsonPrimitive("dream_tide") else row["kind"]==JsonPrimitive("image")){"自主媒体来源无效。"}
+        require(if(kind=="voice")mediaId.startsWith(prefix)&&row["source"]==JsonPrimitive("dream_tide")&&((row["turn_id"]==JsonNull&&row["message_id"]==JsonNull)||(row.str("turn_id").startsWith("turn_dream_")&&row.str("message_id")==row.str("turn_id").replaceFirst("turn_dream_","msg_dream_"))) else row["kind"]==JsonPrimitive("image")){"自主媒体来源无效。"}
         val name=if(kind=="voice")"voice_create" else "image_generate"
         val parent=requireNotNull(archive){"自主媒体所属活动缺失。"}
         val event=parent.rows("tools").firstOrNull{it.str("tool_name")==name&&mediaId==prefix+it.str("claim_id")+"_"+it.str("step_index")+"_"+it.str("call_index")}
         require(event!=null&&parent.rows("runs").any{it.str("claim_id")==event.str("claim_id")&&it.str("conversation_id")==row.str("conversation_id")}){"自主媒体所属活动缺失。"}
         val recorded=event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}
         require(recorded==null||recorded==mediaId){"自主媒体回执不一致。"}
-        if(kind=="image"&&row["turn_id"]!=JsonNull){
+        if(row["turn_id"]!=JsonNull){
             require(recorded==mediaId&&event.str("status")=="completed")
             require(parent.rows("tools").any{send->send.str("claim_id")==event.str("claim_id")&&send.str("tool_name")=="dream_send_message"&&
                 row.str("turn_id")=="turn_dream_"+send.str("claim_id")+"_"+send.str("step_index")+"_"+send.str("call_index")&&
                 (send.getValue("step_index").jsonPrimitive.int>event.getValue("step_index").jsonPrimitive.int||
-                 send.str("step_index")==event.str("step_index")&&send.getValue("call_index").jsonPrimitive.int>event.getValue("call_index").jsonPrimitive.int)}){"自主图像缺少对应发送事件。"}
+                 send.str("step_index")==event.str("step_index")&&send.getValue("call_index").jsonPrimitive.int>event.getValue("call_index").jsonPrimitive.int)}){"自主媒体缺少对应发送事件。"}
         }
     }
     private fun receipt(row:JsonObject,key:String,target:String)=JsonObject(row.filterKeys{it!=key}+(target to (row[key]?.jsonPrimitive?.contentOrNull?.let{json.parseToJsonElement(it)}?:JsonNull)))

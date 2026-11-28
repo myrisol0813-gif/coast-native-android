@@ -215,7 +215,7 @@ class LocalCoastTransport(private val store: LocalPersistence,
                     val allowWakeDelete=r.header("X-Coast-Delete-Revision")==old.updatedAt
                     for(t in old.turns.filter{it.turnType=="dream_tide"}){
                         val next=input.turns.firstOrNull{it.id==t.id}
-                        require(if(next==null)allowWakeDelete else next.turnType=="dream_tide"&&next.wakeActivityId==t.wakeActivityId&&t.assistant.variantsByUserVariant["0"].orEmpty().all{v->next.assistant.variantsByUserVariant["0"].orEmpty().any{it.id==v.id&&it.content==v.content&&it.generationSource==v.generationSource&&it.attachments==v.attachments}}){"历史中有新到的自主消息，请刷新。"}
+                        require(if(next==null)allowWakeDelete else next.turnType=="dream_tide"&&next.wakeActivityId==t.wakeActivityId&&t.assistant.variantsByUserVariant["0"].orEmpty().all{v->next.assistant.variantsByUserVariant["0"].orEmpty().any{it.id==v.id&&it.content==v.content&&it.generationSource==v.generationSource&&it.attachments==v.attachments&&it.voiceIds==v.voiceIds}}){"历史中有新到的自主消息，请刷新。"}
                     }
                     LocalReplyRunStore.protect(old,input,r.header("X-Coast-Delete-Revision"))
                     val next=LocalImageRecovery.protect(old,input,r.header("X-Coast-Delete-Revision")).copy(conversationId=cid,updatedAt=now())

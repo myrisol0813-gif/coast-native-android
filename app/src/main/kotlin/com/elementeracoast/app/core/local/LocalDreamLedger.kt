@@ -196,8 +196,8 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     }
     // The active claim and exact tool reservation must still exist at the
     // durable write. No synthetic user message or new inference is created.
-    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList(),stickerIds:List<String> = emptyList()):String?=store.atomic{s->
-        if((body.isBlank()&&imageIds.isEmpty()&&stickerIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size+stickerIds.size>12||imageIds.distinct().size!=imageIds.size)return@atomic null
+    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList(),stickerIds:List<String> = emptyList(),voiceIds:List<String> = emptyList()):String?=store.atomic{s->
+        if((body.isBlank()&&imageIds.isEmpty()&&stickerIds.isEmpty()&&voiceIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size+stickerIds.size>12||imageIds.distinct().size!=imageIds.size||voiceIds.size>12||voiceIds.distinct().size!=voiceIds.size)return@atomic null
         val h=LocalDreamArchive(s).runtimeHistory(c.cid)
         if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
             it.str("claim_id")==c.id&&it.str("step_index")==step.toString()&&it.str("call_index")==index.toString()&&it.str("tool_name")=="dream_send_message"&&it.str("status")=="claimed"
@@ -218,6 +218,16 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
                 event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==imageId
         }})return@atomic null
         if(stickerIds.isNotEmpty()&&(c.config.execution?.allowStickerSend!=true||!history.contextSettings.stickerSendEnabled||!history.contextSettings.localModelToolsEnabled||!history.contextSettings.localModelWriteEnabled))return@atomic null
+        if(voiceIds.isNotEmpty()&&(c.config.execution?.allowVoice!=true||!history.contextSettings.localModelWriteEnabled))return@atomic null
+        if(voiceIds.any{voiceId->events.none{event->
+            event.str("tool_name")=="voice_create"&&event.str("status")=="completed"&&
+                voiceId=="voice_dream_"+c.id+"_"+event.str("step_index")+"_"+event.str("call_index")&&
+                event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject["record_id"]?.jsonPrimitive?.contentOrNull}==voiceId
+        }})return@atomic null
+        val voices=LocalSideRecords(s)
+        val voiceRows=if(voiceIds.isEmpty())emptyList()else voices.rows()
+        val selected=voiceIds.map{voiceId->voiceRows.singleOrNull{r->r.kind=="voice"&&r.id==voiceId&&r.data.str("conversation_id")==c.cid&&r.data.str("source")=="dream_tide"&&r.data["turn_id"]==JsonNull&&r.data["message_id"]==JsonNull}?:return@atomic null}
+        selected.forEach{voices.bytes(it)}
         val images=LocalAttachmentStore(s).bindDreamImages(c.cid,c.id,tid,imageIds,now)?:return@atomic null
         val attachments=images+LocalStickerLibrary(s).copyForDreamMessage(c.cid,tid,mid,stickerIds,now)
         val boundary=events.indexOfLast{it.str("tool_name")=="dream_send_message"&&it.str("status")=="completed"}
@@ -227,8 +237,9 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
             val item=Json.parseToJsonElement(raw).jsonObject["furniture"]?:return@mapNotNull null
             json.decodeFromJsonElement(RemoteFurnitureRun.serializer(),item).takeIf{it.id=="dream:"+c.id+":"+event.str("step_index")+":"+event.str("call_index")}
         }.take(16)
-        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments)
+        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments,voiceIds=voiceIds)
         val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
+        if(selected.isNotEmpty())voices.save(voiceRows.map{r->if(r in selected)r.copy(data=JsonObject(r.data+mapOf("turn_id" to JsonPrimitive(tid),"message_id" to JsonPrimitive(mid))))else r})
         cache.putHistory(c.cid,history.copy(updatedAt=stamp,turns=history.turns+turn))
         cache.putConversations(cache.conversations().map{if(it.id==c.cid)it.copy(updatedAt=stamp)else it})
         mid

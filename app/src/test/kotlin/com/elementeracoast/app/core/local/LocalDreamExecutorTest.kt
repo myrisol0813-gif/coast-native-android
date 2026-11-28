@@ -99,6 +99,29 @@ class LocalDreamExecutorTest {
         val originals=LocalAttachmentStore(store)
         msg.attachments.forEach{a->assertEquals(sticker.id,a.stickerDelivery?.stickerId);assertArrayEquals(bytes,originals.bytes(originals.entries().single{it.metadata.getValue("id").jsonPrimitive.content==a.id}))}
     }
+    @Test fun voiceOnlyWakeMessageLinksSavedOriginalWithoutSynthesis(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val h=cache.history(cid)!!
+        cache.putHistory(cid,h.copy(contextSettings=h.contextSettings.copy(localModelWriteEnabled=true)))
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowMessage=true,allowVoice=true,toolBudget=6))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        assertTrue(ledger.reserveStep(claim,0,at));assertTrue(ledger.recordStep(claim,0,true,buildJsonObject{},at))
+        assertTrue(ledger.reserveTool(claim,0,0,"voice_create",at))
+        val voiceId="voice_dream_"+claim.id+"_0_0";val mp3=byteArrayOf(73,68,51,4,0,0,0,0,0,0,1,2)
+        store.atomic{s->saveLocalVoice(s,cid,null,null,"dream_tide",model,LocalVoiceProvider.Generated("fixtureVoice","fixture speech",mp3),voiceId)}
+        assertTrue(ledger.recordTool(claim,0,0,true,null,at,voiceId))
+        assertTrue(ledger.reserveTool(claim,0,1,"dream_send_message",at))
+        assertNull(ledger.sendMessage(claim,0,1,"",at,voiceIds=listOf("voice_dream_foreign_0_0")))
+        val sent=ledger.sendMessage(claim,0,1,"",at,voiceIds=listOf(voiceId));assertNotNull(sent)
+        assertTrue(ledger.recordTool(claim,0,1,true,null,at,sent))
+        assertTrue(ledger.reserveTool(claim,0,2,"dream_send_message",at))
+        assertNull(ledger.sendMessage(claim,0,2,"",at,voiceIds=listOf(voiceId)))
+        val turn=cache.history(cid)!!.turns.last();val msg=turn.assistant.variantsByUserVariant.getValue("0").single()
+        assertEquals("",msg.content);assertEquals(listOf(voiceId),msg.voiceIds)
+        val records=LocalSideRecords(store);val clip=records.audio(voiceId)!!
+        assertEquals(turn.id,clip.data.getValue("turn_id").jsonPrimitive.content);assertEquals(sent,clip.data.getValue("message_id").jsonPrimitive.content);assertArrayEquals(mp3,records.bytes(clip))
+    }
     @Test fun localApiWakeOrganizesTheActualSentMessageWithinBudget()=runBlocking{
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         LocalSoilStore(store).patch(cid,buildJsonObject{put("auto_refresh_enabled",true)})

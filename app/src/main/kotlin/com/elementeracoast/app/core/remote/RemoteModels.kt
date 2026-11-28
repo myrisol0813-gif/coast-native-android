@@ -200,7 +200,10 @@ data class RemoteVariant(
     @SerialName("archive_retained_desk_slip") val archiveRetainedDeskSlip: Boolean = false,
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    @SerialName("reply_sequence") val replySequence: RemoteReplySequence? = null
+    @SerialName("reply_sequence") val replySequence: RemoteReplySequence? = null,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    @SerialName("voice_ids") val voiceIds: List<String> = emptyList()
 )
 
 @Serializable
