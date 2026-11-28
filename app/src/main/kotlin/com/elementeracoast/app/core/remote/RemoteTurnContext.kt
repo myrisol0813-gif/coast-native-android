@@ -43,7 +43,26 @@ data class RemoteDeskSlip(
     @SerialName("external_tide") val externalTide: RemoteDeskExternalTide = RemoteDeskExternalTide(),
     @SerialName("context_budget") val contextBudget: RemoteDeskContextBudget = RemoteDeskContextBudget(),
     @SerialName("reply_sequence_previous") val replySequencePrevious:List<RemoteDeskSequenceMessage> = emptyList(),
+    @SerialName("wake_receipt") val wakeReceipt: RemoteWakeDeskReceipt? = null,
     @Transient val archivedJson: JsonObject? = null
+)
+
+@Serializable
+data class RemoteWakeDeskReceipt(
+    @SerialName("activity_id") val activityId: String = "",
+    @SerialName("request_index") val requestIndex: Int = 0,
+    val context: JsonObject = JsonObject(emptyMap()),
+    @SerialName("tool_count") val toolCount: Int = 0,
+    val tools: List<RemoteWakeDeskTool> = emptyList()
+)
+
+@Serializable
+data class RemoteWakeDeskTool(
+    @SerialName("step_index") val stepIndex: Int = 0,
+    @SerialName("call_index") val callIndex: Int = 0,
+    @SerialName("tool_name") val toolName: String = "",
+    val status: String = "",
+    @SerialName("record_id") val recordId: String? = null
 )
 
 /**

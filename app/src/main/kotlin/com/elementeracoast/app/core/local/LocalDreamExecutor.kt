@@ -228,8 +228,8 @@ internal class LocalDreamExecutor(
                 try{
                     mark("context")
                     val previous=ledger.previous(c)
-                    val (invitation,receipt,dogtalk)=context(c,previous)
-                    contextReceipt=receipt
+                    val (invitation,preparedContextReceipt,dogtalk)=context(c,previous)
+                    contextReceipt=preparedContextReceipt
                     mark("tools_prepare")
                     val messages=mutableListOf<JsonElement>(msg("system",invitation))
                     val planSession=plan?.let{p->NativeDreamPlanSession(p.grant,invitation,e.tokenBudget,e.outputLimit){body,tools->p.send(body,tools){authorized()}}}
@@ -309,7 +309,7 @@ internal class LocalDreamExecutor(
                         check(ledger.recordStep(c,step,valid&&choice!=null,receipt,clock()))
                         checkAuthorization()
                         if(!valid||choice==null){reason="invalid_provider_response";break}
-                        if(step==0){val confirmed=dogtalk?.let{ledger.confirmFirstDogtalk(c,it,clock())};contextReceipt=JsonObject(receipt+buildJsonObject{put("stage","provider_response_received");confirmed?.let{put("dogtalk",it)}})}
+                        if(step==0){val confirmed=dogtalk?.let{ledger.confirmFirstDogtalk(c,it,clock())};contextReceipt=JsonObject(preparedContextReceipt+buildJsonObject{put("stage","provider_response_received");confirmed?.let{put("dogtalk",it)}})}
                         if(!known||total>=e.tokenBudget){reason=if(!known)"usage_unconfirmed" else "token_budget_reached";break}
                         if(planSession!=null&&requested.isNotEmpty()&&!planSession.canContinue()){reason="plan_step_or_soft_budget_limit";break}
                         if(requested.isEmpty()){if(finish=="stop"){status="completed";reason="ended"}else reason="provider_incomplete";break}
@@ -350,7 +350,7 @@ internal class LocalDreamExecutor(
                                         name=="dream_send_message"&&args!=null&&"body" in args&&args.keys.all{it in setOf("body","image_ids","sticker_ids","voice_ids")}->buildJsonObject{
                                             fun ids(key:String)=if(key in args)args.getValue(key).jsonArray.map{it.jsonPrimitive.let{v->require(v.isString);v.content}}else emptyList()
                                             val body=args.getValue("body").jsonPrimitive.let{require(it.isString);it.content}
-                                            val id=ledger.sendMessage(c,step,index,body,clock(),ids("image_ids"),ids("sticker_ids"),ids("voice_ids"))
+                                            val id=ledger.sendMessage(c,step,index,body,clock(),ids("image_ids"),ids("sticker_ids"),ids("voice_ids"),contextReceipt)
                                             put("ok",id!=null);id?.let{put("record_id",it);lastMessageId=it}
                                         }
                                         name=="dream_write_note"&&args?.keys==setOf("body")->buildJsonObject{

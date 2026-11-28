@@ -222,7 +222,7 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
     }
     // The active claim and exact tool reservation must still exist at the
     // durable write. No synthetic user message or new inference is created.
-    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList(),stickerIds:List<String> = emptyList(),voiceIds:List<String> = emptyList()):String?=store.atomic{s->
+    fun sendMessage(c:Claim,step:Int,index:Int,body:String,now:Long,imageIds:List<String> = emptyList(),stickerIds:List<String> = emptyList(),voiceIds:List<String> = emptyList(),contextReceipt:JsonObject?=null):String?=store.atomic{s->
         if((body.isBlank()&&imageIds.isEmpty()&&stickerIds.isEmpty()&&voiceIds.isEmpty())||body.length>12000||step<0||index<0||imageIds.size+stickerIds.size>12||imageIds.distinct().size!=imageIds.size||voiceIds.size>12||voiceIds.distinct().size!=voiceIds.size)return@atomic null
         val h=LocalDreamArchive(s).runtimeHistory(c.cid)
         if(!authorized(s,c,h)||c.config.execution?.allowMessage!=true||h.rows("tools").none{
@@ -263,7 +263,29 @@ internal class LocalDreamLedger(private val store:LocalPersistence){
             val item=Json.parseToJsonElement(raw).jsonObject["furniture"]?:return@mapNotNull null
             json.decodeFromJsonElement(RemoteFurnitureRun.serializer(),item).takeIf{it.id=="dream:"+c.id+":"+event.str("step_index")+":"+event.str("call_index")}
         }.take(16)
-        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments,voiceIds=voiceIds)
+        val context=buildJsonObject{
+            val source=contextReceipt
+            if(source!=null){
+                (source["stage"] as? JsonPrimitive)?.contentOrNull?.takeIf{it in setOf("prepared_not_confirmed_delivery","provider_response_received")}?.let{put("stage",it)}
+                for(key in listOf("estimated_tokens","comfort_ceiling","trimmed_count","omitted_turns"))(source[key] as? JsonPrimitive)?.longOrNull?.takeIf{it>=0}?.let{put(key,it)}
+                (source["over_budget"] as? JsonPrimitive)?.booleanOrNull?.let{put("over_budget",it)}
+                val kept=source["kept"] as? JsonObject
+                if(kept!=null)putJsonObject("kept"){
+                    for(key in listOf("custom_instructions","user_portrait","global_excerpt","soil","memory","worldbook","dogtalk","cross_window","workbench","reality","response_mode")){
+                        val value=kept[key] as? JsonPrimitive?:continue
+                        val bool=value.booleanOrNull;val count=value.longOrNull
+                        if(bool!=null)put(key,bool) else if(count!=null&&count>=0)put(key,count)
+                    }
+                }
+            }
+        }
+        val priorEvents=events.drop(boundary+1)
+        val wakeReceipt=RemoteWakeDeskReceipt(c.id,step,context,priorEvents.size,priorEvents.take(128).map{event->
+            val receipt=event["receipt_json"]?.jsonPrimitive?.contentOrNull?.let{Json.parseToJsonElement(it).jsonObject}
+            RemoteWakeDeskTool(event.getValue("step_index").jsonPrimitive.int,event.getValue("call_index").jsonPrimitive.int,event.str("tool_name"),event.str("status"),receipt?.get("record_id")?.jsonPrimitive?.contentOrNull?.takeIf{it.matches(Regex("[A-Za-z0-9_.:-]{1,160}"))})
+        })
+        val deskSlip=RemoteDeskSlip(summary="自主消息 · 历史桌面",comfort="仅记录发送时已确认的活动事实；不保存隐藏推理、请求原文或工具结果全文。",wakeReceipt=wakeReceipt)
+        val message=RemoteVariant(mid,body,stamp,modelId=c.model,finishReason="stop",generationSource="dream_tide",furnitureRuns=furniture,attachments=attachments,voiceIds=voiceIds,deskSlip=deskSlip,archiveRetainedDeskSlip=true)
         val turn=RemoteTurn(tid,turnType="dream_tide",modelId=c.model,assistant=RemoteAssistantBranches(mapOf("0" to 0),mapOf("0" to listOf(message))),wakeActivityId=c.id)
         if(imageIds.isNotEmpty()||voiceIds.isNotEmpty())voices.save(voiceRows.map{r->
             val favorite=r.kind=="vault_treasures"&&r.data.str("conversation_id")==c.cid&&r.data["turn_id"]==JsonNull&&r.data["message_id"]==JsonNull&&

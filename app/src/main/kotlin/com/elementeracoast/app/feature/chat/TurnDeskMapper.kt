@@ -7,11 +7,47 @@ import com.elementeracoast.app.core.remote.RemoteDeskCrossWindow
 import com.elementeracoast.app.core.remote.RemoteDeskAttachments
 import com.elementeracoast.app.core.remote.RemoteDeskCrossWindowSource
 import com.elementeracoast.app.core.remote.RemoteDeskSlip
+import com.elementeracoast.app.core.remote.RemoteWakeDeskReceipt
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.longOrNull
 import com.elementeracoast.app.core.remote.RemoteDeskWebSearch
 import com.elementeracoast.app.core.remote.RemoteDeskTool
 
 internal object TurnDeskMapper {
-    fun toUi(value: RemoteDeskSlip): TurnDeskReceipt = TurnDeskReceipt(
+    private fun wakeToUi(value: RemoteDeskSlip, wake: RemoteWakeDeskReceipt): TurnDeskReceipt {
+        val context=wake.context
+        val stage=when((context["stage"] as? JsonPrimitive)?.contentOrNull){
+            "provider_response_received"->"已收到首轮模型响应"
+            "prepared_not_confirmed_delivery"->"已准备，递送未确认"
+            else->"无上下文确认记录"
+        }
+        val labels=mapOf("custom_instructions" to "核心自定义","user_portrait" to "用户画像","global_excerpt" to "自我画像","soil" to "思维壤","memory" to "记忆","worldbook" to "世界书","dogtalk" to "私人草稿","cross_window" to "跨窗口","workbench" to "工作台","reality" to "现实上下文","response_mode" to "回应节奏")
+        val details=buildList{
+            for((key,label) in listOf("estimated_tokens" to "估算 token","comfort_ceiling" to "舒服区间","trimmed_count" to "裁剪处数","omitted_turns" to "省略历史轮次")){
+                (context[key] as? JsonPrimitive)?.longOrNull?.let{add(TurnDeskDetail(label,it.toString()))}
+            }
+            (context["over_budget"] as? JsonPrimitive)?.booleanOrNull?.let{add(TurnDeskDetail("超出舒服区间",if(it)"是" else "否"))}
+            val kept=context["kept"] as? JsonObject
+            for((key,label) in labels){
+                val item=kept?.get(key) as? JsonPrimitive?:continue
+                val text=item.booleanOrNull?.let{if(it)"保留" else "未保留"}?:item.longOrNull?.let{"$it 条"}
+                if(text!=null)add(TurnDeskDetail(label,text))
+            }
+        }
+        return TurnDeskReceipt(summary=value.summary,comfort=value.comfort,sections=listOf(
+            section("自主活动","正式消息已保存","没有伪造用户发言。",listOf(TurnDeskDetail("活动 ID",wake.activityId),TurnDeskDetail("发送请求序号",(wake.requestIndex+1L).toString()))),
+            section("首轮上下文",stage,"仅为首轮组包统计，不是逐项阅读或全文递送证明。",details),
+            section("本段工具回执","实际记录 ${wake.toolCount} 条","仅列发送前、上一条自主消息之后的工具事件；最多展示128条。",emptyList())
+        )+wake.tools.map{tool->
+            val status=when(tool.status){"completed"->"执行成功";"failed"->"执行失败";else->"执行结果未确认"}
+            section(tool.toolName,status,"执行状态不等于工具结果已递送模型。",listOf(TurnDeskDetail("请求序号",(tool.stepIndex+1L).toString()),TurnDeskDetail("工具序号",(tool.callIndex+1L).toString()))+detail("记录 ID",tool.recordId.orEmpty()))
+        })
+    }
+
+    fun toUi(value: RemoteDeskSlip): TurnDeskReceipt = value.wakeReceipt?.let { wakeToUi(value,it) } ?: TurnDeskReceipt(
         summary = value.summary.ifBlank { "本轮递给模型" },
         comfort = value.comfort,
         sections = listOf(

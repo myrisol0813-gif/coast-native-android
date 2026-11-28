@@ -113,9 +113,9 @@ private fun TurnDeskSectionCard(
     SnowLetterSurface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
         role = SnowLetterSurfaceRole.StatusCard,
-        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .46f),
+        fallbackColor = MaterialTheme.colorScheme.surface,
         fallbackShape = MaterialTheme.shapes.large,
-        fallbackBorder = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .62f))
+        fallbackElevation = 1.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
