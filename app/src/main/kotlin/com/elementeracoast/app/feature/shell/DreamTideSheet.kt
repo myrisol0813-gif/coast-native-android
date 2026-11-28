@@ -300,6 +300,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 }
                 DreamSection("通用工具"){
                 Text("同时遵循现有窗口权限",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("外部连接器：当前版本未接入通用远程 MCP 客户端；官端账号内已连接的应用不会自动继承。已配置的海岸内置工具仍按窗口和唤醒授权运行。",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 DreamSwitch("独立联网",execution.allowWeb,!busy){execution=execution.copy(allowWeb=it)}
                 DreamSwitch("书房阅读",execution.allowLibrary,!busy){execution=execution.copy(allowLibrary=it)}
                 DreamSwitch("按需检索正式记忆",execution.allowMemory,!busy){execution=execution.copy(allowMemory=it)}
