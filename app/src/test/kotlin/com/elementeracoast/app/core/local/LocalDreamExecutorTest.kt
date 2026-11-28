@@ -186,6 +186,20 @@ class LocalDreamExecutorTest {
         assertTrue(exposed.containsAll(names))
         assertTrue(names.none{LocalDreamToolPolicy.allowed(claim.copy(config=cfg),it)})
     }
+    @Test fun autonomousDailyInteractionIsSeparateFromPosting(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val history=cache.history(cid)!!
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowDailyInteract=true))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        assertNull(LocalToolSession.openAutonomous(store,claim))
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
+        val session=LocalToolSession.openAutonomous(store,claim)!!
+        val exposed=session.completionsTools.map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}.toSet()
+        assertTrue(exposed.containsAll(setOf("moment_comment","moment_like")))
+        assertFalse(exposed.contains("create_moment"))
+        assertFalse(LocalDreamToolPolicy.allowed(claim.copy(config=cfg),"moment_comment"))
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
