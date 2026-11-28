@@ -167,6 +167,10 @@ class LocalDreamExecutorTest {
         val soil=LocalSoilStore(store).read()
         assertEquals(message.id,soil.history.last().getValue("assistant_message_id").jsonPrimitive.content)
         assertEquals("wake soil",soil.current.single().getValue("current_text").jsonPrimitive.content)
+        val receipt=requireNotNull(message.deskSlip?.wakeReceipt)
+        assertEquals("provider_response_received",receipt.context.getValue("stage").jsonPrimitive.content)
+        assertTrue(receipt.context.containsKey("estimated_tokens"))
+
     }
     @Test fun furnitureReceiptsAttachOnceToEachFormalWakeMessage(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
@@ -188,6 +192,14 @@ class LocalDreamExecutorTest {
         assertNotEquals(messages[0].furnitureRuns.single().id,messages[1].furnitureRuns.single().id)
         assertEquals("dream:"+claim.id+":0:0",messages[0].furnitureRuns.single().id)
         assertEquals("dream:"+claim.id+":1:0",messages[1].furnitureRuns.single().id)
+        assertTrue(messages.all{it.archiveRetainedDeskSlip})
+        val receipts=messages.map{requireNotNull(it.deskSlip?.wakeReceipt)}
+        assertEquals(listOf(0,1),receipts.map{it.requestIndex})
+        assertTrue(receipts.all{it.activityId==claim.id&&it.toolCount==1})
+        assertTrue(receipts.all{it.tools.single().toolName=="library_books"&&it.tools.single().status=="completed"})
+        assertEquals(listOf(0,1),receipts.map{it.tools.single().stepIndex})
+        assertTrue(receipts.all{it.context.isEmpty()})
+
     }
     @Test fun sharedComfortTrimsWholeAutonomousHistoryWithoutFakeUser(){
         val old=buildJsonObject{put("turn_id","old");put("body","旧".repeat(2200)+"old-tail")}
