@@ -66,7 +66,8 @@ class CoastShellViewModel(
     private val chatGpt: ChatGptPlanRepository? = null,
     private val localMode: Boolean = false,
     private val foregroundLease: ((()->Unit,()->Unit)->AutoCloseable?)? = null,
-    private val onCommittedNotice: (String,com.elementeracoast.app.core.remote.RemoteVariant)->Unit = {_,_->}
+    private val onCommittedNotice: (String,com.elementeracoast.app.core.remote.RemoteVariant)->Unit = {_,_->},
+    private val onWakeNotice: (String,com.elementeracoast.app.core.remote.RemoteVariant)->Unit = {_,_->}
 ) : ViewModel() {
     private val _state = MutableStateFlow(CoastShellState(
         currentModel = chatGpt?.preferredModel()?.let { CHATGPT_PLAN_PREFIX + it }.orEmpty(),
@@ -147,6 +148,35 @@ class CoastShellViewModel(
         return false
     }
     private var historyJob: Job? = null
+    private var wakeRefreshFence=0L
+    private var historyWrites=0
+    private val visibleWakeIds=mutableMapOf<String,Set<String>>()
+    private fun wakeTurns(history:RemoteHistory)=history.turns.filter{it.turnType=="dream_tide"}
+    /** The raw arrival read never populates the repository cache until the
+     * original window, history revision and idle state have been rechecked. */
+    suspend fun refreshWakeArrival(){
+        val api=backend.dreamApi?:return
+        val cid=_state.value.activeConversationId
+        fun idle()=_state.value.authenticated&&_state.value.activeConversationId==cid&&_state.value.activeFeature==null&&_state.value.activeRoomType==RoomType.Main&&pendingSearchHit==null&&!_state.value.historyLoading&&!_state.value.attachmentUploading&&historyJob?.isActive!=true&&generationRun==null&&historyWrites==0
+        if(cid.isBlank()||!idle())return
+        val shown=visibleWakeIds[cid]?:return
+        val fence=wakeRefreshFence
+        val prior=backend.chat.cachedHistory(cid)
+        fun safe()=idle()&&wakeRefreshFence==fence&&(localMode||backend.chat.cachedHistory(cid)==prior)
+        try{
+            val marker=api.dreamArrival(cid)
+            if(marker==null||marker in shown||!safe())return
+            val history=api.getHistory(cid)
+            if(!safe()||marker !in wakeTurns(history).map{it.id})return
+            // The local worker already persisted canonical history in the
+            // shared store. Never overwrite it with a readback snapshot.
+            if(!localMode)backend.chat.cacheHistory(cid,history)
+            else if(backend.chat.cachedHistory(cid)!=history)return
+            showHistory(cid,history)
+            if(!localMode)wakeTurns(history).filter{it.id !in shown}.flatMap{it.assistant.variantsByUserVariant.values.flatten()}.filter{it.generationSource=="dream_tide"}.forEach{runCatching{onWakeNotice(cid,it)}}
+            loadThoughtSoil(cid)
+        }catch(e:CancellationException){throw e}catch(_:Exception){/* optional read: leave UI and draft untouched */}
+    }
     private var pendingSearchHit: ChatSearchHit? = null
     private var searchNavigationId = 0L
     private var attachmentUploadsInFlight = 0
@@ -1089,6 +1119,7 @@ class CoastShellViewModel(
         val clean = value.normalized()
         val next = previous.copy(contextSettings = clean)
         if (next == previous) return
+        historyWrites++
         backend.chat.cacheHistory(conversationId, next)
         showHistory(conversationId, next)
         viewModelScope.launch(workDispatcher) {
@@ -1100,7 +1131,7 @@ class CoastShellViewModel(
                 backend.chat.cacheHistory(conversationId, previous)
                 showHistory(conversationId, previous)
                 handleBackendError(error, "窗口注入设置保存失败", keepAuthenticatedOnNetworkError = true)
-            }
+            } finally { historyWrites-- }
         }
     }
 
@@ -1541,6 +1572,7 @@ class CoastShellViewModel(
         }
         val next = transform(previous)
         if (next == previous) return
+        historyWrites++
         backend.chat.cacheHistory(conversationId, next)
         showHistory(conversationId, next)
         viewModelScope.launch(workDispatcher) {
@@ -1553,7 +1585,7 @@ class CoastShellViewModel(
                 backend.chat.cacheHistory(conversationId, restored)
                 showHistory(conversationId, restored)
                 handleBackendError(error, failureLabel, keepAuthenticatedOnNetworkError = true)
-            }
+            } finally { historyWrites-- }
         }
     }
 
@@ -1571,6 +1603,8 @@ class CoastShellViewModel(
 
     private fun showHistory(conversationId: String, history: RemoteHistory) {
         if (_state.value.activeConversationId != conversationId) return
+        wakeRefreshFence++
+        visibleWakeIds[conversationId]=wakeTurns(history).map{it.id}.toSet()
         val hit = pendingSearchHit?.takeIf { it.conversationId == conversationId }
         // Search previews are presentation-only. Never replace the cached canonical
         // history: a later send/regenerate/mutation must use the persisted active branch.
@@ -1584,6 +1618,7 @@ class CoastShellViewModel(
     }
 
     private fun activateCachedConversation(conversation: ConversationSummary) {
+        wakeRefreshFence++
         resetCrossWindow()
         persistence.put(KEY_CURRENT_CONVERSATION, conversation.id)
         val history = backend.chat.cachedHistory(conversation.id)
@@ -1728,7 +1763,8 @@ class CoastShellViewModel(
                 return CoastShellViewModel(
                     persistence, backend, chatGpt = chatGpt, localMode = isLocal,
                     foregroundLease = { cancel, unavailable -> GenerationForegroundService.acquire(appContext, cancel, unavailable) },
-                    onCommittedNotice={cid,variant->com.elementeracoast.app.core.local.CoastMessageNotifications.post(appContext,cid,variant,isLocal)}
+                    onCommittedNotice={cid,variant->com.elementeracoast.app.core.local.CoastMessageNotifications.post(appContext,cid,variant,isLocal)},
+                    onWakeNotice={cid,variant->com.elementeracoast.app.core.local.CoastMessageNotifications.postWake(appContext,cid,variant,isLocal)}
                 ) as T
             }
         }

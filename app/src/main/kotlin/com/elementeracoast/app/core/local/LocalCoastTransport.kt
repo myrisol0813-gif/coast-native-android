@@ -112,10 +112,14 @@ class LocalCoastTransport(private val store: LocalPersistence,
     private fun route(r: Request): Response {
         val path = r.url.encodedPath
         val method = r.method
-        if (path == "/api/chat/dream-tide" || path == "/api/chat/dream-tide/notes" || path == "/api/chat/dream-tide/activity" || path == "/api/chat/dream-tide/reply") {
+        if (path == "/api/chat/dream-tide" || path == "/api/chat/dream-tide/notes" || path == "/api/chat/dream-tide/activity" || path == "/api/chat/dream-tide/reply" || path == "/api/chat/dream-tide/arrival") {
             val b=if(method=="POST")body(r)else JsonObject(emptyMap())
             val cid=if(method=="POST")b.str("conversation_id").orEmpty()else r.url.queryParameter("conversation_id").orEmpty()
             if(cache.conversations().none{it.id==cid&&it.roomType=="main"&&it.source=="coast"&&it.deletedAt==null})return missing(r)
+            if(method=="GET"&&path=="/api/chat/dream-tide/arrival"){
+                val latest=cache.history(cid)?.turns?.lastOrNull{it.turnType=="dream_tide"}?.id
+                return ok(r,"turn_id" to (latest?.let(::JsonPrimitive)?:JsonNull))
+            }
             val ledger=LocalDreamLedger(store)
             val previous=ledger.settings(cid)
             val ready=BuildConfig.LOCAL_DREAM_EXECUTION_ENABLED&&dreamCanArm!=null

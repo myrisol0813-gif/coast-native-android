@@ -22,13 +22,16 @@ import com.elementeracoast.app.feature.shell.MainShell
 import com.elementeracoast.app.ui.theme.CoastTheme
 
 class MainActivity : ComponentActivity() {
+    private var wakeForeground by mutableStateOf(false)
     private var dreamNotice by mutableStateOf<com.elementeracoast.app.core.local.LocalDreamNotifications.Target?>(null)
     private var chatNotice by mutableStateOf<com.elementeracoast.app.core.local.CoastMessageNotifications.Target?>(null)
     override fun onResume() {
         super.onResume()
+        wakeForeground=true
         com.elementeracoast.app.core.local.CoastMessageNotifications.foreground=true
     }
     override fun onPause() {
+        wakeForeground=false
         com.elementeracoast.app.core.local.CoastMessageNotifications.foreground=false
         super.onPause()
     }
@@ -54,6 +57,14 @@ class MainActivity : ComponentActivity() {
             val wolf by vm.local.wolf.state.collectAsState()
             var mailboxOpen by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
+            LaunchedEffect(wakeForeground,state.authenticated,mailboxOpen){
+                if(wakeForeground&&state.authenticated&&!mailboxOpen){
+                    while(true){
+                        vm.refreshWakeArrival()
+                        kotlinx.coroutines.delay(15000)
+                    }
+                }
+            }
             LaunchedEffect(chatNotice,state.authenticated,state.localMode,state.conversations,mailboxOpen){
                 val target=chatNotice?:return@LaunchedEffect
                 if(!state.authenticated||mailboxOpen)return@LaunchedEffect

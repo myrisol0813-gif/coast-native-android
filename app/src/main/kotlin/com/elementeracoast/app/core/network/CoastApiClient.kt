@@ -422,6 +422,8 @@ class CoastApiClient(
     internal suspend fun releaseNativeSingleChat(conversationId:String,claimId:String):Boolean =
         nativeSingleAction(conversationId,"release",claimId)["ok"]?.jsonPrimitive?.contentOrNull=="true"
 
+    suspend fun dreamArrival(cid:String):String? = jsonRequestElement(Request.Builder().url(config.url("/api/chat/dream-tide/arrival?conversation_id=${encodeQuery(cid)}")).get().build()).jsonObject.getValue("turn_id").jsonPrimitive.contentOrNull
+
     suspend fun dreamSettings(cid:String):com.elementeracoast.app.core.remote.DreamSettingsResponse =
         jsonRequest(Request.Builder().url(config.url("/api/chat/dream-tide?conversation_id=${encodeQuery(cid)}")).get().build(),com.elementeracoast.app.core.remote.DreamSettingsResponse.serializer())
 
