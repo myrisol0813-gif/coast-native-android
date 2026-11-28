@@ -247,7 +247,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("自动携带近期正式聊天",execution.includeRecentChat,!busy){execution=execution.copy(includeRecentChat=it)}
                 DreamSwitch("历史附件目录（文件名等，不含原件）",execution.includeHistoryAttachments,!busy){execution=execution.copy(includeHistoryAttachments=it)}
                 DreamSwitch("读取历史文本原件（需历史读取与附件目录授权，单件12000字节）",execution.allowHistoryFileRead,!busy){execution=execution.copy(allowHistoryFileRead=it)}
-                DreamSwitch("读取历史图片原件（仅支持视觉的 API 模型，单件及每请求合计8 MiB）",execution.allowHistoryImageRead,!busy){execution=execution.copy(allowHistoryImageRead=it)}
+                DreamSwitch("读取历史图片原件（仅明确支持视觉的模型，单件及每请求合计8 MiB）",execution.allowHistoryImageRead,!busy){execution=execution.copy(allowHistoryImageRead=it)}
                 Text("按阅读轮数上限，最多60000字符，超出整轮省略。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("允许自主选读窗口历史",execution.readHistory,!busy){execution=execution.copy(readHistory=it)}
                 DreamSwitch("允许写小笺",execution.writeNote,!busy){execution=execution.copy(writeNote=it)}
