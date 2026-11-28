@@ -81,3 +81,8 @@ data class DreamActivity(
 data class DreamNotesResponse(val ok:Boolean=false,val items:List<DreamNote> = emptyList(),val nextOffset:Int?=null)
 @Serializable
 data class DreamActivityResponse(val ok:Boolean=false,val items:List<DreamActivity> = emptyList(),val nextOffset:Int?=null)
+
+@Serializable
+data class DreamArrivalReference(val seq:Long,@SerialName("conversation_id")val conversationId:String,@SerialName("turn_id")val turnId:String,@SerialName("message_id")val messageId:String)
+@Serializable
+data class DreamArrivalPage(val ok:Boolean=false,val cursor:Long=0,val items:List<DreamArrivalReference> = emptyList(),val hasMore:Boolean=false,val reset:Boolean=false)

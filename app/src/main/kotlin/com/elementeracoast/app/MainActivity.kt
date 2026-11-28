@@ -57,6 +57,9 @@ class MainActivity : ComponentActivity() {
             val wolf by vm.local.wolf.state.collectAsState()
             var mailboxOpen by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(wolf.appearance) { vm.syncAppearance() }
+            LaunchedEffect(state.authenticated,state.localMode,wakeForeground){
+                if(wakeForeground)kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO){com.elementeracoast.app.core.local.OnlineArrivalWorker.sync(applicationContext)}
+            }
             LaunchedEffect(wakeForeground,state.authenticated,mailboxOpen){
                 if(wakeForeground&&state.authenticated&&!mailboxOpen){
                     while(true){

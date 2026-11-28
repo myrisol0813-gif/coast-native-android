@@ -27,7 +27,7 @@ internal object CoastMessageNotifications {
     fun always(c:Context)=prefs(c).getBoolean("always",true)
     fun preview(c:Context)=prefs(c).getString("preview","full")?:"full"
     fun publicContent(c:Context)=prefs(c).getBoolean("public",false)
-    fun setFlag(c:Context,key:String,value:Boolean){prefs(c).edit().putBoolean(key,value).apply()}
+    fun setFlag(c:Context,key:String,value:Boolean){prefs(c).edit().putBoolean(key,value).apply();if(key=="enabled")OnlineArrivalWorker.sync(c)}
     fun setPreview(c:Context,value:String){if(value in setOf("none","short","full"))prefs(c).edit().putString("preview",value).apply()}
     fun display(c:Context,body:String,fallback:String):String=when(preview(c)){
         "none"->fallback
