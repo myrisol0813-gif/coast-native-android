@@ -147,7 +147,8 @@ internal class OnlineDreamDevice private constructor(private val context:Context
                 val heartbeat=launch{
                     while(isActive){
                         delay(15000)
-                        if(!runCatching{authorized()}.getOrDefault(false)){running.cancel(CancellationException("wake authorization ended"));break}
+                        val valid=try{authorized()}catch(e:CancellationException){throw e}catch(_:Exception){false}
+                        if(!valid){running.cancel(CancellationException("wake authorization ended"));break}
                     }
                 }
                 try{
