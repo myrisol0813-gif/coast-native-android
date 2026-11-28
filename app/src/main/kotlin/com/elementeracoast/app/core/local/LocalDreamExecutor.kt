@@ -173,6 +173,26 @@ internal class LocalDreamExecutor(
         val content=bytes.decodeToString(throwOnInvalidSequence=true);require(!content.contains(0.toChar()))
         buildJsonObject{put("ok",true);put("record_id",id);put("turn_id",turn.getValue("turn_id"));put("message_id",mid);put("mime",mime);put("bytes",bytes.size);put("content",content);put("delivery","prepared_tool_result")}
     }
+    private fun readHistoryImage(c:LocalDreamLedger.Claim,a:JsonObject,previous:JsonObject?):DreamImageReadback=store.readConsistent{s->
+        require(a.keys==setOf("start","message_id","attachment_id")&&LocalDreamToolPolicy.allowed(c,"dream_read_history_image")&&LocalDreamLedger(s).authorized(c))
+        val start=a.getValue("start").jsonPrimitive.int;require(start>=0)
+        val mid=a.str("message_id");val id=a.str("attachment_id")
+        val page=history(c,buildJsonObject{put("mode","window");put("start",start);put("count",1)},previous)
+        val turn=page.getValue("turns").jsonArray.single().jsonObject
+        val message=turn.getValue("messages").jsonArray.single{it.jsonObject["id"]==JsonPrimitive(mid)}.jsonObject
+        val ref=message.getValue("attachments").jsonArray.single{it.jsonObject["id"]==JsonPrimitive(id)}.jsonObject
+        val mime=ref.str("mime");val size=ref.getValue("size").jsonPrimitive.long
+        require(ref.str("type")=="image"&&mime in setOf("image/png","image/jpeg","image/webp")&&size in 1L..8L*1024*1024)
+        val originals=LocalAttachmentStore(s)
+        val original=originals.entries().single{it.metadata["id"]==JsonPrimitive(id)&&it.metadata["conversation_id"]==JsonPrimitive(c.cid)}
+        val meta=original.metadata
+        require(meta["kind"]==JsonPrimitive("image")&&meta["mime"]==ref["mime"]&&meta["size"]?.jsonPrimitive?.long==size&&(meta["turn_id"]==JsonNull||meta["turn_id"]==turn["turn_id"]))
+        val bytes=originals.bytes(original)
+        val wire=requireNotNull(prepareGeneratedImageReadback(id,bytes,mime,true).continuationMessage)
+        val parts=wire.getValue("content").jsonArray
+        val labeled=JsonObject(wire+("content" to JsonArray(listOf(buildJsonObject{put("type","text");put("text","【历史图像原件 · 系统转交】附件 "+id+"，来源消息 "+mid+"。不是人类新发言，不是本轮生成图像；以实际像素为准。")},parts[1]))))
+        DreamImageReadback(id,bytes.size,labeled)
+    }
     private fun permitted(c:LocalDreamLedger.Claim){if(!workspaceActive()||!ledger.authorized(c))throw CancellationException("wake authorization ended")}
     /** Caller owns LocalDreamRuntime gate; it covers admission through settlement.
      * The exact provider is re-resolved before every request. */
@@ -225,8 +245,10 @@ internal class LocalDreamExecutor(
                     val commonNames=commonTools.map{it.getValue("function").jsonObject.str("name")}.toSet()
                     val selectedImage=RemoteCacheStore(store,strictReads=true).profile()?.currentImageModel.orEmpty()
                     val dreamImage=if(e.allowImage&&e.imageLimit>0&&imageProvider!=null&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled==true)imageFactory(store,c,selectedImage,imageProvider).takeIf{it.configured()}else null
-                    val allowed=tools(c)+commonTools+listOfNotNull(dreamImage?.let{tool("image_generate","可选：生成并保存独立活动图像，使用已授权生图供应商额度。只发送必要提示。若已单独授权且支持视觉，下一请求可收到系统转交原图；未收到像素不要假称看见。",mapOf("prompt" to "string"))})
-                    val visionBudget=if(e.allowImageReadback&&dreamImage!=null&&initial!=null)modelBudget(initial.first,initial.second,e.outputLimit)else null
+                    val visionBudget=if((e.allowImageReadback&&dreamImage!=null||e.allowHistoryImageRead)&&initial!=null)modelBudget(initial.first,initial.second,e.outputLimit)else null
+                    val historyVision=LocalDreamToolPolicy.allowed(c,"dream_read_history_image")&&visionBudget?.vision==true
+                    val allowed=tools(c)+commonTools+listOfNotNull(dreamImage?.let{tool("image_generate","可选：生成并保存独立活动图像，使用已授权生图供应商额度。只发送必要提示。若已单独授权且支持视觉，下一请求可收到系统转交原图；未收到像素不要假称看见。",mapOf("prompt" to "string"))})+if(historyVision)listOf(tool("dream_read_history_image","读取真实历史图片原件，单件及后续请求合计最多8 MiB；准备不等于已接收。",linkedMapOf("start" to "integer","message_id" to "string","attachment_id" to "string")))else emptyList()
+                    val historyImageRefs=mutableMapOf<String,Pair<JsonObject,DreamImageReadback>>()
                     val pendingImages=mutableListOf<DreamImageReadback>()
                     var voiceReservations=0;var imageReservations=0
                     fun reserve(step:Int)=if(step==0&&dogtalk!=null)ledger.reserveFirstWithDogtalk(c,dogtalk,clock())else ledger.reserveStep(c,step,clock())
@@ -235,8 +257,8 @@ internal class LocalDreamExecutor(
                         stepIndex=step;mark("request_prepare")
                         if(planSession!=null&&!planSession.canContinue()){reason="plan_step_or_soft_budget_limit";break}
                         val exposed=if(calls>=e.toolBudget||step==e.toolBudget||plan!=null&&step+1>=plan.grant.requestLimit)emptyList()else allowed
-                        val images=pendingImages.toList();pendingImages.clear()
-                        if(images.isNotEmpty()&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled!=true){reason="image_readback_permission_revoked";break}
+                        val images=pendingImages.map{image->historyImageRefs[image.id]?.let{(ref,prior)->readHistoryImage(c,ref,previous).also{require(it.message==prior.message)}}?:image};pendingImages.clear()
+                        if(images.any{it.id !in historyImageRefs}&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled!=true){reason="image_readback_permission_revoked";break}
                         val wireMessages=JsonArray(messages+images.map{it.message})
                         val estimate=LocalContextPolicy.estimate(JsonArray(messages).toString())+LocalContextPolicy.estimate(JsonArray(exposed).toString())+images.size*2048+LocalContextPolicy.estimate(images.joinToString(" "){it.id})
                         if(visionBudget?.wireLimit?.let{estimate>it}==true){reason="context_window_estimate_exceeded";break}
@@ -248,7 +270,7 @@ internal class LocalDreamExecutor(
                         var reserved=false
                         val raw=try{
                             checkAuthorization()
-                            if(images.isNotEmpty()&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled!=true)throw CancellationException("image readback permission ended")
+                            if(images.any{it.id !in historyImageRefs}&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled!=true)throw CancellationException("image readback permission ended")
                             if(planSession!=null)planSession.step(step,JsonArray(exposed),planResults,images.map{it.message},reserve={reserve(step).also{reserved=it;if(it)mark("provider_wait")}},authorize={authorized()}).normalized
                             else{
                                 check(reserve(step));reserved=true;mark("provider_wait")
@@ -305,6 +327,10 @@ internal class LocalDreamExecutor(
                                     when{
                                         name=="dream_read_history"&&args!=null->history(c,args,previous)
                                         name=="dream_read_history_file"&&args!=null->readHistoryFile(c,args,previous)
+                                        name=="dream_read_history_image"&&args!=null&&historyVision->{
+                                            val next=readHistoryImage(c,args,previous)
+                                            if(step<e.toolBudget&&pendingImages.sumOf{it.bytes}+next.bytes<=8*1024*1024){historyImageRefs[next.id]=args to next;pendingImages.add(next);buildJsonObject{put("ok",true);put("record_id",next.id);put("readback","prepared_for_next_request")}}else buildJsonObject{put("ok",false);put("reason","image_readback_budget")}
+                                        }
                                         name=="dream_memory_candidate"&&args!=null->{
                                             val value=LocalMemoryStore(store).proposeDreamCandidate(c,step,index,args,clock())
                                             buildJsonObject{put("ok",true);put("data",value);value["id"]?.let{put("record_id",it)}}
