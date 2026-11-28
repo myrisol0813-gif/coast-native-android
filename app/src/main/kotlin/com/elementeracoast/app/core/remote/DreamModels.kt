@@ -49,7 +49,9 @@ data class DreamSettingsRequest(
     val modelId:String?=null,val confirmExecution:Boolean=false,
     val confirmPlanSoftBudget:Boolean=false,val planRequestLimit:Int=5,
     val deviceKey:String?=null
-)
+){
+    override fun toString()="DreamSettingsRequest(redacted)"
+}
 
 @Serializable
 data class DreamReply(

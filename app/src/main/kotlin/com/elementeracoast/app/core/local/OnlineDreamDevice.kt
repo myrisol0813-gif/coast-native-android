@@ -34,6 +34,10 @@ internal class OnlineDreamDevice private constructor(private val context:Context
         s.put("registrations",JsonObject(rows(s)+(r.cid to buildJsonObject{put("revision",r.revision);put("model",r.model);put("key",r.key)})).toString())
     }
     private fun remove(cid:String)=store.readConsistent{s->s.put("registrations",JsonObject(rows(s)-cid).toString());plan.revoke(cid)}
+    private fun removeIfCurrent(r:Registration)=store.readConsistent{s->
+        val current=rows(s)[r.cid] as? JsonObject
+        if(current!=null&&current.str("revision")==r.revision&&current.str("key")==r.key)remove(r.cid)
+    }
     private fun key()=ByteArray(32).also{SecureRandom().nextBytes(it)}.joinToString(""){"%02x".format(it.toInt() and 255)}
     private fun active()=BuildConfig.LOCAL_DREAM_PLAN_EXECUTION_ENABLED&&!NativeWorkspace.localSelected(context)&&auth.load()?.isExpired()==false
     fun preferredModel():String=ChatGptSecureStore(context,false).preferredModel()?.let{NativeDreamPlanProtocol.PREFIX+it}.orEmpty()
@@ -83,8 +87,11 @@ internal class OnlineDreamDevice private constructor(private val context:Context
     private fun stillRegistered(r:Registration)=active()&&registrations().any{it.cid==r.cid&&it.revision==r.revision&&it.model==r.model&&it.key==r.key}
     suspend fun execute(api:CoastApiClient,r:Registration):Boolean{
         if(!stillRegistered(r))return false
-        val remote=api.dreamSettings(r.cid)
-        if(!remote.planExecutionAvailable||!remote.settings.enabled||remote.settings.revision!=r.revision||remote.settings.modelId!=r.model)return false
+        val remote=try{api.dreamSettings(r.cid)}catch(e:CoastApiException){
+            if(e.status==404){removeIfCurrent(r);return false};throw e
+        }
+        if(!remote.settings.enabled||remote.settings.revision!=r.revision||remote.settings.modelId!=r.model){removeIfCurrent(r);return false}
+        if(!remote.planExecutionAvailable)return false
         if(plan.status(r.cid,r.revision,r.model)!="authorized")return false
         val binding=plan.open(r.cid,r.revision,r.model)?:return false
         if(!stillRegistered(r)||!binding.authorized())return false

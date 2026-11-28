@@ -19,7 +19,9 @@ class OnlineDreamWorker(context:Context,params:WorkerParameters):CoroutineWorker
             for(r in device.registrations()){
                 ensureActive()
                 if(NativeWorkspace.localSelected(context))break
-                if(device.execute(api,r))break
+                try{if(device.execute(api,r))break}
+                catch(e:CancellationException){throw e}
+                catch(_:Exception){continue}
             }
             Result.success()
         }catch(e:CancellationException){throw e}

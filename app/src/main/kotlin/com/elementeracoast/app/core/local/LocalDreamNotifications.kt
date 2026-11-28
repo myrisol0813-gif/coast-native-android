@@ -83,7 +83,7 @@ internal object LocalDreamNotifications {
             .setOnlyAlertOnce(true).setVisibility(if(showPublic)Notification.VISIBILITY_PUBLIC else Notification.VISIBILITY_PRIVATE).setPublicVersion(public)
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setCategory(Notification.CATEGORY_MESSAGE).build()
-        val tag="coast-dream:${if(localMode)"local" else "online"}:$cid:$claim:$kind"
+        val tag=if(localMode)"coast-dream:$cid:$claim:$kind" else "coast-dream:online:$cid:$claim:$kind"
         if(kind=="test")manager(c).cancel(tag,4218)
         manager(c).notify(tag,4218,notification)
         true

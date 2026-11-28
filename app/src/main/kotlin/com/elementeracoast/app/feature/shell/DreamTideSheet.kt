@@ -180,6 +180,7 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamField("每次活动生图尝试上限",imageLimitText,{imageLimitText=it},!busy)
                 OutlinedTextField(execution.invitation,{execution=execution.copy(invitation=it)},label={Text("唤醒邀请词（最多16000字符）")},isError=execution.invitation.length>16000,modifier=Modifier.fillMaxWidth(),minLines=4,enabled=!busy)
                 Text("可以什么也不做。输入 token 为估算，实际费用以供应商为准。",style=MaterialTheme.typography.bodySmall)
+                if(!localMode&&planDraft)Text("手机套餐协议：单次回传最多 2 MiB；单次模型响应最多 128 个函数调用，单个工具参数/返回最多 60000 字符。在线端暂不递送手机步数、应用使用数据及自主生图像素，已保存的原图仍可查看。",style=MaterialTheme.typography.bodySmall)
                 DreamSwitch("当前时间",execution.includeTime,!busy){execution=execution.copy(includeTime=it)}
                 DreamSwitch("上次活动与间隔",execution.includePrevious,!busy){execution=execution.copy(includePrevious=it)}
                 DreamSwitch("小笺与回笺",execution.includeReplies,!busy){execution=execution.copy(includeReplies=it)}
