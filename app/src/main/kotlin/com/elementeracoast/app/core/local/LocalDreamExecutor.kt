@@ -49,7 +49,7 @@ internal class LocalDreamExecutor(
         }
     }
     private fun msg(role:String,content:String)=buildJsonObject{put("role",role);put("content",content)}
-    private suspend fun context(c:LocalDreamLedger.Claim,previous:JsonObject?):Pair<String,JsonObject>{
+    private suspend fun context(c:LocalDreamLedger.Claim,previous:JsonObject?):Triple<String,JsonObject,LocalDogtalkStore.WakeDelivery?>{
         val e=requireNotNull(c.config.execution)
         val parts=mutableListOf("【自主唤醒 · 系统发起的独立活动】这不是用户新发言。可以探索或安静结束；无需产出聊天消息，不必使用工具。",e.invitation)
         if(e.includeTime)parts.add("【当前时间】"+Instant.ofEpochMilli(c.startedAt).atZone(ZoneId.of(c.config.timeZone)))
@@ -120,11 +120,12 @@ internal class LocalDreamExecutor(
             }
         }
         val limit=(e.tokenBudget-minOf(e.outputLimit,(e.tokenBudget/4).coerceAtLeast(1))).coerceAtLeast(1)
-        val comfort=LocalContextPolicy.assemble(custom,userPortrait,selfPortrait,soilText,memories,worldbook,"","","","",emptyList(),limit,basePrompt=parts.joinToString("\n\n"),autonomousHistory=historyBlocks,autonomousHistoryTotal=historyTotal)
-        return comfort.messages.single().content to buildJsonObject{
+        val dogtalk=if(e.includeDogtalk)LocalDogtalkStore(store).pendingWake(c.cid)else null
+        val comfort=LocalContextPolicy.assemble(custom,userPortrait,selfPortrait,soilText,memories,worldbook,dogtalk?.text.orEmpty(),"","","",emptyList(),limit,basePrompt=parts.joinToString("\n\n"),autonomousHistory=historyBlocks,autonomousHistoryTotal=historyTotal)
+        return Triple(comfort.messages.single().content,buildJsonObject{
             put("stage","prepared_not_confirmed_delivery");put("estimated_tokens",comfort.estimated);put("comfort_ceiling",comfort.ceiling);put("trimmed_count",comfort.trimmed);put("omitted_turns",comfort.omittedAutonomousTurns);put("over_budget",comfort.over)
-            putJsonObject("kept"){put("custom_instructions",custom.isNotBlank());put("user_portrait",userPortrait.isNotBlank());put("global_excerpt",selfPortrait.isNotBlank());put("soil",comfort.soil.isNotBlank());put("memory",comfort.memoryCount);put("worldbook",comfort.worldbookCount)}
-        }
+            putJsonObject("kept"){put("custom_instructions",custom.isNotBlank());put("user_portrait",userPortrait.isNotBlank());put("global_excerpt",selfPortrait.isNotBlank());put("soil",comfort.soil.isNotBlank());put("memory",comfort.memoryCount);put("worldbook",comfort.worldbookCount);put("dogtalk",comfort.dogtalk.isNotBlank())}
+        },dogtalk?.takeIf{comfort.dogtalk.isNotBlank()})
     }
     private fun history(c:LocalDreamLedger.Claim,a:JsonObject,previous:JsonObject?):JsonObject{
         val mode=a.str("mode");val start=a["start"]?.jsonPrimitive?.intOrNull;val count=a["count"]?.jsonPrimitive?.intOrNull
@@ -184,7 +185,7 @@ internal class LocalDreamExecutor(
                 try{
                     mark("context")
                     val previous=ledger.previous(c)
-                    val (invitation,receipt)=context(c,previous)
+                    val (invitation,receipt,dogtalk)=context(c,previous)
                     contextReceipt=receipt
                     mark("tools_prepare")
                     val messages=mutableListOf<JsonElement>(msg("system",invitation))
@@ -208,6 +209,7 @@ internal class LocalDreamExecutor(
                     val visionBudget=if(e.allowImageReadback&&dreamImage!=null&&initial!=null)modelBudget(initial.first,initial.second,e.outputLimit)else null
                     val pendingImages=mutableListOf<DreamImageReadback>()
                     var voiceReservations=0;var imageReservations=0
+                    fun reserve(step:Int)=if(step==0&&dogtalk!=null)ledger.reserveFirstWithDogtalk(c,dogtalk,clock())else ledger.reserveStep(c,step,clock())
                     for(step in 0..e.toolBudget){
                         ensureActive();checkAuthorization()
                         stepIndex=step;mark("request_prepare")
@@ -227,9 +229,9 @@ internal class LocalDreamExecutor(
                         val raw=try{
                             checkAuthorization()
                             if(images.isNotEmpty()&&RemoteCacheStore(store,strictReads=true).history(cid)?.contextSettings?.localModelWriteEnabled!=true)throw CancellationException("image readback permission ended")
-                            if(planSession!=null)planSession.step(step,JsonArray(exposed),planResults,images.map{it.message},reserve={ledger.reserveStep(c,step,clock()).also{reserved=it;if(it)mark("provider_wait")}},authorize={authorized()}).normalized
+                            if(planSession!=null)planSession.step(step,JsonArray(exposed),planResults,images.map{it.message},reserve={reserve(step).also{reserved=it;if(it)mark("provider_wait")}},authorize={authorized()}).normalized
                             else{
-                                check(ledger.reserveStep(c,step,clock()));reserved=true;mark("provider_wait")
+                                check(reserve(step));reserved=true;mark("provider_wait")
                                 checkAuthorization();val p=requireNotNull(selected);invoke(p.first,p.second,wireMessages,JsonArray(exposed),cap)
                             }
                         }
@@ -261,6 +263,7 @@ internal class LocalDreamExecutor(
                         check(ledger.recordStep(c,step,valid&&choice!=null,receipt,clock()))
                         checkAuthorization()
                         if(!valid||choice==null){reason="invalid_provider_response";break}
+                        if(step==0){val confirmed=dogtalk?.let{ledger.confirmFirstDogtalk(c,it,clock())};contextReceipt=JsonObject(receipt+buildJsonObject{put("stage","provider_response_received");confirmed?.let{put("dogtalk",it)}})}
                         if(!known||total>=e.tokenBudget){reason=if(!known)"usage_unconfirmed" else "token_budget_reached";break}
                         if(planSession!=null&&requested.isNotEmpty()&&!planSession.canContinue()){reason="plan_step_or_soft_budget_limit";break}
                         if(requested.isEmpty()){if(finish=="stop"){status="completed";reason="ended"}else reason="provider_incomplete";break}
