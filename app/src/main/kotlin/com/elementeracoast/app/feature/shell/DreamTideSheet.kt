@@ -256,7 +256,9 @@ internal fun DreamTideSheet(cid:String,selectedModel:String,localMode:Boolean,ap
                 DreamSwitch("狗话（仅立即阅读的草稿，确认递送后消耗授权）",execution.includeDogtalk,!busy){execution=execution.copy(includeDogtalk=it)}
                 DreamSwitch("核心自定义",execution.includeCustom,!busy){execution=execution.copy(includeCustom=it)}
                 DreamSwitch("用户画像",execution.includeUserPortrait,!busy){execution=execution.copy(includeUserPortrait=it)}
+                DreamSwitch("用户画像修改候选（需同时允许读取）",execution.allowUserPortraitProposal,!busy){execution=execution.copy(allowUserPortraitProposal=it)}
                 DreamSwitch("自我画像",execution.includeSelfPortrait,!busy){execution=execution.copy(includeSelfPortrait=it)}
+                DreamSwitch("自我画像修改候选（需同时允许读取）",execution.allowSelfPortraitProposal,!busy){execution=execution.copy(allowSelfPortraitProposal=it)}
                 DreamSwitch("期间新增对话轮数",execution.includeConversationCount,!busy){execution=execution.copy(includeConversationCount=it)}
                 DreamSwitch("天气（需窗口现实权限）",execution.includeWeather,!busy){execution=execution.copy(includeWeather=it)}
                 DreamSwitch("未来日历（需窗口现实权限）",execution.includeCalendar,!busy){execution=execution.copy(includeCalendar=it)}
