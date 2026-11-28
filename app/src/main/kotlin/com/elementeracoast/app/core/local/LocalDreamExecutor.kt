@@ -248,6 +248,7 @@ internal class LocalDreamExecutor(
                         for((index,item) in requested.withIndex()){
                             checkAuthorization();val call=item.jsonObject;val fn=call.getValue("function").jsonObject;val name=fn.str("name")
                             var result=buildJsonObject{put("ok",false);put("reason","unavailable_or_invalid")}
+                                var furniture:RemoteFurnitureRun?=null
                             if(calls<e.toolBudget&&name in exposedNames&&(name!="voice_create"||voiceReservations<e.voiceLimit)&&(name!="image_generate"||imageReservations<e.imageLimit)){
                                 check(ledger.reserveTool(c,step,index,name,clock()));calls++
                                 if(name=="voice_create")voiceReservations++
@@ -285,6 +286,7 @@ internal class LocalDreamExecutor(
                                         }
                                         name in commonNames&&common!=null->{
                                             val out=common.execute(c.id+":"+step+":"+index,name,fn.str("arguments"))
+                                            furniture=out.furnitureRuns.singleOrNull()
                                             buildJsonObject{put("ok",out.ok);val data=Json.parseToJsonElement(out.output);put("data",data);if(name in setOf("library_write","create_moment","create_diary","calendar_create","voice_create")&&out.ok)(data as? JsonObject)?.get("id")?.let{put("record_id",it)}}
                                         }
                                         else->result
@@ -292,7 +294,7 @@ internal class LocalDreamExecutor(
                                 }catch(ex:CancellationException){throw ex}catch(_:Exception){buildJsonObject{put("ok",false);put("reason","tool_failed")}}
                                 val count=(result["turns"] as? JsonArray)?.size
                                 val ok=result["ok"]?.jsonPrimitive?.booleanOrNull==true||count!=null&&result["reason"]==null
-                                check(ledger.recordTool(c,step,index,ok,count,clock(),result["record_id"]?.jsonPrimitive?.contentOrNull))
+                                check(ledger.recordTool(c,step,index,ok,count,clock(),result["record_id"]?.jsonPrimitive?.contentOrNull,furniture))
                                 activities.add(buildJsonObject{put("kind",name);put("ok",ok);count?.let{put("count",it)}})
                             }
                             results.add(buildJsonObject{put("role","tool");put("tool_call_id",call.str("id"));put("name",name);put("content",result.toString())})
