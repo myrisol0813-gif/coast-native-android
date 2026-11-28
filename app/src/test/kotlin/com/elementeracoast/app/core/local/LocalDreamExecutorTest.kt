@@ -129,6 +129,25 @@ class LocalDreamExecutorTest {
         assertTrue(message.content.contains("whole-portrait"));assertFalse(message.content.contains("old-tail"))
         assertTrue(message.content.contains("new-wake"));assertEquals(4,result.omittedAutonomousTurns)
     }
+    @Test fun autonomousCrossWindowAndReadbackRespectBothGrants(){
+        val (store,settings)=fixture();val ledger=LocalDreamLedger(store);val cache=RemoteCacheStore(store)
+        val history=cache.history(cid)!!
+        val updated=cfg.copy(execution=cfg.execution!!.copy(allowCrossWindow=true,allowDreamReadback=true))
+        val arm=ledger.configure(cid,DreamSettingsRequest(cid,settings.revision,"arm",updated,model,true),true,at-86400000)!!
+        val claim=ledger.claim(cid,arm.revision!!,model,at)!!
+        val names=setOf("cross_window_search","cross_window_read_recent","cross_window_keyword_search","cross_window_read_messages","dream_readback")
+        assertNull(LocalToolSession.openAutonomous(store,claim))
+        val ctx=history.contextSettings.copy(localModelToolsEnabled=true,crossWindowAuto=true,dreamReadbackEnabled=true)
+        cache.putHistory(cid,history.copy(contextSettings=ctx))
+        val session=LocalToolSession.openAutonomous(store,claim)!!
+        val exposed=session.completionsTools.map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}.toSet()
+        assertTrue(exposed.containsAll(names))
+        val denied=claim.copy(config=cfg)
+        assertTrue(names.none{LocalDreamToolPolicy.allowed(denied,it)})
+        cache.putHistory(cid,history.copy(contextSettings=ctx.copy(crossWindowAuto=false,dreamReadbackEnabled=false)))
+        val closed=LocalToolSession.openAutonomous(store,claim)?.completionsTools.orEmpty().map{it.jsonObject.getValue("function").jsonObject.getValue("name").jsonPrimitive.content}
+        assertTrue(closed.none{it in names})
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
