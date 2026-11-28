@@ -21,17 +21,18 @@ internal class LocalPortraitStore(private val store:LocalPersistence) {
         require(read(module)==d)
     }
     private fun blank(now:Long)=Document(buildJsonObject{put("id","global");put("body","");put("write_enabled",1);put("revision",1);put("created_at",now);put("updated_at",now)},emptyList(),emptyList())
-    fun propose(module:String,body:String,kind:String,reason:String,cid:String,turn:String,model:String):String{
+    fun propose(module:String,body:String,kind:String,reason:String,cid:String,turn:String?,model:String,candidateId:String?=null):String{
         val now=System.currentTimeMillis();val d=read(module)?:blank(now)
         if(d.root.getValue("write_enabled").jsonPrimitive.int!=1)throw LocalToolFailure("permission_revoked","该画像写入开关已关闭。")
         require(body.isNotBlank()&&body.length<=10000&&reason.isNotBlank()&&reason.length<=4000&&kind in setOf("append","rewrite","refine"))
         if(d.root.str("body").length>10000)throw LocalToolFailure("portrait_too_large","正式画像超过本机单次工具容量，不能用不完整正文覆盖。")
         if(body==d.root.str("body"))throw LocalToolFailure("unchanged","候选与正式正文相同，无需新增。")
-        d.candidates.firstOrNull{it.str("proposed_body")==body}?.let{return it.str("id")}
-        val id=UUID.randomUUID().toString()
+        if(candidateId==null)d.candidates.firstOrNull{it.str("proposed_body")==body}?.let{return it.str("id")}
+        val id=candidateId?:UUID.randomUUID().toString()
+        d.candidates.firstOrNull{it.str("id")==id}?.let{require(it.str("proposed_body")==body&&it.str("reason")==reason);return id}
         write(module,d.copy(candidates=d.candidates+buildJsonObject{
             put("id",id);put("proposed_body",body);put("change_kind",kind);put("reason",reason)
-            put("source_conversation_id",cid);put("source_message_id",turn);put("source_model",model.take(200));put("created_at",now)
+            put("source_conversation_id",cid);put("source_message_id",turn?.let(::JsonPrimitive)?:JsonNull);put("source_model",model.take(200));put("created_at",now)
         }))
         return id
     }
