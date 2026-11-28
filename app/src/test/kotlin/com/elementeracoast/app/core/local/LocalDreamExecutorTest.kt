@@ -226,6 +226,34 @@ class LocalDreamExecutorTest {
         assertTrue(candidate.getValue("id").jsonPrimitive.content.startsWith("portrait_dream_"))
         assertTrue(portraits.read("user_portrait")?.candidates.orEmpty().isEmpty())
     }
+    @Test fun wakeCalendarMutationProtectsOwnerAndOtherWindowRecords()=runBlocking{
+        val (store,initial)=fixture();val cache=RemoteCacheStore(store);val ledger=LocalDreamLedger(store)
+        val history=cache.history(cid)!!
+        cache.putHistory(cid,history.copy(contextSettings=history.contextSettings.copy(localModelWriteEnabled=true)))
+        val cal=LocalCalendarStore(store)
+        fun add(title:String)=cal.save(null,buildJsonObject{put("day","2026-11-28");put("title",title);put("kind","note")})
+        val owner=add("owner")
+        val mine=add("mine")
+        val key=mine.getValue("id").jsonPrimitive.content
+        val ownerKey=owner.getValue("id").jsonPrimitive.content
+        cal.restoreSnapshot(JsonArray(cal.snapshot().map{row->if(row.jsonObject.getValue("id").jsonPrimitive.content==key)JsonObject(row.jsonObject+buildJsonObject{put("author","assistant");put("conversation_id",cid);put("source","chat_tool");put("source_turn_id",JsonNull);put("tool_call_id","dream:fixture:0:0");put("model_label",model)})else row}))
+        val cfg2=cfg.copy(execution=cfg.execution!!.copy(allowCalendarEdit=true,tokenBudget=24000,toolBudget=5))
+        val settings=ledger.configure(cid,DreamSettingsRequest(cid,initial.revision,"arm",cfg2,model,true),true,at-86400000)!!
+        var requests=0
+        val engine=LocalDreamExecutor(store,{provider to "fixture/model"},{_,_,_,tools,_->
+            requests++
+            if(requests==1){
+                assertTrue(tools.toString().contains("calendar_update"))
+                assertFalse(tools.toString().contains("calendar_create"))
+                response(call("edit","calendar_update",buildJsonObject{put("id",key);put("title","edited")}),
+                    call("owner","calendar_delete",buildJsonObject{put("id",ownerKey)}))
+            }else response()
+        },clock={at})
+        assertEquals("completed",engine.run(cid,settings.revision!!,model,at))
+        val rows=cal.snapshot().map{it.jsonObject}
+        assertEquals("edited",rows.single{it.getValue("id").jsonPrimitive.content==key}.getValue("title").jsonPrimitive.content)
+        assertEquals("owner",rows.single{it.getValue("id").jsonPrimitive.content==ownerKey}.getValue("title").jsonPrimitive.content)
+    }
     @Test fun editsPreserveFutureExtraAppointmentIdentity(){
         val (store,settings)=fixture();val ledger=LocalDreamLedger(store)
         val claim=ledger.claim(cid,settings.revision!!,model,at)!!
