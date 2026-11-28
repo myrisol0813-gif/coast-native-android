@@ -26,7 +26,7 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
     private fun result(id:String)=buildJsonObject{put("ok",true);put("id",id);put("saved",true)}
     fun execute(name:String,input:JsonObject):JsonObject {
         require(label.isNotBlank())
-        if(turn==null)require(name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like")||name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
+        if(turn==null)require(name in setOf("create_moment","create_diary","calendar_create","moment_comment","moment_like","global_excerpt_propose","user_portrait_propose")||name=="library_write"&&input["action"]?.jsonPrimitive?.content=="create")
         return when(name){
             "create_moment"->{
                 val m=RemoteDailyMoment(id=id,date=input.date(),author=actor,source="chat_tool",
@@ -120,7 +120,7 @@ internal class LocalToolWrites(private val s:LocalPersistence,private val cid:St
                 if(kind !in setOf("append","rewrite","refine"))throw LocalToolFailure("invalid_arguments","请选择 append、rewrite 或 refine。")
                 if(LocalSoilStore(s).current(cid)?.get("auto_refresh_enabled")?.jsonPrimitive?.int!=1)
                     throw LocalToolFailure("permission_revoked","当前窗口未开启自动整理。")
-                val candidate=LocalPortraitStore(s).propose(if(name=="user_portrait_propose")"user_portrait" else "self_portrait",body,kind,reason,cid,requireNotNull(turn),label)
+                val candidate=LocalPortraitStore(s).propose(if(name=="user_portrait_propose")"user_portrait" else "self_portrait",body,kind,reason,cid,turn,label,if(turn==null)"portrait_dream_"+auditId.removePrefix("dream:").replace(':','_')else null)
                 result(candidate)
             }
             "memory_write_candidate"->{
