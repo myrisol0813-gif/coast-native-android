@@ -448,6 +448,17 @@ class LocalDreamExecutorTest {
         val edited=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"save",cfg.copy(dailyTime="10:00"),model),false,at)!!
         assertTrue(edited.enabled);assertEquals("10:00",edited.config!!.dailyTime);assertNotEquals(armed.revision,edited.revision)
     }
+    @Test fun planScheduleEditKeepsIndependentGrantAndChangesConfigurationFence(){
+        val (store,armed)=fixture();val ledger=LocalDreamLedger(store)
+        val plan="chatgpt-plan:gpt-6.2-sol";val grant="grant-fixture"
+        val enabled=ledger.configure(cid,DreamSettingsRequest(cid,armed.revision,"arm",cfg,plan,true,true,5),true,at-86400000,grant)!!
+        assertEquals(grant,enabled.grantRevision())
+        val edited=ledger.configure(cid,DreamSettingsRequest(cid,enabled.revision,"save",cfg.copy(dailyTime="10:00"),plan),false,at)!!
+        assertTrue(edited.enabled);assertNotEquals(enabled.revision,edited.revision);assertEquals(grant,edited.grantRevision())
+        assertNull(ledger.claim(cid,enabled.revision!!,plan,at+3600000))
+        assertNotNull(ledger.claim(cid,edited.revision!!,plan,at+3600000))
+        assertFalse(LocalDreamArchive(store).export(cid)!!.toString().contains("authorizationRevision"))
+    }
     @Test fun scheduleDisplayDistinguishesDueQuietConsumedAndExpired(){
         val (_,armed)=fixture()
         val extra=armed.copy(extraAt=at-60000,extraId="fixture")
